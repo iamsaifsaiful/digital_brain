@@ -16,6 +16,10 @@ import '../services/location_share.dart';
 import '../state/brain.dart';
 import '../state/family_state.dart';
 import '../ui/pro_gate.dart';
+import '../logic/medicine_catalog.dart';
+import '../logic/phrases.dart' show possessive, toPerson;
+import '../ui/forms.dart' show FieldLabel;
+import '../ui/med_search.dart';
 import '../ui/medicine_times.dart';
 import '../ui/theme.dart';
 import '../ui/file_view.dart';
@@ -145,9 +149,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                             EmptyState(
                               icon: Icons.family_restroom_rounded,
                               title: tr('এখনো কেউ নেই'),
-                              text: medicalOff
-                                  ? tr('মা-বাবা, স্বামী-স্ত্রী, সন্তান — তাঁদের ইমেইল দিয়ে যুক্ত করুন। তাঁরা যা অনুমতি দেবেন, শুধু তা-ই করতে পারবেন: কাজ, রিমাইন্ডার, নোট, লাইভ লোকেশন।')
-                                  : tr(
+                              text: tr(
                                   'মা-বাবা, স্বামী-স্ত্রী, সন্তান — তাঁদের ইমেইল দিয়ে যুক্ত করুন। তাঁরা যা অনুমতি দেবেন, শুধু তা-ই করতে পারবেন: কাজ, রিমাইন্ডার, ওষুধের রিমাইন্ডার, নোট, লাইভ লোকেশন।'),
                             ),
                           if (mine.isNotEmpty)
@@ -301,7 +303,7 @@ class _AddSheet extends StatefulWidget {
 class _AddSheetState extends State<_AddSheet> {
   final _email = TextEditingController();
   final _relation = TextEditingController();
-  final _allow = <String>{'task', 'reminder', if (!medicalOff) 'medicine', 'note'};
+  final _allow = <String>{'task', 'reminder', 'medicine', 'note'};
   String? _error;
 
   @override
@@ -448,12 +450,22 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                   Text(l.email, style: body(13.5, color: C.muted)),
                   if (fam.error != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(fam.error!, style: body(14, color: C.red))),
                   const SizedBox(height: 8),
-                  SectionTitle(trf('{0}-এর জন্য', [l.iCall.isEmpty ? l.name : l.iCall])),
+                  SectionTitle(trf('{0} জন্য', [possessive(l.iCall.isEmpty ? l.name : l.iCall)])),
                   Panel(
                     child: Rows(children: [
                       action('task', Icons.task_alt_rounded, tr('কাজ দিন'), () => _send(l, 'task')),
                       action('reminder', Icons.alarm_rounded, tr('রিমাইন্ডার দিন'), () => _send(l, 'reminder')),
-                      if (!medicalOff) action('medicine', Icons.medication_outlined, tr('ওষুধের রিমাইন্ডার দিন'), () => _send(l, 'medicine')),
+                      if (l.theyAllow.contains('medicine'))
+                        ListRow(
+                          key: const Key('family-do-medicine'),
+                          leading: Icon(Icons.medication_outlined, color: C.green),
+                          title: tr('ওষুধের রিমাইন্ডার দিন'),
+                          subtitle: trf('{0} ফোনে প্রতিদিন সময়মতো বাজবে', [possessive(l.iCall.isEmpty ? l.name : l.iCall)]),
+                          trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+                          onTap: () => sendMedicineTo(context, l),
+                        )
+                      else
+                        action('medicine', Icons.medication_outlined, tr('ওষুধের রিমাইন্ডার দিন'), () {}),
                       action('note', Icons.sticky_note_2_outlined, tr('নোট পাঠান'), () => _send(l, 'note')),
                       if (l.theyAllow.contains('location'))
                         ListRow(
@@ -465,6 +477,7 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                         ),
                     ]),
                   ),
+                  _SentMedicines(link: l),
                   const SizedBox(height: 10),
                   FutureBuilder<String?>(
                     future: fam.safetyCodeWith(l),
@@ -587,7 +600,6 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
 /// From স্বাস্থ্য: a medicine reminder to a family member's own phone. With
 /// more than one who allows it, the user picks whom first.
 Future<void> sendMedicineToFamily(BuildContext context, List<FamilyLink> to) async {
-  final fam = BrainScope.read(context).family;
   var l = to.length == 1 ? to.first : null;
   l ??= await showAppSheet<FamilyLink>(
     context: context,
@@ -600,13 +612,234 @@ Future<void> sendMedicineToFamily(BuildContext context, List<FamilyLink> to) asy
     ),
   );
   if (l == null || !context.mounted) return;
-  final payload = await showAppSheet<Map<String, Object?>>(context: context, isScrollControlled: true, builder: (_) => _SendSheet(kind: 'medicine', to: l!.title));
-  if (payload == null || !context.mounted) return;
-  final ok = await fam.send(l, 'medicine', payload);
-  if (ok && context.mounted) toast(context, trf('{0}-কে পাঠানো হয়েছে', [l.iCall.isEmpty ? l.name : l.iCall]));
+  await sendMedicineTo(context, l);
 }
 
-/// What to send: a to-do, a reminder, a medicine reminder or a note.
+/// The medicine reminder form (the same as the user's own: name with a live
+/// search, why, times, before/after food, instructions) and off to [l]'s phone.
+Future<void> sendMedicineTo(BuildContext context, FamilyLink l) async {
+  final fam = BrainScope.read(context).family;
+  final got = await showAppSheet<(Map<String, Object?>, bool)>(context: context, isScrollControlled: true, builder: (_) => FamilyMedicineSheet(link: l));
+  if (got == null || !context.mounted) return;
+  final ok = await fam.sendMedicine(l, got.$1, alsoMine: got.$2);
+  if (ok && context.mounted) toast(context, trf('{0} ফোনে পাঠানো হয়েছে', [possessive(l.iCall.isEmpty ? l.name : l.iCall)]));
+}
+
+/// "আম্মাকে দেওয়া ওষুধের রিমাইন্ডার": what this phone sent, kept here only.
+class _SentMedicines extends StatelessWidget {
+  const _SentMedicines({required this.link});
+  final FamilyLink link;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final who = link.iCall.isEmpty ? link.name : link.iCall;
+    return FutureBuilder<List<SentMedicine>>(
+      future: brain.family.sentMedicines(link),
+      builder: (context, snap) {
+        final list = snap.data ?? const <SentMedicine>[];
+        if (list.isEmpty) return const SizedBox.shrink();
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const SizedBox(height: 16),
+          SectionTitle(trf('{0} দেওয়া ওষুধের রিমাইন্ডার', [toPerson(who)])),
+          Panel(
+            key: const Key('family-sent-meds'),
+            child: Rows(children: [
+              for (final m in list)
+                ListRow(
+                  leading: Icon(Icons.medication_outlined, color: C.green),
+                  title: m.name,
+                  subtitle: [m.times.map((t) => bnTimeAt(t ~/ 60, t % 60)).join(', '), mealText(m.meal)].where((x) => x.isNotEmpty).join(' · '),
+                  trailing: Text(
+                      m.until == null
+                          ? tr('চলছে')
+                          : (m.until!.isBefore(now) ? tr('শেষ') : trf('আর {0} দিন', [bnDigits(DateTime(m.until!.year, m.until!.month, m.until!.day).difference(DateTime(now.year, now.month, now.day)).inDays)])),
+                      style: body(12.5, color: C.muted)),
+                  onTap: () async {
+                    if (await confirmDialog(context,
+                        title: tr('তালিকা থেকে সরাবেন?'),
+                        text: trf('শুধু এই তালিকা থেকে সরবে। {0} ফোনে রিমাইন্ডারটা বন্ধ করতে হলে তাঁর ফোন থেকে করতে হবে।', [possessive(who)]),
+                        yes: tr('সরান'))) {
+                      await brain.family.forgetSentMedicine(link, m);
+                    }
+                  },
+                ),
+            ]),
+          ),
+        ]);
+      },
+    );
+  }
+}
+
+/// The medicine reminder form for a family member's phone (owner, 19 Nov).
+/// Pops (payload, also on my phone).
+class FamilyMedicineSheet extends StatefulWidget {
+  const FamilyMedicineSheet({super.key, required this.link});
+  final FamilyLink link;
+  @override
+  State<FamilyMedicineSheet> createState() => _FamilyMedicineSheetState();
+}
+
+class _FamilyMedicineSheetState extends State<FamilyMedicineSheet> {
+  final _name = TextEditingController();
+  final _why = TextEditingController();
+  final _note = TextEditingController();
+  final _focus = FocusNode();
+  MedInfo? _picked;
+  List<int> _times = [9 * 60, 21 * 60];
+  String _meal = '';
+  int _dose = 1;
+  int _days = 0;
+  bool _alsoMine = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _why.dispose();
+    _note.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  List<MedInfo> get _hits {
+    if (_picked != null || !_focus.hasFocus) return const [];
+    final h = searchMedicines(_name.text);
+    return h.length == 1 && medicineNamed(_name.text) == h.first ? const [] : h;
+  }
+
+  String _key(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final now = BrainScope.of(context).services.now();
+    final l = widget.link;
+    final who = l.iCall.isEmpty ? l.name : l.iCall;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('${tr('ওষুধের রিমাইন্ডার')} · $who', style: display(19, weight: 700)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(14)),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.phone_android_rounded, size: 20, color: C.green),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Text(trf('{0} ফোনে প্রতিদিন বাজবে, সাথে লেখা থাকবে আপনি দিয়েছেন।', [possessive(who)]), style: body(13.5, color: C.muted2, height: 1.45))),
+            ]),
+          ),
+          FieldLabel(tr('ওষুধের নাম')),
+          TextField(
+            key: const Key('family-med-name'),
+            textCapitalization: TextCapitalization.sentences,
+            controller: _name,
+            focusNode: _focus,
+            onChanged: (_) => setState(() => _picked = null),
+            decoration: InputDecoration(hintText: tr('যেমন: নাপা, সেকলো'), prefixIcon: const Icon(Icons.search_rounded)),
+          ),
+          if (_hits.isNotEmpty)
+            MedSearchHits(
+              hits: _hits,
+              showUse: !medicalOff,
+              onPick: (m) {
+                _name.text = m.bn;
+                _name.selection = TextSelection.collapsed(offset: m.bn.length);
+                setState(() => _picked = m);
+              },
+            ),
+          FieldLabel(tr('কেন খাচ্ছেন (ঐচ্ছিক)')),
+          TextField(
+            key: const Key('family-med-why'),
+            textCapitalization: TextCapitalization.sentences,
+            controller: _why,
+            decoration: InputDecoration(hintText: tr('নিজের ভাষায়, যেমন: ডাক্তার জ্বরের জন্য দিয়েছেন')),
+          ),
+          const SizedBox(height: 14),
+          MedicineTimesPicker(times: _times, onChanged: (t) => setState(() => _times = t)),
+          FieldLabel(tr('খাবারের আগে না পরে')),
+          MealPicker(meal: _meal, onChanged: (v) => setState(() => _meal = v)),
+          FieldLabel(tr('বিশেষ নির্দেশনা (ঐচ্ছিক)')),
+          TextField(
+              key: const Key('family-med-note'),
+              textCapitalization: TextCapitalization.sentences,
+              controller: _note,
+              minLines: 1,
+              maxLines: 3,
+              decoration: InputDecoration(hintText: tr('যেমন: পানির সাথে, চিবিয়ে খাবেন না'))),
+          const SizedBox(height: 6),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('family-med-more'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+              title: Text(tr('আরও: প্রতিবার কয়টা, কত দিন'), style: body(14.5, weight: FontWeight.w600, color: C.muted)),
+              children: [
+                Row(children: [
+                  Expanded(child: Text(trf('প্রতিবার কয়টা: {0}', [bnDigits(_dose)]), style: body(15))),
+                  IconButton(onPressed: _dose > 1 ? () => setState(() => _dose--) : null, icon: const Icon(Icons.remove_circle_outline_rounded)),
+                  IconButton(onPressed: () => setState(() => _dose++), icon: const Icon(Icons.add_circle_outline_rounded)),
+                ]),
+                Row(children: [
+                  Expanded(child: Text(_days == 0 ? tr('কত দিন: চলতে থাকবে') : trf('কত দিন: {0} দিন', [bnDigits(_days)]), style: body(15))),
+                  IconButton(
+                      onPressed: _days > 0 ? () => setState(() => _days = _days <= 7 ? 0 : _days - 7) : null, icon: const Icon(Icons.remove_circle_outline_rounded)),
+                  IconButton(onPressed: () => setState(() => _days += 7), icon: const Icon(Icons.add_circle_outline_rounded)),
+                ]),
+              ],
+            ),
+          ),
+          SwitchListTile(
+            key: const Key('family-med-mine'),
+            contentPadding: EdgeInsets.zero,
+            value: _alsoMine,
+            onChanged: (v) => setState(() => _alsoMine = v),
+            title: Text(tr('আমার ফোনেও মনে করাব'), style: body(15, weight: FontWeight.w600)),
+            subtitle: Text(tr('খেয়েছেন কিনা খোঁজ নিতে'), style: body(12.5, color: C.muted)),
+          ),
+          if (_error != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_error!, style: body(14, color: C.red))),
+          const SizedBox(height: 10),
+          PrimaryButton(
+            key: const Key('family-med-send'),
+            label: trf('{0} ফোনে পাঠান', [possessive(who)]),
+            icon: Icons.send_rounded,
+            onPressed: () {
+              final name = _name.text.trim();
+              if (name.isEmpty) return setState(() => _error = tr('ওষুধের নাম লিখুন'));
+              if (_times.isEmpty) return setState(() => _error = tr('অন্তত একটা সময় বেছে নিন'));
+              Navigator.pop(context, (
+                <String, Object?>{
+                  'title': name,
+                  'times': [..._times]..sort(),
+                  'dose': _dose,
+                  if (_meal.isNotEmpty) 'meal': _meal,
+                  if (_why.text.trim().isNotEmpty) 'why': _why.text.trim(),
+                  if (_note.text.trim().isNotEmpty) 'note': _note.text.trim(),
+                  if (_days > 0) 'until': _key(now.add(Duration(days: _days))),
+                },
+                _alsoMine,
+              ));
+            },
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+/// What to send: a to-do, a reminder or a note (medicines: [FamilyMedicineSheet]).
 class _SendSheet extends StatefulWidget {
   const _SendSheet({required this.kind, required this.to});
   final String kind;
@@ -620,9 +853,6 @@ class _SendSheetState extends State<_SendSheet> {
   final _body = TextEditingController();
   DateTime? _day;
   TimeOfDay _time = const TimeOfDay(hour: 9, minute: 0);
-  int _dose = 1;
-  int _days = 0;
-  final _times = <int>{8 * 60, 21 * 60};
   String? _error;
 
   @override
@@ -638,7 +868,7 @@ class _SendSheetState extends State<_SendSheet> {
   Widget build(BuildContext context) {
     final now = BrainScope.of(context).services.now();
     final k = widget.kind;
-    final heading = switch (k) { 'task' => tr('কাজ দিন'), 'reminder' => tr('রিমাইন্ডার দিন'), 'medicine' => tr('ওষুধের রিমাইন্ডার দিন'), _ => tr('নোট পাঠান') };
+    final heading = switch (k) { 'task' => tr('কাজ দিন'), 'reminder' => tr('রিমাইন্ডার দিন'), _ => tr('নোট পাঠান') };
     String hm(int m) => bnTime(m ~/ 60, m % 60);
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.of(context).viewInsets.bottom),
@@ -649,7 +879,7 @@ class _SendSheetState extends State<_SendSheet> {
           TextField(textCapitalization: TextCapitalization.sentences, 
             key: const Key('family-item-title'),
             controller: _title,
-            decoration: InputDecoration(labelText: k == 'medicine' ? tr('ওষুধের নাম') : (k == 'note' ? tr('শিরোনাম') : tr('কী'))),
+            decoration: InputDecoration(labelText: k == 'note' ? tr('শিরোনাম') : tr('কী')),
           ),
           if (k == 'note') ...[
             const SizedBox(height: 10),
@@ -676,22 +906,6 @@ class _SendSheetState extends State<_SendSheet> {
               child: InputDecorator(decoration: InputDecoration(labelText: tr('কয়টায়')), child: Text(hm(_time.hour * 60 + _time.minute), style: body(16))),
             ),
           ],
-          if (k == 'medicine') ...[
-            const SizedBox(height: 10),
-            MedicineTimesPicker(times: (_times.toList()..sort()), onChanged: (t) => setState(() => _times..clear()..addAll(t))),
-            const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: Text(tr('প্রতিবার কয়টা'), style: body(15))),
-              IconButton.outlined(onPressed: _dose > 1 ? () => setState(() => _dose--) : null, icon: const Icon(Icons.remove_rounded)),
-              SizedBox(width: 40, child: Text(bnDigits(_dose), textAlign: TextAlign.center, style: display(18, weight: 700))),
-              IconButton.outlined(onPressed: () => setState(() => _dose++), icon: const Icon(Icons.add_rounded)),
-            ]),
-            Row(children: [
-              Expanded(child: Text(_days == 0 ? tr('কত দিন: চলতে থাকবে') : trf('কত দিন: {0} দিন', [bnDigits(_days)]), style: body(15))),
-              IconButton.outlined(onPressed: _days > 0 ? () => setState(() => _days = _days <= 7 ? 0 : _days - 7) : null, icon: const Icon(Icons.remove_rounded)),
-              IconButton.outlined(onPressed: () => setState(() => _days += 7), icon: const Icon(Icons.add_rounded)),
-            ]),
-          ],
           if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: body(14, color: C.red))),
           const SizedBox(height: 12),
           PrimaryButton(
@@ -708,16 +922,11 @@ class _SendSheetState extends State<_SendSheet> {
                 setState(() => _error = tr('দিন বেছে নিন'));
                 return;
               }
-              if (k == 'medicine' && _times.isEmpty) {
-                setState(() => _error = tr('অন্তত একটা সময় বেছে নিন'));
-                return;
-              }
               Navigator.pop(context, <String, Object?>{
                 'title': t,
                 if (k == 'note') 'body': _body.text.trim(),
                 if (_day != null) 'date': _key(_day!),
                 if (k == 'reminder') ...{'hour': _time.hour, 'minute': _time.minute},
-                if (k == 'medicine') ...{'times': (_times.toList()..sort()), 'dose': _dose, if (_days > 0) 'until': _key(now.add(Duration(days: _days)))},
               });
             },
           ),

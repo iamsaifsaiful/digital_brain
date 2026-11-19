@@ -129,17 +129,24 @@ class MealPicker extends StatelessWidget {
       ]);
 }
 
-/// "কার জন্য": the user and each family member, one tap to choose.
+/// "কার জন্য": the user and each family member, one tap to choose. [phones]:
+/// those linked in পরিবার, whose own phone it can go to (a phone mark).
 class MedicinePersonPicker extends StatelessWidget {
-  const MedicinePersonPicker({super.key, required this.people, required this.selected, required this.onChanged});
+  const MedicinePersonPicker({super.key, required this.people, required this.selected, required this.onChanged, this.phones = const {}});
   final List<(String, String)> people;
   final String selected;
   final ValueChanged<String> onChanged;
+  final Set<String> phones;
 
   @override
   Widget build(BuildContext context) => Wrap(spacing: 8, runSpacing: 8, children: [
         for (final (id, name) in people)
-          _TimeChip(key: Key('med-who-$id'), label: name, selected: id == selected, icon: id == selected ? null : Icons.person_outline_rounded, onTap: () => onChanged(id)),
+          _TimeChip(
+              key: Key('med-who-$id'),
+              label: name,
+              selected: id == selected,
+              icon: phones.contains(id) ? Icons.phone_android_rounded : (id == selected ? null : Icons.person_outline_rounded),
+              onTap: () => onChanged(id)),
       ]);
 }
 
@@ -192,7 +199,7 @@ class _TimeChip extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(999), border: Border.all(color: selected ? C.green : C.line)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (icon != null) ...[Icon(icon, size: 18, color: C.muted2), const SizedBox(width: 4)],
+                if (icon != null) ...[Icon(icon, size: 18, color: selected ? C.onAccent : C.muted2), const SizedBox(width: 4)],
                 Text(label, style: body(14.5, weight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? C.onAccent : C.ink)),
               ]),
             ),

@@ -10,11 +10,13 @@ import '../logic/bn.dart';
 import '../logic/password.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
+import '../state/family_state.dart' show FamilyLink;
 import '../ui/early_picker.dart';
 import '../ui/forms.dart';
 import '../ui/med_search.dart';
 import '../ui/medicine_times.dart';
 import '../logic/medicine_catalog.dart';
+import '../logic/phrases.dart' show possessive;
 import '../ui/note_parts.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -123,6 +125,13 @@ class _NewItemScreenState extends State<NewItemScreen> {
   /// why — in the user's own words, never the app's — when, before or after
   /// food, special instructions; how many each time folded under আরও.
   String _medWho = FamilyMember.meId;
+
+  /// Owner, 19 Nov: a family member linked in পরিবার (who lets the user set
+  /// their medicine reminders) is in "কার জন্য" too, as `link:<id>` — the
+  /// reminder goes to their own phone; [_medMine] also rings on this one.
+  bool _medMine = false;
+  FamilyLink? _medLink(Brain brain) =>
+      _medWho.startsWith('link:') ? brain.family.links.where((l) => 'link:${l.id}' == _medWho && l.active && l.theyAllow.contains('medicine')).firstOrNull : null;
   String _medMeal = '';
   int _medDose = 1;
   final _medWhy = TextEditingController();
@@ -324,9 +333,30 @@ class _NewItemScreenState extends State<NewItemScreen> {
             toast(context, tr('অন্তত একটা সময় বেছে নিন'));
             return;
           }
+          final name = _a.text.trim();
+          final link = _medLink(brain);
+          if (link != null) {
+            final ok = await brain.family.sendMedicine(
+                link,
+                {
+                  'title': name,
+                  'times': [..._medTimes]..sort(),
+                  'dose': _medDose,
+                  if (_medMeal.isNotEmpty) 'meal': _medMeal,
+                  if (_medWhy.text.trim().isNotEmpty) 'why': _medWhy.text.trim(),
+                  if (_noteText.text.trim().isNotEmpty) 'note': _noteText.text.trim(),
+                },
+                alsoMine: _medMine);
+            if (!mounted) return;
+            if (!ok) {
+              toast(context, brain.family.error ?? tr('পাঠানো গেল না — ইন্টারনেট দেখে আবার চেষ্টা করুন'));
+              return;
+            }
+            done = trf('{0} ফোনে পাঠানো হয়েছে', [possessive(link.iCall.isEmpty ? link.name : link.iCall)]);
+            break;
+          }
           if (!await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder)) return;
           if (!mounted) return;
-          final name = _a.text.trim();
           final who = _medWho == FamilyMember.meId ? null : brain.personById(_medWho).name;
           final title = who == null ? trf('{0} খাওয়ার সময়', [name]) : trf('{0} খাওয়ার সময় ({1})', [name, who]);
           for (final m in (_medTimes.toList()..sort())) {
@@ -456,7 +486,12 @@ class _NewItemScreenState extends State<NewItemScreen> {
               if (_cat != ItemCategory.ledger)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: PrimaryButton(label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: _save),
+                  child: Builder(builder: (context) {
+                    final link = _cat == ItemCategory.reminder && _med ? _medLink(BrainScope.of(context)) : null;
+                    return link == null
+                        ? PrimaryButton(label: tr('রাখুন'), icon: Icons.check_rounded, onPressed: _save)
+                        : PrimaryButton(label: trf('{0} ফোনে পাঠান', [possessive(link.iCall.isEmpty ? link.name : link.iCall)]), icon: Icons.send_rounded, onPressed: _save);
+                  }),
                 ),
             ],
           ),
@@ -696,13 +731,41 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   List<Widget> _medForm(Brain brain) {
     final people = brain.healthPeople;
+    final links = [for (final l in brain.family.links) if (l.active && l.theyAllow.contains('medicine')) l];
+    final link = _medLink(brain);
+    final linkWho = link == null ? '' : (link.iCall.isEmpty ? link.name : link.iCall);
     return [
-      if (people.length > 1) ...[
+      if (people.length + links.length > 1) ...[
         FieldLabel(tr('কার জন্য')),
         MedicinePersonPicker(
-          people: [for (final m in people) (m.id, m.isMe ? tr('আমি') : m.name)],
+          people: [
+            for (final m in people) (m.id, m.isMe ? tr('আমি') : m.name),
+            for (final l in links) ('link:${l.id}', l.iCall.isEmpty ? l.name : l.iCall),
+          ],
+          phones: {for (final l in links) 'link:${l.id}'},
           selected: _medWho,
           onChanged: (id) => setState(() => _medWho = id),
+        ),
+      ],
+      if (link != null) ...[
+        const SizedBox(height: 10),
+        Container(
+          key: const Key('med-to-phone'),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(14)),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(Icons.phone_android_rounded, size: 20, color: C.green),
+            const SizedBox(width: 10),
+            Expanded(child: Text(trf('{0} আপনার পরিবারে যুক্ত — রিমাইন্ডারটা {1} ফোনে যাবে।', [linkWho, possessive(linkWho)]), style: body(13.5, color: C.muted2, height: 1.45))),
+          ]),
+        ),
+        SwitchListTile(
+          key: const Key('med-mine-too'),
+          contentPadding: EdgeInsets.zero,
+          value: _medMine,
+          onChanged: (v) => setState(() => _medMine = v),
+          title: Text(tr('আমার ফোনেও মনে করাব'), style: body(15, weight: FontWeight.w600)),
+          subtitle: Text(tr('খেয়েছেন কিনা খোঁজ নিতে'), style: body(12.5, color: C.muted)),
         ),
       ],
       FieldLabel(tr('ওষুধের নাম')),
