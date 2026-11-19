@@ -42,7 +42,8 @@ void main() {
     rig.brain.notifyListeners();
     await settle(t);
     expect(find.text('প্রিমিয়াম'), findsWidgets);
-    expect(find.text('আর ৩৭৮ দিন বাকি'), findsOneWidget);
+    // Owner, 19 Nov: the days left only on the Premium page now.
+    expect(find.text('আর ৩৭৮ দিন বাকি'), findsNothing);
     await shot(t, '1-more');
     t.view.physicalSize = const Size(1170, 2532);
     await settle(t);
