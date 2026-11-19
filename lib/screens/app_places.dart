@@ -6,7 +6,7 @@ import 'alarm_list_screen.dart';
 import 'assistant_settings.dart';
 import 'calendar_screen.dart';
 import 'calls_screen.dart';
-import 'compass_screen.dart';
+import 'ibadah_screen.dart';
 import 'docs_screen.dart';
 import 'health_hub.dart';
 import 'health_screens.dart';
@@ -40,7 +40,7 @@ Widget? placePage(String id, {String? folder}) => medicalOff && medicalPlaces.co
       'tasks' || 'reminders' => const AllTasksScreen(),
       'alarms' => const AlarmsScreen(),
       'calendar' => const CalendarScreen(),
-      'compass' => const CompassScreen(),
+      'compass' => const IbadahScreen(),
       'special' => const SpecialDaysScreen(),
       'notes' => NotesScreen(category: folder),
       'will' => const WillScreen(),

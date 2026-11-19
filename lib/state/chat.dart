@@ -1991,7 +1991,8 @@ class ChatController extends ChangeNotifier {
       if (!mentionsBlood(text)) {
         // Everyday questions: the page where it is kept.
         final page = switch (infoTopic(text) ?? profileField(text)) {
-          'prayer' || 'sehri' || 'iftar' || 'sunrise' || 'sunset' || 'ramadan' => 'calendar',
+          'prayer' || 'sehri' || 'iftar' || 'ramadan' => 'compass',
+          'sunrise' || 'sunset' => 'calendar',
           'howto' => howToAsked(text)?.id,
           'ability' => 'docs',
           'money' => 'accounts',

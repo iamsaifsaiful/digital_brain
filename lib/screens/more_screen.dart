@@ -1341,7 +1341,7 @@ class _GroupedTools extends StatelessWidget {
     ('প্রতিদিন', ['reminders', 'alarms', 'calendar', 'notes']),
     ('নিরাপদে রাখা', ['docs', 'vault', 'contacts']),
     ('পরিবার ও স্বাস্থ্য', ['family', 'health', 'medicines', 'med_reminder', 'blood']),
-    ('যাকাত ও কিবলা', ['zakat', 'compass']),
+    ('মুসলিম টাইম ও যাকাত', ['compass', 'zakat']),
   ];
 
   @override
