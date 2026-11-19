@@ -59,6 +59,15 @@ void main() {
       await settle(t);
       expect(find.text('আবার স্বাগতম, সাইফুল'), findsOneWidget);
       await shot('4-unlock');
+      // With a fingerprint: the two choices, low on the sheet.
+      rig.biometrics.has = true;
+      await rig.services.lock.setBiometricsOn(true);
+      rig.brain.unlock();
+      await settle(t);
+      rig.brain.lockNow();
+      await settle(t);
+      expect(find.byKey(const Key('lock-choose-finger')), findsOneWidget);
+      await shot('5-unlock-finger');
       debugDisableShadows = true;
     });
   }
