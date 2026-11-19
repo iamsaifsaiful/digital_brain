@@ -2151,6 +2151,47 @@ class Brain extends ChangeNotifier {
     return got ?? w;
   }
 
+  /// The other places on the weather page (owner, 19 Nov), as [Place.key]s;
+  /// the user's own place is always first and is not kept here.
+  List<String> get weatherPlaces => [for (final k in text('weather_places').split('\n')) if (k.trim().isNotEmpty && k != district) k];
+
+  Future<void> addWeatherPlace(Place p) async {
+    final k = p.key;
+    if (k == district || weatherPlaces.contains(k)) return;
+    await setPref('weather_places', [...weatherPlaces, k].join('\n'));
+    notifyListeners();
+  }
+
+  Future<void> removeWeatherPlace(String key) async {
+    await setPref('weather_places', [for (final k in weatherPlaces) if (k != key) k].join('\n'));
+    _casts.remove(key);
+    notifyListeners();
+  }
+
+  final Map<String, Forecast> _casts = {};
+
+  /// The weather page's forecast for a place ([Place.key]) kept 30 minutes.
+  Forecast? forecastKept(String key) => _casts[key];
+
+  /// Fetches it when older than 30 minutes; the last one when offline.
+  Future<Forecast?> forecastFor(String key) async {
+    final now = services.now();
+    final had = _casts[key];
+    if (had != null && now.difference(had.now.at).inMinutes < 30) return had;
+    final place = placeNamed(key);
+    final got = await services.weather.forecast(place.lat, place.lon, place.name, now);
+    if (got != null) {
+      _casts[key] = got;
+      if (key == district) {
+        _weather = got.now;
+        _weatherKey = key;
+        todayWeather = got.now;
+      }
+      notifyListeners();
+    }
+    return got ?? had;
+  }
+
   MetalPrice? _metal;
   DateTime? _metalAt;
 

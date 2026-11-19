@@ -46,6 +46,7 @@ import 'requests_screen.dart';
 import 'settings_parts.dart';
 import 'spend_health_screen.dart';
 import 'vault_screen.dart';
+import 'weather_screen.dart';
 import 'zakat_screen.dart';
 import '../logic/pro.dart' show medicalOff;
 
@@ -486,11 +487,11 @@ class _HomeHeroState extends State<HomeHero> {
       ]);
     }
     final sky = day && w.code <= 1 ? tr('রোদ') : w.sky;
-    return Tooltip(
+    // Owner, 19 Nov: a tap opens the weather page, as the date opens the calendar.
+    return InkWell(
       key: const Key('home-temp'),
-      message: w.said(),
-      triggerMode: TooltipTriggerMode.tap,
-      showDuration: const Duration(seconds: 5),
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WeatherScreen())),
       child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
         Text(w.short, style: display(62, weight: 400, height: 1.05, color: _white).copyWith(shadows: _shade)),
         const SizedBox(width: 14),

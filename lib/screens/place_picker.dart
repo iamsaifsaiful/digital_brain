@@ -36,10 +36,13 @@ List<Place> knownMatches(String q) {
 /// A place's name in English (the app's own list), else itself.
 String enName(String bn) => enStrings[bn] ?? bn;
 
-Future<PlacePick?> pickPlace(BuildContext context) => showDialog<PlacePick>(context: context, builder: (_) => const _PlaceDialog());
+/// [adding]: a place for the weather page (owner, 19 Nov) — no "follow the
+/// phone" and nothing marked as chosen.
+Future<PlacePick?> pickPlace(BuildContext context, {bool adding = false}) => showDialog<PlacePick>(context: context, builder: (_) => _PlaceDialog(adding: adding));
 
 class _PlaceDialog extends StatefulWidget {
-  const _PlaceDialog();
+  const _PlaceDialog({this.adding = false});
+  final bool adding;
   @override
   State<_PlaceDialog> createState() => _PlaceDialogState();
 }
@@ -94,7 +97,7 @@ class _PlaceDialogState extends State<_PlaceDialog> {
     final known = knownMatches(q);
     final bd = known.where((p) => !p.abroad).toList(), world = known.where((p) => p.abroad).toList();
     Widget row(Place p) {
-      final on = !brain.autoPlace && p.name == now.name;
+      final on = !widget.adding && !brain.autoPlace && p.name == now.name;
       return InkWell(
         key: Key('place-${p.name}'),
         onTap: () => Navigator.pop(context, PickedPlace(p)),
@@ -109,7 +112,7 @@ class _PlaceDialogState extends State<_PlaceDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       child: Column(mainAxisSize: MainAxisSize.max, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(padding: const EdgeInsets.fromLTRB(24, 20, 24, 8), child: Text(tr('আপনার জেলা/শহর'), style: body(18, weight: FontWeight.w600))),
+        Padding(padding: const EdgeInsets.fromLTRB(24, 20, 24, 8), child: Text(widget.adding ? tr('লোকেশন যোগ করুন') : tr('আপনার জেলা/শহর'), style: body(18, weight: FontWeight.w600))),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: TextField(textCapitalization: TextCapitalization.sentences, 
@@ -134,7 +137,7 @@ class _PlaceDialogState extends State<_PlaceDialog> {
         ),
         Expanded(
           child: ListView(padding: const EdgeInsets.only(top: 4, bottom: 8), children: [
-            if (q.isEmpty) ...[
+            if (q.isEmpty && !widget.adding) ...[
               InkWell(
                 key: const Key('place-auto'),
                 onTap: () => Navigator.pop(context, FollowPhone()),
