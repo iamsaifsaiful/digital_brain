@@ -1,1 +1,1 @@
-1.0.12 (code 10017): new sign-up and PIN pages (dark top, light sheet); English | বাংলা choice, English first on a new phone; less text, privacy notes behind one link; 'Welcome back' with the name; 'start fresh' when this phone cannot open old data; আমার তথ্য tab renamed আমার ফাইল / My Files
+1.0.13 (code 10018): ঋতুপঞ্জি / Almanac (calendar + weather in one page, °C/°F); 12 calendars; holidays of several countries; মুসলিম টাইম; family medicine reminders; new location picker; mobile country code; My Files and sign-in redesign; professional wording
