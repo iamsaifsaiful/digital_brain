@@ -16,7 +16,8 @@ import 'more_screen.dart' show shownVersion;
 bool googleFirst = true;
 
 /// The sign-up and PIN pages' colours (owner, 19 Nov: design 6 of six, the
-/// app mark above and a sheet rising from below, in the home's dark look).
+/// app mark on the Cox's Bazar sea, melting into the part below, in the
+/// home's dark look).
 class LockPal {
   const LockPal({
     required this.bg,
@@ -547,8 +548,10 @@ final bodyW = LayoutBuilder(builder: (context, box) {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [p.bg.withValues(alpha: 0.55), p.bg.withValues(alpha: 0.15), p.bg.withValues(alpha: 0.35)],
-                    stops: const [0, 0.55, 1],
+                    // Melting into the sheet below (owner, 19 Nov: no edge
+                    // between the picture and the part with the words).
+                    colors: [p.bg.withValues(alpha: 0.55), p.sheet.withValues(alpha: 0.05), p.sheet.withValues(alpha: 0.75), p.sheet],
+                    stops: const [0, 0.45, 0.82, 1],
                   ),
                 ),
               ),
@@ -559,11 +562,7 @@ final bodyW = LayoutBuilder(builder: (context, box) {
             constraints: BoxConstraints(minHeight: box.maxHeight - upper),
             child: Container(
               width: double.infinity,
-              decoration: BoxDecoration(
-                color: p.sheet,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                border: Border.all(color: p.line),
-              ),
+              color: p.sheet,
               // The buttons a little lower than right under the top (owner,
               // 19 Nov: "অল্প একটু নিচে", not at the bottom).
               child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
