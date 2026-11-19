@@ -912,6 +912,7 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
             TextField(
               key: const Key('hol-search'),
               controller: _q,
+              textCapitalization: TextCapitalization.sentences,
               onChanged: (_) => setState(() {}),
               style: body(15),
               decoration: InputDecoration(

@@ -116,58 +116,37 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
       );
     }
 
-    // Today: the English date, and under it the chosen calendars (Bangla with its season).
-    final dates = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('${weekdayName(today)} · ${tr('আজ')}', style: body(13, weight: FontWeight.w500, color: _soft, height: 1.3).copyWith(shadows: _shade)),
-      Text('${bnDigits(today.day)} ${monthName(today.month)} ${bnDigits(today.year)}',
-          key: const Key('ds-date'), style: display(25, weight: 600, height: 1.3, color: _white).copyWith(shadows: _shade)),
+    // Owner, 19 Nov: "হিরো সেকশন আরও ক্লিন ও সুন্দর কর". One calm column in the
+    // middle: today's date small at the top, the temperature large and light,
+    // one line of sky and one of the day's range; the places at the foot.
+    final soft = body(13.5, weight: FontWeight.w500, color: _soft, height: 1.45).copyWith(shadows: _shade);
+    final dates = Column(children: [
+      Text('${weekdayName(today)}, ${bnDigits(today.day)} ${monthName(today.month)} ${bnDigits(today.year)}',
+          key: const Key('ds-date'), textAlign: TextAlign.center, style: display(17, weight: 600, height: 1.35, color: _white).copyWith(shadows: _shade)),
       for (final id in brain.calendars)
         if (calDate(id, today, hijriShift: brain.hijriShift) case final c?)
-          Text(id == 'bangla' ? '${c.text} · ${trf('{0}কাল', [bd.season])}' : c.text,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, weight: FontWeight.w500, color: _soft, height: 1.45).copyWith(shadows: _shade)),
+          Text(id == 'bangla' ? '${c.text} · ${trf('{0}কাল', [bd.season])}' : c.text, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: soft),
     ]);
 
     final weatherNow = f == null
         ? Text(_asking.contains(key) ? tr('আবহাওয়া আনা হচ্ছে…') : tr('এখন আবহাওয়া আনা গেল না — ইন্টারনেট চালু করে আবার খুলুন।'),
-            style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))
-        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-              Text(deg(f.now.temp), key: const Key('wx-temp'), style: display(80, weight: 400, height: 1.0, color: _white).copyWith(shadows: _shade)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(f.now.sky, maxLines: 2, style: body(18, weight: FontWeight.w600, color: _white, height: 1.3).copyWith(shadows: _shade)),
-                  // The other scale, small.
-                  Text(degOther(f.now.temp), key: const Key('wx-other'), style: body(13.5, weight: FontWeight.w500, color: _soft).copyWith(shadows: _shade)),
-                ]),
-              ),
-              Container(
-                width: 74,
-                height: 74,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withValues(alpha: 0.12), border: Border.all(color: _white.withValues(alpha: 0.35))),
-                alignment: Alignment.center,
-                child: WeatherIcon(f.now.code, day: f.hours.isEmpty || f.hours.first.day, size: 44),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              _glass(Text.rich(
-                TextSpan(children: [
-                  const WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 14, color: _white)),
-                  TextSpan(text: '${deg(f.now.max)}   '),
-                  const WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 14, color: _white)),
-                  TextSpan(text: deg(f.now.min)),
-                ]),
-                style: body(13, weight: FontWeight.w600, color: _white, height: 1.3),
-              )),
+            textAlign: TextAlign.center, style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))
+        : Column(children: [
+            // The degree sign hangs outside, so the number itself sits in the middle.
+            Transform.translate(
+              offset: const Offset(14, 0),
+              child: Text(deg(f.now.temp), key: const Key('wx-temp'), style: display(104, weight: 300, height: 1.05, color: _white).copyWith(shadows: _shade)),
+            ),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              WeatherIcon(f.now.code, day: f.hours.isEmpty || f.hours.first.day, size: 24),
               const SizedBox(width: 8),
-              Flexible(child: _glass(Text(trf('অনুভূত {0}°', [degN(f.now.feels)]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: _white, height: 1.3)))),
+              Flexible(child: Text(f.now.sky, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(18, weight: FontWeight.w600, color: _white, height: 1.35).copyWith(shadows: _shade))),
             ]),
-            const SizedBox(height: 10),
-            Row(children: [
-              Icon(_tip(f).$1, size: 17, color: _white, shadows: _shade),
-              const SizedBox(width: 6),
-              Expanded(child: Text(_tip(f).$2, key: const Key('wx-tip'), maxLines: 2, style: body(13.5, weight: FontWeight.w500, color: _white).copyWith(shadows: _shade))),
+            const SizedBox(height: 2),
+            Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              Text('${tr('সর্বোচ্চ')} ${deg(f.now.max)}  ·  ${tr('সর্বনিম্ন')} ${deg(f.now.min)}  ·  ', style: soft),
+              // The other scale, small.
+              Text(degOther(f.now.temp), key: const Key('wx-other'), style: soft),
             ]),
           ]);
 
@@ -222,12 +201,16 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
               icon: const Icon(Icons.add_location_alt_outlined, size: 24, color: _white, shadows: _shade),
             ),
           ]),
+          Padding(padding: const EdgeInsets.fromLTRB(24, 6, 24, 0), child: SizedBox(width: double.infinity, child: dates)),
+          Padding(padding: const EdgeInsets.fromLTRB(24, 18, 24, 0), child: SizedBox(width: double.infinity, child: weatherNow)),
+          const SizedBox(height: 20),
+          // The places, at the foot of the picture (the user's own first).
           SizedBox(
             height: 34,
-            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), children: [for (final k in keys) chip(k)]),
+            child: Center(
+              child: ListView(shrinkWrap: true, scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), children: [for (final k in keys) chip(k)]),
+            ),
           ),
-          Padding(padding: const EdgeInsets.fromLTRB(22, 18, 22, 0), child: dates),
-          Padding(padding: const EdgeInsets.fromLTRB(22, 14, 22, 0), child: weatherNow),
         ]),
       ),
     ]);
@@ -254,6 +237,15 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
                 if (_cal)
                   CalendarPanel(forecast: brain.forecastKept(brain.district))
                 else if (f != null) ...[
+                  // One line worth knowing, in the tab (the picture stays calm).
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                    child: Row(children: [
+                      Icon(_tip(f).$1, size: 18, color: C.green),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(_tip(f).$2, key: const Key('wx-tip'), maxLines: 2, style: body(13.5, weight: FontWeight.w500))),
+                    ]),
+                  ),
                   if (f.hours.isNotEmpty) _hours(f),
                   if (f.days.isNotEmpty) ...[const SizedBox(height: 10), _days(f)],
                   if (f.sunrise != null && f.sunset != null) ...[const SizedBox(height: 10), _sun(f)],
@@ -463,16 +455,6 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
       ]),
     );
   }
-
-  Widget _glass(Widget child) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: _white.withValues(alpha: 0.35)),
-        ),
-        child: child,
-      );
 
   /// One line worth knowing: rain in the next days, else how low it goes tonight.
   (IconData, String) _tip(Forecast f) {

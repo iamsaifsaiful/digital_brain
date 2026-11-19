@@ -81,7 +81,7 @@ void main() {
       await settle(t);
       expect(find.byType(DaySkyScreen), findsOneWidget);
       expect(t.widget<Text>(find.byKey(const Key('ds-title'))).data, 'ঋতুপঞ্জি');
-      expect(t.widget<Text>(find.byKey(const Key('ds-date'))).data, '১৯ নভেম্বর ২০২৬');
+      expect(t.widget<Text>(find.byKey(const Key('ds-date'))).data, 'বৃহস্পতিবার, ১৯ নভেম্বর ২০২৬');
       expect(t.widget<Text>(find.byKey(const Key('wx-temp'))).data, '২৭°');
       expect(t.widget<Text>(find.byKey(const Key('wx-other'))).data, '৮১°F');
       expect(find.byKey(const Key('wx-hours')), findsOneWidget);

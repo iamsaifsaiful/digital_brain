@@ -130,7 +130,7 @@ void main() {
 
   testWidgets('calendar: Arabic (Hijri) dates on a tab; a tapped day shows its plans and adds to it', (t) async {
     final rig = await start(t, data: AppData(reminders: [Reminder(title: 'ডাক্তার', date: DateTime(2026, 10, 20), hour: 11)]));
-    await tapMenu(t, 'ক্যালেন্ডার');
+    await tapMenu(t, 'ঋতুপঞ্জি');
     final list0 = find.byType(Scrollable).first;
     await t.scrollUntilVisible(find.text('আরবি (হিজরি) তারিখ'), 200, scrollable: list0);
     await t.tap(find.text('আরবি (হিজরি) তারিখ'));

@@ -5875,4 +5875,7 @@ const enStrings = <String, String>{
   '{0} দিন পর {1} {2}{3}': 'In {0} days, {1} {2}{3}',
   '{0} অনুযায়ী': 'For {0}',
   'বৃষ্টির সম্ভাবনা {0}%': '{0}% chance of rain',
+  'সর্বোচ্চ': 'High',
+  'বাংলা, ইংরেজি ও হিজরিসহ নানা ক্যালেন্ডারের তারিখ, সরকারি ছুটি, আর আবহাওয়া (°C বা °F)।': 'Dates in Bangla, English, Hijri and other calendars, public holidays, and the weather (°C or °F).',
+  'সর্বনিম্ন': 'Low',
 };
