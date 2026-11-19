@@ -1,4 +1,4 @@
-/// The app's language: Bangla (default) or English, chosen in সেটিংস › ভাষা.
+/// The app's language: English or Bangla, chosen on the PIN page or in সেটিংস › ভাষা.
 ///
 /// Screens wrap their words in [tr] (plain text) or [trf] (text with
 /// values: `trf('{0}টা কাজ', [n])`). The Bangla text is the key; the English
@@ -10,6 +10,11 @@ import 'strings_en.dart';
 
 /// True while the app shows English.
 bool isEn = false;
+
+/// A new phone (no PIN yet, no language picked) starts in English (owner,
+/// 19 Nov); the PIN page has an English | বাংলা switch. A phone already in
+/// use keeps Bangla until the member changes it. Off in tests.
+bool englishFirst = true;
 
 String tr(String bn) => isEn ? (enStrings[bn] ?? bn) : bn;
 

@@ -38,7 +38,7 @@ import 'package:digital_brain/screens/onboarding_screen.dart';
 import 'package:digital_brain/screens/search_screen.dart';
 import 'package:digital_brain/screens/special_days_screen.dart';
 import 'package:digital_brain/screens/store_more_screens.dart';
-import 'package:digital_brain/logic/lang.dart' show tr;
+import 'package:digital_brain/logic/lang.dart' show tr, englishFirst;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -62,6 +62,8 @@ class Rig {
   factory Rig.sharing(Rig other, {required MemoryKeyVault keys}) => Rig(keys: keys, blob: other.blob);
 
   Rig({AppData? data, MemoryKeyVault? keys, MemoryBlobStore? blob, AccountServer? server, GoogleAccount? google}) {
+    // The tests read the app in Bangla (a new phone starts in English).
+    englishFirst = false;
     // The seven-day trial (owner, 28 Oct) long over, so the Premium tests see
     // the free app; a test of the trial passes its own empty [keys].
     final vault = keys ?? (MemoryKeyVault()..values['trial_start'] = '2000-01-01T00:00:00.000');

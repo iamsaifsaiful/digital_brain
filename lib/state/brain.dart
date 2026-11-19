@@ -1507,7 +1507,8 @@ class Brain extends ChangeNotifier {
       look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.sun);
       accentKey = await keys.read('accent') ?? defaultAccentKey;
       darkKey = await keys.read('dark_set') ?? 'night';
-      english = (await keys.read('lang')) == 'en';
+      final lang = await keys.read('lang');
+      english = lang == null ? englishFirst && !await services.lock.hasPin() : lang == 'en';
       _applyVoiceLang();
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
       easyMode = (await keys.read('easy_mode')) == 'true';
