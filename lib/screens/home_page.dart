@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/holiday_mix.dart';
 import '../logic/cash.dart';
 import '../logic/lang.dart';
 import '../logic/ledger.dart' show totals;
@@ -23,6 +24,7 @@ import '../ui/kit.dart';
 import '../ui/pro_gate.dart';
 import '../ui/motion.dart';
 import '../ui/theme.dart';
+import '../ui/widgets.dart' show showAppSheet;
 import 'alarm_list_screen.dart';
 import 'app_places.dart' show openPlace;
 import 'calendar_screen.dart';
@@ -665,7 +667,10 @@ class _MoneyCard extends StatelessWidget {
   }
 }
 
-/// সামনের ছুটি: the holiday going on now or the next two (always on the home).
+/// সামনের ছুটি: the lists the member keeps (owner, 19 Nov) in one, by date —
+/// the profile's country, Bangladesh, any other country and the
+/// international days. A chip hides or shows each; the button at the end
+/// of the chips picks the lists. Always on the home.
 class HomeHolidays extends StatelessWidget {
   const HomeHolidays();
 
@@ -674,71 +679,82 @@ class HomeHolidays extends StatelessWidget {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final today = dayOnly(now);
-    // Abroad: that country's holidays (owner, 29 Oct), not Bangladesh's.
-    if (placeNamed(brain.district).abroad) {
-      final hs = brain.holidaysAbroad(now);
-      if (hs.isEmpty) return const SizedBox.shrink();
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        SectionHeading(trf('সামনের ছুটি · {0}', [brain.placeLabel])),
-        AppCard(
-          key: const Key('home-holidays-abroad'),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          child: Column(children: [
-            for (final (i, h) in hs.indexed) ...[
-              if (i > 0) const Hairline(),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Builder(builder: (context) {
-                  final days = h.date.difference(today).inDays;
-                  return Row(children: [
-                    _DateBox(day: h.date.day, month: monthShort(h.date.month)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(days <= 0 ? trf('আজ ছুটি — {0}', [h.name]) : h.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
-                        Text(h.local.isNotEmpty && h.local != h.name ? '${weekdayName(h.date)} · ${h.local}' : weekdayName(h.date),
-                            maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
-                      ]),
-                    ),
-                    const SizedBox(width: 8),
-                    Counter(days > 0 ? trf('{0} দিন পর', [bnDigits(days)]) : tr('আজ')),
-                  ]);
-                }),
-              ),
-            ],
-          ]),
-        ),
-      ]);
-    }
-    final runs = upcomingHolidays(now, count: 2);
-    if (runs.isEmpty) return const SizedBox.shrink();
+    final off = brain.holOff;
+    final tokens = [...brain.holCountriesShown, if (brain.holLists.contains(holIntl)) holIntl];
+    final rows = brain.homeHolidays(now);
     void cal() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()));
+    String label(String t) => t == holIntl ? tr('আন্তর্জাতিক') : countryName(t, short: true);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SectionHeading(tr('সামনের ছুটি'), link: tr('ক্যালেন্ডার'), onLink: cal),
       AppCard(
         key: const Key('home-holidays'),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        child: Column(children: [
-          for (final (i, h) in runs.indexed) ...[
+        padding: EdgeInsets.zero,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 10, 6),
+            child: Row(children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    for (final t in tokens)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: _HolChip(key: Key('hol-chip-$t'), label: label(t), on: !off.contains(t), onTap: () => brain.toggleHolOff(t)),
+                      ),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Tooltip(
+                message: tr('কোন কোন দেশের ছুটি দেখাবে'),
+                child: InkWell(
+                  key: const Key('hol-lists'),
+                  customBorder: const CircleBorder(),
+                  onTap: () => showHolidayLists(context),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: C.border)),
+                    child: Icon(Icons.tune_rounded, size: 17, color: C.muted2),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+              child: Text(
+                  tokens.every(off.contains) ? tr('সব তালিকা লুকানো — ওপরের চিপে চাপ দিয়ে দেখান।') : tr('এই দেশের ছুটির তালিকা এখনো আনা যায়নি — ইন্টারনেট চালু থাকলে নিজে আসবে।'),
+                  style: body(12.5, color: C.muted)),
+            ),
+          for (final (i, h) in rows.indexed) ...[
             if (i > 0) const Hairline(),
             InkWell(
               onTap: cal,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                 child: Builder(builder: (context) {
-                  final days = DateTime(h.start.year, h.start.month, h.start.day).difference(today).inDays;
+                  final days = h.start.difference(today).inDays;
+                  final whose = [for (final f in h.from) label(f)].join(' · ');
+                  final sub = [weekdayName(h.start), if (h.days > 1) trf('টানা {0} দিন', [bnDigits(h.days)]), whose].join(' · ');
                   return Row(children: [
-                    _DateBox(day: h.start.day, month: monthShort(h.start.month)),
+                    _DateBox(day: h.start.day, month: monthShort(h.start.month), outline: !h.official),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(days <= 0 ? trf('আজ ছুটি — {0}', [h.label]) : h.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
-                        Text(h.days > 1 ? '${weekdayName(h.start)} · ${holidayRange(h)}, ${trf('টানা {0} দিন', [bnDigits(h.days)])}' : weekdayName(h.start),
-                            maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
+                        Text(days <= 0 && h.official ? trf('আজ ছুটি — {0}', [abroadName(h.name)]) : abroadName(h.name), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
+                        const SizedBox(height: 1),
+                        Row(children: [
+                          Icon(h.official ? Icons.outlined_flag_rounded : Icons.public_rounded, size: 13, color: C.muted),
+                          const SizedBox(width: 4),
+                          Expanded(child: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted))),
+                        ]),
                       ]),
                     ),
                     const SizedBox(width: 8),
-                    Counter(days > 0 ? trf('{0} দিন পর', [bnDigits(days)]) : tr('চলছে')),
+                    Counter(days > 1 ? trf('{0} দিন পর', [bnDigits(days)]) : (days == 1 ? tr('কাল') : (days == 0 ? tr('আজ') : tr('চলছে')))),
                   ]);
                 }),
               ),
@@ -750,16 +766,232 @@ class HomeHolidays extends StatelessWidget {
   }
 }
 
+/// A list's chip: ticked and tinted when shown, a plain outline when hidden.
+class _HolChip extends StatelessWidget {
+  const _HolChip({super.key, required this.label, required this.on, required this.onTap});
+  final String label;
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: on ? C.greenTint : Colors.transparent,
+        shape: StadiumBorder(side: BorderSide(color: on ? C.green.withValues(alpha: 0.35) : C.border)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (on) ...[Icon(Icons.check_rounded, size: 14, color: C.green), const SizedBox(width: 4)],
+              Text(label, style: body(12.5, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? C.green : C.muted2, height: 1.2)),
+            ]),
+          ),
+        ),
+      );
+}
+
+/// কোন কোন দেশের ছুটি দেখাবে: tick the lists, add a country by search or
+/// from those where many Bangladeshis live, then ঠিক আছে.
+Future<void> showHolidayLists(BuildContext context) => showAppSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: C.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => _HolidayListsSheet(brain: BrainScope.of(context)),
+    );
+
+class _HolidayListsSheet extends StatefulWidget {
+  const _HolidayListsSheet({required this.brain});
+  final Brain brain;
+
+  @override
+  State<_HolidayListsSheet> createState() => _HolidayListsSheetState();
+}
+
+class _HolidayListsSheetState extends State<_HolidayListsSheet> {
+  late final List<String> _picked = [...widget.brain.holLists];
+  late final List<String> _rows;
+  final _q = TextEditingController();
+
+  String get _here => placeNamed(widget.brain.district).country;
+
+  @override
+  void initState() {
+    super.initState();
+    // Every list once: the profile's country, then the others, then INTL.
+    _rows = [holAuto, for (final t in _picked) if (t != holAuto && t != holIntl && t != _here) t, if (_here != 'BD' && !_picked.contains('BD')) 'BD', holIntl];
+  }
+
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
+  }
+
+  void _toggle(String t) => setState(() => _picked.contains(t) ? _picked.remove(t) : _picked.add(t));
+
+  void _add(String cc) => setState(() {
+        if (cc == _here) {
+          if (!_picked.contains(holAuto)) _picked.add(holAuto);
+        } else {
+          if (!_rows.contains(cc)) _rows.insert(_rows.length - 1, cc);
+          if (!_picked.contains(cc)) _picked.add(cc);
+        }
+        _q.clear();
+      });
+
+  Widget _row(String t) {
+    final (IconData icon, String title, String sub) = switch (t) {
+      holAuto => (Icons.location_on_outlined, countryName(_here), trf('প্রোফাইলের লোকেশন · {0}', [widget.brain.placeLabel])),
+      holIntl => (Icons.public_rounded, tr('আন্তর্জাতিক দিবস'), tr('জাতিসংঘের তালিকা থেকে')),
+      'BD' => (Icons.outlined_flag_rounded, countryName('BD'), tr('নিজের দেশ')),
+      _ => (Icons.outlined_flag_rounded, countryName(t), ''),
+    };
+    final on = _picked.contains(t);
+    return InkWell(
+      key: Key('hol-row-$t'),
+      onTap: () => _toggle(t),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: C.border)),
+            child: Icon(icon, size: 18, color: C.green),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: body(15, weight: FontWeight.w600)),
+              if (sub.isNotEmpty) Text(sub, style: body(12, color: C.muted)),
+            ]),
+          ),
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: on ? C.green : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: on ? C.green : C.inputBorder, width: 1.6),
+            ),
+            child: on ? const Icon(Icons.check_rounded, size: 16, color: Colors.white) : null,
+          ),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.text.trim();
+    final hits = q.isEmpty ? const <String>[] : searchCountries(q).where((c) => !_rows.contains(c) && c != _here).take(6).toList();
+    final popular = [for (final c in holPopular) if (!_rows.contains(c) && c != _here) c];
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            Text(tr('কোন কোন দেশের ছুটি দেখাবে'), style: display(19, weight: 700)),
+            const SizedBox(height: 3),
+            Text(tr('একসাথে কয়েকটা দেশ বাছতে পারবেন।'), style: body(13, color: C.muted)),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(border: Border.all(color: C.border), borderRadius: BorderRadius.circular(14)),
+              clipBehavior: Clip.antiAlias,
+              child: Column(children: [
+                for (final (i, t) in _rows.indexed) ...[if (i > 0) const Hairline(), _row(t)],
+              ]),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('hol-search'),
+              controller: _q,
+              onChanged: (_) => setState(() {}),
+              style: body(15),
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: Icon(Icons.search_rounded, color: C.muted, size: 20),
+                hintText: tr('আরও দেশ যোগ করুন — বাংলায় বা ইংরেজিতে'),
+                hintStyle: body(14, color: C.muted),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.inputBorder)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.green, width: 1.6)),
+              ),
+            ),
+            if (q.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 6),
+                decoration: BoxDecoration(border: Border.all(color: C.border), borderRadius: BorderRadius.circular(14)),
+                child: Column(children: [
+                  if (hits.isEmpty) Padding(padding: const EdgeInsets.all(14), child: Text(tr('এই নামে কোনো দেশ পাইনি।'), style: body(13, color: C.muted))),
+                  for (final (i, c) in hits.indexed) ...[
+                    if (i > 0) const Hairline(),
+                    ListTile(
+                      key: Key('hol-hit-$c'),
+                      dense: true,
+                      leading: Icon(Icons.add_rounded, color: C.green, size: 20),
+                      title: Text(countryName(c), style: body(15, weight: FontWeight.w500)),
+                      onTap: () => _add(c),
+                    ),
+                  ],
+                ]),
+              ),
+            if (popular.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(tr('যেসব দেশে অনেক বাংলাদেশি থাকেন'), style: body(12.5, weight: FontWeight.w600, color: C.muted)),
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final c in popular)
+                  Material(
+                    color: Colors.transparent,
+                    shape: StadiumBorder(side: BorderSide(color: C.border)),
+                    child: InkWell(
+                      key: Key('hol-add-$c'),
+                      customBorder: const StadiumBorder(),
+                      onTap: () => _add(c),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        child: Text('+ ${countryName(c)}', style: body(13.5, color: C.ink)),
+                      ),
+                    ),
+                  ),
+              ]),
+            ],
+            const SizedBox(height: 18),
+            FilledButton(
+              key: const Key('hol-done'),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: C.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+              onPressed: () {
+                final keep = [for (final t in _rows) if (_picked.contains(t)) t];
+                widget.brain.setHolLists(keep);
+                Navigator.of(context).pop();
+              },
+              child: Text(tr('ঠিক আছে'), style: body(16, weight: FontWeight.w600, color: Colors.white)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
 class _DateBox extends StatelessWidget {
-  const _DateBox({required this.day, required this.month});
+  const _DateBox({required this.day, required this.month, this.outline = false});
   final int day;
   final String month;
+
+  /// An international day: an outline, not filled (not a day off).
+  final bool outline;
 
   @override
   Widget build(BuildContext context) => Container(
         width: 44,
         height: 46,
-        decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: outline ? Colors.transparent : C.surface2, borderRadius: BorderRadius.circular(12), border: outline ? Border.all(color: C.border) : null),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(bnDigits(day), style: body(17, weight: FontWeight.w700, height: 1.15)),
           Text(month, maxLines: 1, overflow: TextOverflow.clip, style: body(10.5, color: C.muted, height: 1.2)),
