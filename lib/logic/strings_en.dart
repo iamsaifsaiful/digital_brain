@@ -5728,4 +5728,11 @@ const enStrings = <String, String>{
   'নিজের ফোনে খুলবেন না — ফিরিয়ে আনলে সেই ফোনের এখনকার সব তথ্যের বদলে এগুলো বসে।': 'Do not open it on your own phone — restoring replaces everything on that phone.',
   'বুঝেছি': 'Got it',
   'এই ফোনে যে Google অ্যাকাউন্টে লগইন আছেন, সেটা দিয়ে লগইন করুন, আর এই ফাইলটা সেই মোবাইলে নিন।': 'Sign in with the Google account you use on this phone, and move this file to that phone.',
+  'দেশের কোড বদলান': 'Change country code',
+  '{0} · {1} অঙ্ক, শুরুর ০ ছাড়া': '{0} · {1} digits, without the leading 0',
+  'ঠিক মোবাইল নম্বর দিন, যেমন +880 1712-345678': 'Enter a valid mobile number, e.g. +880 1712-345678',
+  '{0}-এর মোবাইল নম্বর {1} অঙ্কের হয়': 'Mobile numbers in {0} have {1} digits',
+  'দেশের কোড': 'Country code',
+  'দেশের নাম বা কোড': 'Country name or code',
+  'এই নামে কোনো দেশ নেই': 'No country by that name',
 };

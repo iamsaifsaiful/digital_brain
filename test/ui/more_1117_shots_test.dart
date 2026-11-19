@@ -60,15 +60,35 @@ void main() {
     // The user's own mobile number, kept on the phone (owner, 17 Nov).
     await t.tap(find.byKey(const Key('profile-phone')));
     await settle(t);
+    // Country code always there (owner, 19 Nov): Bangladesh +880 first.
+    expect(find.text('+৮৮০'), findsOneWidget);
     await t.enterText(find.byKey(const Key('profile-phone-field')), '0171234');
     await t.tap(find.byKey(const Key('profile-phone-save')));
     await settle(t);
     expect(find.textContaining('ঠিক মোবাইল নম্বর দিন'), findsOneWidget);
-    await t.enterText(find.byKey(const Key('profile-phone-field')), '০১৭১২-৩৪৫৬৭৮');
+    // No more digits than a Bangladeshi number has; the home 0 is dropped.
+    await t.enterText(find.byKey(const Key('profile-phone-field')), '০১৭১২-৩৪৫৬৭৮৯৯৯');
+    await settle(t);
+    expect(find.text('1712345678'), findsOneWidget);
+    expect(find.text('১০/১০'), findsOneWidget);
+    // Another country: its own length (Saudi Arabia, 9).
+    await t.tap(find.byKey(const Key('profile-phone-country')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('phone-country-search')), 'সৌদি');
+    await settle(t);
+    await t.tap(find.byKey(const Key('phone-country-SA')));
+    await settle(t);
+    expect(find.text('+৯৬৬'), findsOneWidget);
+    expect(find.text('171234567'), findsOneWidget);
+    await t.tap(find.byKey(const Key('profile-phone-country')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('phone-country-BD')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('profile-phone-field')), '01712345678');
     await t.tap(find.byKey(const Key('profile-phone-save')));
     await settle(t);
-    expect(rig.brain.userPhone, '01712345678');
-    expect(find.text('০১৭১২-৩৪৫৬৭৮'), findsOneWidget);
+    expect(rig.brain.userPhone, '+8801712345678');
+    expect(find.text('+৮৮০ ১৭১২-৩৪৫৬৭৮'), findsOneWidget);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/more_1117/3-profile.png'));
     debugDisableShadows = true;
   });

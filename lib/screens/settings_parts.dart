@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInputFormatter;
+import '../logic/phone_codes.dart';
 
 import '../logic/me.dart' show bloodGroups;
 
@@ -152,7 +154,7 @@ class ProfileCard extends StatelessWidget {
         Divider(height: 1, color: C.line2),
         row(const Key('profile-name'), Icons.badge_outlined, C.green, tr('নাম'), brain.userName.isEmpty ? tr('নাম দিন') : brain.userName, onName, empty: brain.userName.isEmpty),
         Divider(height: 1, indent: 52, color: C.line2),
-        row(const Key('profile-phone'), Icons.phone_iphone_rounded, C.green, tr('মোবাইল নম্বর'), brain.userPhone.isEmpty ? tr('নম্বর দিন') : bnDigits(brain.userPhone.length == 11 ? '${brain.userPhone.substring(0, 5)}-${brain.userPhone.substring(5)}' : brain.userPhone), () => editUserPhone(context),
+        row(const Key('profile-phone'), Icons.phone_iphone_rounded, C.green, tr('মোবাইল নম্বর'), brain.userPhone.isEmpty ? tr('নম্বর দিন') : showPhone(brain.userPhone), () => editUserPhone(context),
             empty: brain.userPhone.isEmpty),
         Divider(height: 1, indent: 52, color: C.line2),
         row(const Key('profile-place'), Icons.place_outlined, C.blue, tr('জেলা/শহর'), brain.autoPlace ? trf('{0} · ফোনের লোকেশন অনুযায়ী', [brain.placeLabel]) : brain.placeLabel, onPlace),
@@ -425,45 +427,193 @@ class PlanBadge extends StatelessWidget {
 
 
 /// The user's own mobile number (owner, 17 Nov): kept on this phone only.
+/// Always with a country code (owner, 19 Nov): Bangladesh +880 unless another
+/// is picked, and no more digits than that country's mobile numbers have.
 Future<void> editUserPhone(BuildContext context) async {
   final brain = BrainScope.read(context);
-  final c = TextEditingController(text: brain.userPhone);
+  var (country, start) = splitPhone(brain.userPhone);
+  final c = TextEditingController(text: phoneDigits(country, start));
   String? err;
   final v = await showDialog<String>(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, set) => AlertDialog(
-        title: Text(tr('আপনার মোবাইল নম্বর'), style: body(18, weight: FontWeight.w600)),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          TextField(
-            key: const Key('profile-phone-field'),
-            controller: c,
-            autofocus: true,
-            keyboardType: TextInputType.phone,
-            style: body(16),
-            decoration: InputDecoration(hintText: '01712345678', errorText: err),
-          ),
-          const SizedBox(height: 8),
-          Text(tr('শুধু এই ফোনে থাকে। রক্তদানের মতো জায়গায় নিজে বসে যাবে।'), style: body(12.5, color: C.muted, height: 1.4)),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
-          TextButton(
-            key: const Key('profile-phone-save'),
-            onPressed: () {
-              final d = c.text.trim().replaceAll(RegExp(r'[\s-]'), '').replaceAllMapped(RegExp('[০-৯]'), (m) => '${'০১২৩৪৫৬৭৮৯'.indexOf(m[0]!)}');
-              if (d.isNotEmpty && !RegExp(r'^(\+?880|0)1[3-9]\d{8}$').hasMatch(d)) {
-                set(() => err = tr('ঠিক মোবাইল নম্বর দিন, যেমন 01712345678'));
-                return;
-              }
-              Navigator.pop(ctx, d);
-            },
-            child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green)),
-          ),
-        ],
-      ),
+      builder: (ctx, set) {
+        final n = c.text.length;
+        return AlertDialog(
+          title: Text(tr('আপনার মোবাইল নম্বর'), style: body(18, weight: FontWeight.w600)),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Semantics(
+                button: true,
+                label: tr('দেশের কোড বদলান'),
+                child: InkWell(
+                  key: const Key('profile-phone-country'),
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () async {
+                    final p = await pickPhoneCountry(ctx, country);
+                    if (p == null) return;
+                    set(() {
+                      country = p;
+                      err = null;
+                      c.text = phoneDigits(p, c.text);
+                    });
+                  },
+                  child: Container(
+                    height: 52,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), border: Border.all(color: C.line)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      _IsoTag(country.iso),
+                      const SizedBox(width: 6),
+                      Text(bnDigits(country.code), style: body(16, weight: FontWeight.w600)),
+                      Icon(Icons.expand_more_rounded, size: 20, color: C.muted),
+                    ]),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  key: const Key('profile-phone-field'),
+                  controller: c,
+                  autofocus: true,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [TextInputFormatter.withFunction((old, now) {
+                    final d = phoneDigits(country, now.text);
+                    return TextEditingValue(text: d, selection: TextSelection.collapsed(offset: d.length));
+                  })],
+                  onChanged: (_) => set(() => err = null),
+                  style: body(16, weight: FontWeight.w600),
+                  decoration: InputDecoration(
+                    hintText: country.iso == 'BD' ? '1712-345678' : '0' * country.max,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 6),
+            Row(children: [
+              Expanded(
+                child: Text(trf('{0} · {1} অঙ্ক, শুরুর ০ ছাড়া', [country.name, country.lengthLabel]),
+                    key: const Key('profile-phone-rule'), style: body(12.5, color: C.muted)),
+              ),
+              Text(bnDigits('$n/${country.max}'), key: const Key('profile-phone-count'), style: body(12.5, weight: FontWeight.w600, color: n == country.max ? C.green : C.muted)),
+            ]),
+            if (err != null) ...[
+              const SizedBox(height: 4),
+              Text(err!, style: body(13, weight: FontWeight.w600, color: C.rose)),
+            ],
+            const SizedBox(height: 10),
+            Text(tr('শুধু এই ফোনে থাকে। রক্তদানের মতো জায়গায় নিজে বসে যাবে।'), style: body(12.5, color: C.muted, height: 1.4)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাদ দিন'))),
+            TextButton(
+              key: const Key('profile-phone-save'),
+              onPressed: () {
+                final d = phoneDigits(country, c.text);
+                if (d.isEmpty) return Navigator.pop(ctx, '');
+                if (!validPhone(country, d)) {
+                  set(() => err = country.iso == 'BD'
+                      ? tr('ঠিক মোবাইল নম্বর দিন, যেমন +880 1712-345678')
+                      : trf('{0}-এর মোবাইল নম্বর {1} অঙ্কের হয়', [country.name, country.lengthLabel]));
+                  return;
+                }
+                Navigator.pop(ctx, fullPhone(country, d));
+              },
+              child: Text(tr('রাখুন'), style: body(15, weight: FontWeight.w600, color: C.green)),
+            ),
+          ],
+        );
+      },
     ),
   );
   // Not disposed here: the dialog's closing animation still draws the box.
   if (v != null) await brain.setUserPhone(v);
+}
+
+/// The country of a mobile number, searched by name or code.
+Future<PhoneCountry?> pickPhoneCountry(BuildContext context, PhoneCountry current) {
+  var q = '';
+  return showAppSheet<PhoneCountry>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
+      final f = asciiDigits(q).toLowerCase().replaceAll('+', '').trim();
+      final list = [
+        for (final p in phoneCountries)
+          if (f.isEmpty || p.bn.contains(f) || p.en.toLowerCase().contains(f) || p.dial.startsWith(f)) p,
+      ];
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: SizedBox(
+          height: MediaQuery.sizeOf(ctx).height * 0.72,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Text(tr('দেশের কোড'), style: display(20, weight: 700)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: TextField(
+                key: const Key('phone-country-search'),
+                onChanged: (v) => set(() => q = v),
+                style: body(15.5),
+                decoration: InputDecoration(
+                  hintText: tr('দেশের নাম বা কোড'),
+                  prefixIcon: Icon(Icons.search_rounded, color: C.muted),
+                  isDense: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+            Expanded(
+              child: list.isEmpty
+                  ? Center(child: Text(tr('এই নামে কোনো দেশ নেই'), style: body(14, color: C.muted)))
+                  : ListView.separated(
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => Divider(height: 1, indent: 60, color: C.line2),
+                      itemBuilder: (_, i) {
+                        final p = list[i];
+                        final on = p.iso == current.iso;
+                        return ListTile(
+                          key: Key('phone-country-${p.iso}'),
+                          leading: _IsoTag(p.iso, big: true),
+                          title: Text(p.name, style: body(15.5, weight: on ? FontWeight.w700 : FontWeight.w500)),
+                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(bnDigits(p.code), style: body(15, weight: FontWeight.w600, color: C.muted)),
+                            if (on) ...[const SizedBox(width: 8), Icon(Icons.check_rounded, size: 20, color: C.green)],
+                          ]),
+                          onTap: () => Navigator.pop(ctx, p),
+                        );
+                      },
+                    ),
+            ),
+          ]),
+        ),
+      );
+    }),
+  );
+}
+
+
+/// The country's two letters in a thin box (clean on every phone, unlike flags).
+class _IsoTag extends StatelessWidget {
+  const _IsoTag(this.iso, {this.big = false});
+  final String iso;
+  final bool big;
+  @override
+  Widget build(BuildContext context) => Center(
+      widthFactor: 1,
+      heightFactor: 1,
+      child: Container(
+        width: big ? 38 : 30,
+        height: big ? 24 : 20,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(5), border: Border.all(color: C.line, width: 1.2)),
+        child: Text(iso, style: body(big ? 12.5 : 11, weight: FontWeight.w700, color: C.muted, height: 1)),
+      ));
 }
