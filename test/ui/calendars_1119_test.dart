@@ -103,7 +103,7 @@ void main() {
     await rig.brain.setPref('calendars', 'none');
     await settle(t);
     expect(find.byKey(const Key('cal-side-tabs')), findsNothing);
-    expect(find.text('বৃহস্পতিবার, ১৯ নভেম্বর ২০২৬'), findsOneWidget);
+    expect(find.byKey(const Key('ds-date')), findsOneWidget);
     _done();
   });
 
