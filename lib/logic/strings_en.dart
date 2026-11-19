@@ -866,7 +866,9 @@ const enStrings = <String, String>{
   'ঠিক আছে — ‘{0}’ হিসাবে। এভাবে রেখে দিই?': 'OK — in the ‘{0}’ project. Save it like this?',
   'ঠিক আছে, প্রতিদিন {0}-এ অ্যালার্ম বাজবে।': 'OK, the alarm will ring at {0} every day.',
   'ঠিক আছে, প্রতিদিন {0}-এ {1}মনে করিয়ে দেব।': 'OK, I’ll remind you {1}at {0} every day.',
-  '{0}: এখন {1}°সে ({2}) — অনুভূত {3}°, আজ সর্বনিম্ন {4}° আর সর্বোচ্চ {5}°, আর্দ্রতা {6}%।': '{0}: now {1}°C ({2}) — feels like {3}°, today’s low {4}°, high {5}°, humidity {6}%.',
+  '{0}: এখন {1}{7} ({2}) — অনুভূত {3}, আজ সর্বনিম্ন {4} আর সর্বোচ্চ {5}, আর্দ্রতা {6}%।': '{0}: now {1}{7} ({2}) — feels like {3}, today’s low {4}, high {5}, humidity {6}%.',
+  'সে': 'C',
+  'ফা': 'F',
   'এখন আবহাওয়ার খবর আনতে পারলাম না — ইন্টারনেট চালু আছে কিনা দেখে আবার জিজ্ঞেস করুন।': 'Couldn’t get the weather right now — check your internet connection and ask again.',
   'আচ্ছা, রাখলাম না।': 'OK, not saved.',
   'আচ্ছা, লিখিনি। কিছু ভুল থাকলে “বদলান” চেপে ঠিক করে নিন।': 'OK, not saved. If something’s wrong, tap “Edit” to fix it.',
@@ -5867,4 +5869,10 @@ const enStrings = <String, String>{
   'আরও দেশ যোগ করুন — বাংলায় বা ইংরেজিতে': 'Add another country — in Bangla or English',
   'এই নামে কোনো দেশ পাইনি।': 'No country by that name.',
   'যেসব দেশে অনেক বাংলাদেশি থাকেন': 'Where many Bangladeshis live',
+  // ঋতুপঞ্জি: the calendar and the weather in one page (19 Nov).
+  'ঋতুপঞ্জি': 'Almanac',
+  'তাপমাত্রার একক': 'Temperature unit',
+  '{0} দিন পর {1} {2}{3}': 'In {0} days, {1} {2}{3}',
+  '{0} অনুযায়ী': 'For {0}',
+  'বৃষ্টির সম্ভাবনা {0}%': '{0}% chance of rain',
 };

@@ -1,8 +1,11 @@
-// The weather page (owner, 19 Nov: tap the weather on Home, like the date
-// opens the calendar). Design 1 of three, "ছবির আকাশ": the season's picture
-// at the top with the big temperature, the places as chips under the title
-// (the user's own place first), then the next hours, seven days and four
-// small facts. Other places are added from + and kept on the phone.
+// ঋতুপঞ্জি / Almanac (owner, 19 Nov: "ক্যালেন্ডার আবহাওয়া এক সাথে রাখো, এবং
+// এটার সুন্দর একটা নাম দাও"): the weather page (design 1, "ছবির আকাশ") and the
+// calendar in one page. The season's picture at the top carries today — the
+// English date with the chosen calendars, and the weather now — then two
+// tabs: আবহাওয়া (next hours, seven days, the sun, three facts) and
+// ক্যালেন্ডার (the month, with the coming days' weather in it, and the
+// holidays). The date on Home opens the calendar tab, the weather the other.
+// Temperatures in °C or °F, the other shown small beside (owner, 19 Nov).
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,25 +16,44 @@ import '../logic/home_scene.dart';
 import '../logic/lang.dart';
 import '../logic/sky_light.dart';
 import '../logic/weather.dart';
+import '../logic/world_calendars.dart';
 import '../state/brain.dart';
 import '../ui/scene_layers.dart';
 import '../ui/theme.dart';
+import '../ui/widgets.dart' show SegTabs;
+import 'calendar_screen.dart' show CalendarPanel;
 import 'place_picker.dart';
 
-class WeatherScreen extends StatefulWidget {
+/// The page's name, in one place (the owner picks it).
+String get daySkyName => tr('ঋতুপঞ্জি');
+
+/// The weather tab of [DaySkyScreen] (kept for the places that open it).
+class WeatherScreen extends StatelessWidget {
   const WeatherScreen({super.key});
 
   @override
-  State<WeatherScreen> createState() => _WeatherScreenState();
+  Widget build(BuildContext context) => const DaySkyScreen();
+}
+
+class DaySkyScreen extends StatefulWidget {
+  const DaySkyScreen({super.key, this.calendar = false});
+
+  /// Opens on the calendar tab (else the weather).
+  final bool calendar;
+
+  @override
+  State<DaySkyScreen> createState() => _DaySkyScreenState();
 }
 
 const _white = Colors.white;
+const _soft = Color(0xE6FFFFFF);
 const _shade = [Shadow(color: Color(0x59000000), blurRadius: 10)];
 
-class _WeatherScreenState extends State<WeatherScreen> {
+class _DaySkyScreenState extends State<DaySkyScreen> {
   /// The place shown ([Place.key]); null = the user's own.
   String? _key;
   final Set<String> _asking = {};
+  late bool _cal = widget.calendar;
 
   @override
   void didChangeDependencies() {
@@ -56,6 +78,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
     final key = keys.contains(_key) ? _key! : brain.district;
     final f = brain.forecastKept(key);
     final now = brain.services.now();
+    final today = dayOnly(now);
     final top = MediaQuery.of(context).padding.top;
     // The light at the place itself (its own clock and sun), else at home.
     final home = sunTimes(now, placeNamed(brain.district));
@@ -64,7 +87,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
         : skyLight(now, home.sunrise, home.sunset);
     final scene = sceneFor(brain.text('home_scene'), now);
     final dim = light.dim.clamp(0.0, 0.6);
-    const heroH = 410.0;
+    final bd = banglaDate(today);
 
     Widget chip(String k) {
       final on = k == key;
@@ -74,7 +97,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
       return Padding(
         padding: const EdgeInsets.only(right: 7),
         child: Material(
-          color: on ? _white : _white.withValues(alpha: 0.18),
+          color: on ? _white : _white.withValues(alpha: 0.16),
           shape: StadiumBorder(side: BorderSide(color: on ? _white : _white.withValues(alpha: 0.45))),
           child: InkWell(
             key: Key('wx-chip-$label'),
@@ -84,7 +107,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 if (mine) ...[Icon(Icons.place_outlined, size: 15, color: on ? const Color(0xFF13718A) : _white), const SizedBox(width: 3)],
-                Text(on || kf == null ? label : '$label ${bnDigits(kf.now.temp.round())}°',
+                Text(on || kf == null ? label : '$label ${deg(kf.now.temp)}',
                     style: body(13, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? const Color(0xFF192E28) : _white, height: 1.3)),
               ]),
             ),
@@ -93,104 +116,121 @@ class _WeatherScreenState extends State<WeatherScreen> {
       );
     }
 
-    final hero = SizedBox(
-      height: top + heroH,
-      child: Stack(fit: StackFit.expand, children: [
-        Image.asset(sceneAsset(scene, night: false), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
-        if (light.night > 0)
-          Opacity(
-            opacity: light.night.clamp(0.0, 1.0),
-            child: Image.asset(sceneAsset(scene, night: true), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
-          ),
-        // The sky moves with the weather there: clouds, rain, fog.
-        SceneLayers(
-          scene: scene,
-          night: light.night,
-          phase: light.phase,
-          moon: moonOf(hijriDate(now, adjust: brain.hijriShift)),
-          weather: weatherKind(f?.now.code),
-          special: null,
-          motion: brain.text('scene_motion') != 'off',
-        ),
-        if (dim > 0) ColoredBox(color: Colors.black.withValues(alpha: dim)),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [
-              0,
-              0.4,
-              0.8,
-              1
-            ], colors: [
-              Colors.black.withValues(alpha: 0.38),
-              Colors.black.withValues(alpha: 0),
-              C.ground.withValues(alpha: 0),
-              C.ground,
-            ]),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.only(top: top),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30, color: _white, shadows: _shade)),
-              Expanded(child: Text(tr('আবহাওয়া'), style: display(20, weight: 600, color: _white).copyWith(shadows: _shade))),
-              IconButton(
-                key: const Key('wx-places'),
-                tooltip: tr('লোকেশন'),
-                onPressed: () => _places(context),
-                icon: const Icon(Icons.add_rounded, size: 27, color: _white, shadows: _shade),
+    // Today: the English date, and under it the chosen calendars (Bangla with its season).
+    final dates = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('${weekdayName(today)} · ${tr('আজ')}', style: body(13, weight: FontWeight.w500, color: _soft, height: 1.3).copyWith(shadows: _shade)),
+      Text('${bnDigits(today.day)} ${monthName(today.month)} ${bnDigits(today.year)}',
+          key: const Key('ds-date'), style: display(25, weight: 600, height: 1.3, color: _white).copyWith(shadows: _shade)),
+      for (final id in brain.calendars)
+        if (calDate(id, today, hijriShift: brain.hijriShift) case final c?)
+          Text(id == 'bangla' ? '${c.text} · ${trf('{0}কাল', [bd.season])}' : c.text,
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, weight: FontWeight.w500, color: _soft, height: 1.45).copyWith(shadows: _shade)),
+    ]);
+
+    final weatherNow = f == null
+        ? Text(_asking.contains(key) ? tr('আবহাওয়া আনা হচ্ছে…') : tr('এখন আবহাওয়া আনা গেল না — ইন্টারনেট চালু করে আবার খুলুন।'),
+            style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))
+        : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              Text(deg(f.now.temp), key: const Key('wx-temp'), style: display(80, weight: 400, height: 1.0, color: _white).copyWith(shadows: _shade)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(f.now.sky, maxLines: 2, style: body(18, weight: FontWeight.w600, color: _white, height: 1.3).copyWith(shadows: _shade)),
+                  // The other scale, small.
+                  Text(degOther(f.now.temp), key: const Key('wx-other'), style: body(13.5, weight: FontWeight.w500, color: _soft).copyWith(shadows: _shade)),
+                ]),
+              ),
+              Container(
+                width: 74,
+                height: 74,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withValues(alpha: 0.12), border: Border.all(color: _white.withValues(alpha: 0.35))),
+                alignment: Alignment.center,
+                child: WeatherIcon(f.now.code, day: f.hours.isEmpty || f.hours.first.day, size: 44),
               ),
             ]),
-            SizedBox(
-              height: 34,
-              child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), children: [for (final k in keys) chip(k)]),
+            const SizedBox(height: 12),
+            Row(children: [
+              _glass(Text.rich(
+                TextSpan(children: [
+                  const WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 14, color: _white)),
+                  TextSpan(text: '${deg(f.now.max)}   '),
+                  const WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 14, color: _white)),
+                  TextSpan(text: deg(f.now.min)),
+                ]),
+                style: body(13, weight: FontWeight.w600, color: _white, height: 1.3),
+              )),
+              const SizedBox(width: 8),
+              Flexible(child: _glass(Text(trf('অনুভূত {0}°', [degN(f.now.feels)]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: _white, height: 1.3)))),
+            ]),
+            const SizedBox(height: 10),
+            Row(children: [
+              Icon(_tip(f).$1, size: 17, color: _white, shadows: _shade),
+              const SizedBox(width: 6),
+              Expanded(child: Text(_tip(f).$2, key: const Key('wx-tip'), maxLines: 2, style: body(13.5, weight: FontWeight.w500, color: _white).copyWith(shadows: _shade))),
+            ]),
+          ]);
+
+    final hero = Stack(children: [
+      Positioned.fill(
+        child: Stack(fit: StackFit.expand, children: [
+          Image.asset(sceneAsset(scene, night: false), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
+          if (light.night > 0)
+            Opacity(
+              opacity: light.night.clamp(0.0, 1.0),
+              child: Image.asset(sceneAsset(scene, night: true), fit: BoxFit.cover, alignment: sceneAlign, gaplessPlayback: true, excludeFromSemantics: true),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
-              child: f == null
-                  ? Text(_asking.contains(key) ? tr('আবহাওয়া আনা হচ্ছে…') : tr('এখন আবহাওয়া আনা গেল না — ইন্টারনেট চালু করে আবার খুলুন।'),
-                      style: body(15, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade))
-                  : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('${bnDigits(f.now.temp.round())}°', key: const Key('wx-temp'), style: display(96, weight: 400, height: 1.0, color: _white).copyWith(shadows: _shade)),
-                            Text(f.now.sky, style: body(19, weight: FontWeight.w600, color: _white).copyWith(shadows: _shade)),
-                          ]),
-                        ),
-                        Container(
-                          width: 92,
-                          height: 92,
-                          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.black.withValues(alpha: 0.12), border: Border.all(color: _white.withValues(alpha: 0.35))),
-                          alignment: Alignment.center,
-                          child: WeatherIcon(f.now.code, day: f.hours.isEmpty || f.hours.first.day, size: 56),
-                        ),
-                      ]),
-                      const SizedBox(height: 12),
-                      Wrap(spacing: 8, runSpacing: 8, children: [
-                        _glass(Text.rich(
-                          TextSpan(children: [
-                            const WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 14, color: _white)),
-                            TextSpan(text: '${bnDigits(f.now.max.round())}°   '),
-                            const WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 14, color: _white)),
-                            TextSpan(text: '${bnDigits(f.now.min.round())}°'),
-                          ]),
-                          style: body(13, weight: FontWeight.w600, color: _white, height: 1.3),
-                        )),
-                        _glass(Text(trf('অনুভূত {0}°', [bnDigits(f.now.feels.round())]), style: body(13, weight: FontWeight.w600, color: _white, height: 1.3))),
-                      ]),
-                      const SizedBox(height: 10),
-                      Row(children: [
-                        Icon(_tip(f).$1, size: 17, color: _white, shadows: _shade),
-                        const SizedBox(width: 6),
-                        Expanded(child: Text(_tip(f).$2, key: const Key('wx-tip'), maxLines: 2, style: body(13.5, weight: FontWeight.w500, color: _white).copyWith(shadows: _shade))),
-                      ]),
-                    ]),
+          // The sky moves with the weather there: clouds, rain, fog.
+          SceneLayers(
+            scene: scene,
+            night: light.night,
+            phase: light.phase,
+            moon: moonOf(hijriDate(now, adjust: brain.hijriShift)),
+            weather: weatherKind(f?.now.code),
+            special: null,
+            motion: brain.text('scene_motion') != 'off',
+          ),
+          if (dim > 0) ColoredBox(color: Colors.black.withValues(alpha: dim)),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [
+                0,
+                0.42,
+                0.82,
+                1
+              ], colors: [
+                Colors.black.withValues(alpha: 0.42),
+                Colors.black.withValues(alpha: 0.05),
+                C.ground.withValues(alpha: 0),
+                C.ground,
+              ]),
+            ),
+          ),
+        ]),
+      ),
+      Padding(
+        padding: EdgeInsets.only(top: top, bottom: 26),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30, color: _white, shadows: _shade)),
+            Expanded(child: Text(daySkyName, key: const Key('ds-title'), style: display(20, weight: 600, color: _white).copyWith(shadows: _shade))),
+            _unit(brain),
+            IconButton(
+              key: const Key('wx-places'),
+              tooltip: tr('লোকেশন'),
+              onPressed: () => _places(context),
+              icon: const Icon(Icons.add_location_alt_outlined, size: 24, color: _white, shadows: _shade),
             ),
           ]),
-        ),
-      ]),
-    );
+          SizedBox(
+            height: 34,
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), children: [for (final k in keys) chip(k)]),
+          ),
+          Padding(padding: const EdgeInsets.fromLTRB(22, 18, 22, 0), child: dates),
+          Padding(padding: const EdgeInsets.fromLTRB(22, 14, 22, 0), child: weatherNow),
+        ]),
+      ),
+    ]);
 
     return Scaffold(
       backgroundColor: C.ground,
@@ -198,12 +238,22 @@ class _WeatherScreenState extends State<WeatherScreen> {
         onRefresh: () => brain.forecastFor(key),
         child: ListView(padding: EdgeInsets.zero, children: [
           hero,
-          if (f != null)
-            Transform.translate(
-              offset: const Offset(0, -28),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          // (No overlap on the picture: a part moved up over it cannot be tapped there.)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                SegTabs<bool>(
+                  key: const Key('ds-tabs'),
+                  items: [(false, tr('আবহাওয়া')), (true, tr('ক্যালেন্ডার'))],
+                  value: _cal,
+                  onChanged: (v) => setState(() => _cal = v),
+                ),
+                const SizedBox(height: 10),
+                if (_cal)
+                  CalendarPanel(forecast: brain.forecastKept(brain.district))
+                else if (f != null) ...[
                   if (f.hours.isNotEmpty) _hours(f),
                   if (f.days.isNotEmpty) ...[const SizedBox(height: 10), _days(f)],
                   if (f.sunrise != null && f.sunset != null) ...[const SizedBox(height: 10), _sun(f)],
@@ -211,10 +261,37 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   _facts(f),
                   const SizedBox(height: 10),
                   Text(tr('Open-Meteo থেকে · শুধু জায়গার অবস্থান পাঠানো হয়'), textAlign: TextAlign.center, style: body(11.5, color: C.muted)),
-                ]),
-              ),
+                ],
+              ]),
             ),
+          ),
         ]),
+      ),
+    );
+  }
+
+  /// °C | °F, a small glass switch (kept on the phone).
+  Widget _unit(Brain brain) {
+    Widget side(String label, bool f) {
+      final on = tempF == f;
+      return GestureDetector(
+        key: Key(f ? 'wx-unit-f' : 'wx-unit-c'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => brain.setPref('temp_unit', f ? 'f' : 'c'),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(color: on ? _white : Colors.transparent, borderRadius: BorderRadius.circular(16)),
+          child: Text(label, style: body(12.5, weight: FontWeight.w700, color: on ? const Color(0xFF192E28) : _white, height: 1.2)),
+        ),
+      );
+    }
+
+    return Semantics(
+      label: tr('তাপমাত্রার একক'),
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(20), border: Border.all(color: _white.withValues(alpha: 0.35))),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [side('°C', false), side('°F', true)]),
       ),
     );
   }
@@ -253,7 +330,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 const SizedBox(height: 7),
                 WeatherIcon(h.code, day: h.day, size: 26),
                 const SizedBox(height: 7),
-                Text('${bnDigits(h.temp.round())}°', style: display(15.5, weight: 600, height: 1.1, color: on ? C.onAccent : null)),
+                Text(deg(h.temp), style: display(15.5, weight: 600, height: 1.1, color: on ? C.onAccent : null)),
               ]),
             );
           },
@@ -287,7 +364,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
               ),
               SizedBox(
                 width: 36,
-                child: Text('${bnDigits(d.min.round())}°', textAlign: TextAlign.right, style: body(13.5, color: C.muted)),
+                child: Text(deg(d.min), textAlign: TextAlign.right, style: body(13.5, color: C.muted)),
               ),
               Expanded(
                 child: Padding(
@@ -322,7 +399,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   }),
                 ),
               ),
-              SizedBox(width: 32, child: Text('${bnDigits(d.max.round())}°', style: body(13.5, weight: FontWeight.w600))),
+              SizedBox(width: 32, child: Text(deg(d.max), style: body(13.5, weight: FontWeight.w600))),
             ]),
           ),
       ]),
@@ -407,7 +484,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
     final next = f.hours.take(12).map((h) => h.temp);
     if (next.isNotEmpty) {
       final low = next.reduce(math.min);
-      if (low <= f.now.temp - 3) return (Icons.nights_stay_outlined, trf('রাতে {0}° পর্যন্ত নামবে', [bnDigits(low.round())]));
+      if (low <= f.now.temp - 3) return (Icons.nights_stay_outlined, trf('রাতে {0}° পর্যন্ত নামবে', [degN(low)]));
     }
     return (Icons.wb_sunny_outlined, tr('আগামী ৩ দিন বৃষ্টির সম্ভাবনা কম'));
   }
@@ -444,7 +521,7 @@ class _WeatherScreenState extends State<WeatherScreen> {
                   ),
                   if (kf != null) ...[
                     WeatherIcon(kf.now.code, size: 24),
-                    SizedBox(width: 44, child: Text('${bnDigits(kf.now.temp.round())}°', textAlign: TextAlign.right, style: display(17, weight: 600))),
+                    SizedBox(width: 44, child: Text(deg(kf.now.temp), textAlign: TextAlign.right, style: display(17, weight: 600))),
                   ],
                   SizedBox(
                     width: 44,

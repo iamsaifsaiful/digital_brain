@@ -4,6 +4,19 @@ library;
 import 'bn.dart';
 import 'lang.dart';
 
+/// Temperatures in °F instead of °C (owner, 19 Nov: "সেলসিয়াস ও ফারেনহাইট");
+/// the 'temp_unit' setting, applied by the Brain.
+bool tempF = false;
+
+/// A Celsius reading in the chosen scale, rounded: "২৮°" or "৮২°".
+String deg(double c) => '${degN(c)}°';
+
+/// The number alone, for texts that carry their own "°".
+String degN(double c) => bnDigits((tempF ? c * 9 / 5 + 32 : c).round());
+
+/// The same reading in the other scale, with its letter: "৮২°F" / "২৮°C".
+String degOther(double c) => tempF ? '${bnDigits(c.round())}°C' : '${bnDigits((c * 9 / 5 + 32).round())}°F';
+
 class Weather {
   const Weather({required this.temp, required this.feels, required this.min, required this.max, required this.humidity, required this.code, required this.place, required this.at});
   final double temp;
@@ -35,13 +48,13 @@ class Weather {
   }
 
   /// "২৮°" — the label on the home sky.
-  String get short => '${bnDigits(temp.round())}°';
+  String get short => deg(temp);
 
   String get sky => weatherWords(code);
 
   /// The full answer to "আজ তাপমাত্রা কত?".
-  String said() => trf('{0}: এখন {1}°সে ({2}) — অনুভূত {3}°, আজ সর্বনিম্ন {4}° আর সর্বোচ্চ {5}°, আর্দ্রতা {6}%।',
-      [tr(place), bnDigits(temp.round()), sky, bnDigits(feels.round()), bnDigits(min.round()), bnDigits(max.round()), bnDigits(humidity)]);
+  String said() => trf('{0}: এখন {1}{7} ({2}) — অনুভূত {3}, আজ সর্বনিম্ন {4} আর সর্বোচ্চ {5}, আর্দ্রতা {6}%।',
+      [tr(place), deg(temp), sky, deg(feels), deg(min), deg(max), bnDigits(humidity), tempF ? tr('ফা') : tr('সে')]);
 }
 
 /// The WMO weather code in words.

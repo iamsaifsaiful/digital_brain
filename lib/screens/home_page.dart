@@ -47,6 +47,7 @@ import 'settings_parts.dart';
 import 'spend_health_screen.dart';
 import 'vault_screen.dart';
 import 'weather_screen.dart';
+import '../logic/weather.dart' show deg, degN;
 import 'zakat_screen.dart';
 import '../logic/pro.dart' show medicalOff;
 
@@ -502,9 +503,9 @@ class _HomeHeroState extends State<HomeHero> {
             Text.rich(
               TextSpan(children: [
                 WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 13, color: _soft, shadows: _shade)),
-                TextSpan(text: '${bnDigits(w.max.round())}°  '),
+                TextSpan(text: '${deg(w.max)}  '),
                 WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 13, color: _soft, shadows: _shade)),
-                TextSpan(text: '${bnDigits(w.min.round())}° · ${trf('অনুভূত {0}°', [bnDigits(w.feels.round())])}'),
+                TextSpan(text: '${deg(w.min)} · ${trf('অনুভূত {0}°', [degN(w.feels)])}'),
               ]),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1016,7 +1017,7 @@ List<(String, String, IconData, VoidCallback)> appTools(BuildContext context) {
       ('health', tr('স্বাস্থ্য'), Icons.monitor_heart_outlined, () => push(const HealthScreen())),
       ('alarms', trm('অ্যালার্ম'), Icons.alarm_rounded, () => push(const AlarmsScreen())),
       ('vault', trm('পাসওয়ার্ড'), Icons.lock_outline_rounded, () => push(const VaultPage())),
-      ('calendar', tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
+      ('calendar', tr('ঋতুপঞ্জি'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
       ('compass', tr('মুসলিম টাইম'), Icons.mosque_outlined, () => push(const IbadahScreen())),
       ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       ('family', tr('পরিবার'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),

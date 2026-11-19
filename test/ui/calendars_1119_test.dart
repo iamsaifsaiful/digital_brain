@@ -61,7 +61,8 @@ void main() {
     expect(find.textContaining('৪ অগ্রহায়ণ ১৪৩৩'), findsWidgets);
     Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => const CalendarScreen()));
     await settle(t);
-    expect(find.text('আজ বাংলা তারিখ'), findsOneWidget);
+    // On the ঋতুপঞ্জি page the chosen calendars stand under today's date (19 Nov).
+    expect(find.text('৪ অগ্রহায়ণ ১৪৩৩ · হেমন্তকাল'), findsOneWidget);
     expect(find.byKey(const Key('cal-side-tabs')), findsOneWidget);
     await _shot(t, '1-page-bangla-hijri');
     _done();
@@ -92,9 +93,9 @@ void main() {
     await settle(t);
     await t.tap(find.byKey(const Key('cal-choice-done')));
     await settle(t);
-    // Hijri is now the main date; Chinese under it and in the tabs.
-    expect(find.text('আজ · হিজরি (আরবি)'), findsOneWidget);
-    expect(find.textContaining('চীনা · ১১ দশম মাস'), findsOneWidget);
+    // Hijri first, then Chinese, under today's date; Chinese in the tabs too.
+    expect(find.textContaining('১১ দশম মাস'), findsWidgets);
+    expect(find.text('৪ অগ্রহায়ণ ১৪৩৩ · হেমন্তকাল'), findsNothing);
     await t.tap(find.text('চীনা চান্দ্র'));
     await settle(t);
     await _shot(t, '3-page-hijri-chinese');

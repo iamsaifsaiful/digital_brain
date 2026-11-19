@@ -1835,6 +1835,9 @@ class Brain extends ChangeNotifier {
     'voice_lang',
     // Owner, 19 Nov: prayer, sehri and iftar pinned to Home (off unless chosen).
     'home_waqt', 'home_sehri', 'home_iftar',
+    // Owner, 19 Nov: the calendars beside English, the weather's other places,
+    // and °C or °F (these were saved but not read back at start).
+    'calendars', 'weather_places', 'temp_unit',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1918,6 +1921,7 @@ class Brain extends ChangeNotifier {
         prefs[key] = '$value';
         if (key == 'hijri_adjust') hijriAdjust = hijriShift;
         if (key == 'voice_lang') _applyVoiceLang();
+        if (key == 'temp_unit') tempF = value == 'f';
     }
     notifyListeners();
     await _put(key, '$value');
@@ -1946,6 +1950,7 @@ class Brain extends ChangeNotifier {
         if (v != null) prefs[k] = v;
       }
       _applyVoiceLang();
+      tempF = prefs['temp_unit'] == 'f';
       // The diagnostic trace: on in development builds, or when the user turned it on.
       Trace.enabled = kDebugMode || prefs['trace_on'] == 'true';
       askZakat = zakatSaved;
