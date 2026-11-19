@@ -1876,6 +1876,7 @@ const enStrings = <String, String>{
   'তথ্য': 'Info',
   'তথ্য খোলা যায়নি': 'Couldn’t open your data',
   'নতুন করে শুরু করবেন?': 'Start fresh?',
+  'গোপনীয়তা': 'Privacy',
   'অ্যাপ খালি অবস্থায় শুরু হবে। পুরনো ফাইলটা মুছে ফেলা হবে না, আলাদা করে রাখা থাকবে। পরে ব্যাকআপ পেলে সেখান থেকে ফিরিয়ে আনা যাবে।': 'The app will start empty. The old file won’t be deleted — it’s kept aside. If you find a backup later, you can still restore it.',
   'নতুন করে শুরু করুন': 'Start fresh',
   'ব্যাকআপ নেই — নতুন করে শুরু করুন': 'No backup — start fresh',
