@@ -1,1 +1,1 @@
-1.0.13 (code 10018): ঋতুপঞ্জি / Almanac (calendar + weather in one page, °C/°F); 12 calendars; holidays of several countries; মুসলিম টাইম; family medicine reminders; new location picker; mobile country code; My Files and sign-in redesign; professional wording
+1.0.13 (code 10018): ঋতুপঞ্জি / Almanac (calendar + weather in one page, °C/°F); 12 calendars; holidays of several countries; মুসলিম টাইম; family medicine reminders; new location picker; mobile country code; My Files and sign-in redesign; professional wording; country search capitalizes sentences

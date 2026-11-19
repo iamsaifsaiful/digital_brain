@@ -560,6 +560,7 @@ Future<PhoneCountry?> pickPhoneCountry(BuildContext context, PhoneCountry curren
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: TextField(
                 key: const Key('phone-country-search'),
+                textCapitalization: TextCapitalization.sentences,
                 onChanged: (v) => set(() => q = v),
                 style: body(15.5),
                 decoration: InputDecoration(
