@@ -50,8 +50,7 @@ void main() {
     expect(await rig.services.lock.keys.read('lang'), 'bn');
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/lang/2-bangla.png'));
 
-    // The first PIN step keeps the choice (a phone without the Google step
-    // starts here); the second one and the unlock do not.
+    // The PIN pages have a small switch at the foot.
     await t.tap(find.byKey(const Key('welcome-later')));
     await settle(t);
     expect(find.byKey(const Key('lock-lang')), findsOneWidget);
@@ -65,7 +64,17 @@ void main() {
       await t.pump(const Duration(milliseconds: 30));
     }
     await settle(t);
-    expect(find.byKey(const Key('lock-lang')), findsNothing);
+    await t.tap(find.text('1').last);
+    for (final d in ['2', '3', '4']) {
+      await t.tap(find.text(d).last);
+      await t.pump(const Duration(milliseconds: 30));
+    }
+    await settle(t);
+    // Locked again: the daily unlock page has it too.
+    rig.brain.lockNow();
+    await settle(t);
+    expect(find.byKey(const Key('lock-lang')), findsOneWidget);
+    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/lang/5-unlock.png'));
     debugDisableShadows = true;
   });
 }

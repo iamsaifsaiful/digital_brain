@@ -346,11 +346,9 @@ class _LockScreenState extends State<LockScreen> {
                             style: body(14, color: const Color(0xFFA9B5AF)), textAlign: TextAlign.center),
                       ],
                     ),
-                    // English | বাংলা (owner, 19 Nov): the first choice on a
-                    // new phone, right before the first step, where it is
-                    // read before anything else is asked. Not on the unlock:
-                    // the member chose already (সেটিংস › ভাষা changes it).
-                    if (_mode == _Mode.google || (_mode == _Mode.create && _first.isEmpty && _message == null)) ...[
+                    // English | বাংলা (owner, 19 Nov): on the sign-up page the
+                    // first choice, big, right before the first step.
+                    if (_mode == _Mode.google) ...[
                       const SizedBox(height: 26),
                       const LangSwitch(),
                       const SizedBox(height: 22),
@@ -425,6 +423,10 @@ class _LockScreenState extends State<LockScreen> {
                         style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
                         textAlign: TextAlign.center,
                       ),
+                    // On the PIN pages (owner, 19 Nov: not in the middle there)
+                    // a small switch at the foot, out of the PIN's way.
+                    if (_mode != _Mode.google && _mode != _Mode.loading)
+                      const Padding(padding: EdgeInsets.only(bottom: 6), child: LangSwitch(compact: true)),
                     // The company behind the app (owner, 28 Oct).
                     Padding(
                       padding: const EdgeInsets.only(top: 14),
@@ -463,12 +465,33 @@ class _LockScreenState extends State<LockScreen> {
 /// and ticked. Each name is written in its own language, so a member who
 /// reads only one of them still finds theirs.
 class LangSwitch extends StatelessWidget {
-  const LangSwitch({super.key});
+  const LangSwitch({super.key, this.compact = false});
+
+  /// The small one at the foot of the PIN pages.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final en = brain.english;
+    if (compact) {
+      Widget word(String label, bool on, bool toEn, Key key) => InkWell(
+            key: key,
+            borderRadius: BorderRadius.circular(14),
+            onTap: on ? null : () => brain.setEnglish(toEn),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(label, style: body(14, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? C.mint : const Color(0xFF8E9B95))),
+            ),
+          );
+      return Row(key: const Key('lock-lang'), mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.translate_rounded, size: 16, color: Color(0xFF8E9B95)),
+        const SizedBox(width: 2),
+        word('English', en, true, const Key('lock-lang-en')),
+        Container(width: 1, height: 14, color: const Color(0x408E9B95)),
+        word('বাংলা', !en, false, const Key('lock-lang-bn')),
+      ]);
+    }
     Widget half(String label, bool on, bool toEn, Key key) => Expanded(
           child: Semantics(
             button: true,
