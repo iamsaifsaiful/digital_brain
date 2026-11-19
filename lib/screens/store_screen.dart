@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../state/brain.dart';
-import '../ui/note_parts.dart';
 import '../ui/motion.dart';
 import '../ui/theme.dart';
-import '../ui/widgets.dart' show TabTitle, ListRow;
+import '../ui/pin.dart' show verifyUser;
+import '../ui/widgets.dart' show TabTitle;
 import 'calls_screen.dart';
 import 'docs_screen.dart';
 import 'home_shell.dart';
@@ -29,167 +29,210 @@ class StoreScreen extends StatelessWidget {
     final brain = BrainScope.of(context);
     final d = brain.data;
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
-    final recent = ([...d.notes]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt))).take(4).toList();
+    final now = brain.services.now();
+    final today = DateTime(now.year, now.month, now.day);
 
-    // Owner, 3 Nov (approved design): the three used most as big cards on
-    // their own colour, the rest in one list with what each is for.
-    Widget big(Key key, String label, int count, String sub, IconData icon, Color fg, Color bg, VoidCallback onTap) => Expanded(
+    // Owner, 19 Nov (design খ, "চার ঘর"): one colour, thin line icons, white
+    // cards. The four used most in big squares, the rest as small buttons,
+    // one line when a paper runs out, then what was kept lately.
+    Widget box(Widget child, {double radius = 14}) => Container(
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(radius), border: Border.all(color: C.border)),
+          clipBehavior: Clip.antiAlias,
+          child: Material(color: Colors.transparent, child: child),
+        );
+
+    Widget tile(Key key, String label, int count, IconData icon, VoidCallback onTap) => Expanded(
           child: Pressable(
-          child: Material(
-            key: key,
-            color: bg,
-            borderRadius: BorderRadius.circular(18),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: onTap,
-              child: SizedBox(
-                height: 128,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 14, 10, 12),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(12)),
-                      child: Icon(icon, color: fg, size: 21),
-                    ),
-                    const Spacer(),
-                    Text(bnDigits(count), style: display(22, weight: 700, color: fg, height: 1.1)),
-                    Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w700, height: 1.3)),
-                    Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: C.muted, height: 1.3)),
-                  ]),
+            child: box(
+              InkWell(
+                key: key,
+                onTap: onTap,
+                child: SizedBox(
+                  height: 96,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Icon(icon, color: C.green, size: 24),
+                        const Spacer(),
+                        Text(bnDigits(count), style: body(13, color: C.muted)),
+                      ]),
+                      const Spacer(),
+                      Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w600, height: 1.3)),
+                    ]),
+                  ),
                 ),
               ),
             ),
           ),
+        );
+
+    Widget small(Key key, String label, IconData icon, VoidCallback onTap) => Expanded(
+          child: box(
+            InkWell(
+              key: key,
+              onTap: onTap,
+              child: SizedBox(
+                height: 44,
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(icon, color: C.muted, size: 18),
+                  const SizedBox(width: 7),
+                  Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, weight: FontWeight.w500))),
+                ]),
+              ),
+            ),
+            radius: 12,
           ),
         );
-    Widget item(Key key, String label, String sub, IconData icon, Color fg, Color bg, VoidCallback onTap, {int? count, bool warn = false}) => ListRow(
-          key: key,
-          leading: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(11)),
-            child: Icon(icon, color: fg, size: 20),
-          ),
-          title: label,
-          subtitle: sub,
-          subtitleColor: warn ? C.warn : null,
-          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (count != null) Text(bnDigits(count), style: body(14, weight: FontWeight.w700, color: warn ? C.warn : C.ink)),
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded, color: C.muted),
-          ]),
-          onTap: onTap,
-        );
+
     // The paper that runs out soonest, within a month.
-    final now = brain.services.now();
     final dated = d.docs.where((x) => x.expiry != null).toList()..sort((a, b) => a.expiry!.compareTo(b.expiry!));
-    final soon = dated.where((x) => !x.expiry!.isBefore(DateTime(now.year, now.month, now.day)) && x.expiry!.difference(now).inDays <= 30).firstOrNull;
-    final gone = dated.where((x) => x.expiry!.isBefore(DateTime(now.year, now.month, now.day))).firstOrNull;
-    String expirySub() {
+    final soon = dated.where((x) => !x.expiry!.isBefore(today) && x.expiry!.difference(now).inDays <= 30).firstOrNull;
+    final gone = dated.where((x) => x.expiry!.isBefore(today)).firstOrNull;
+    String? warning() {
       if (gone != null) return trf('{0}-এর মেয়াদ শেষ হয়ে গেছে', [gone.title]);
       if (soon != null) {
-        final days = DateTime(soon.expiry!.year, soon.expiry!.month, soon.expiry!.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+        final days = DateTime(soon.expiry!.year, soon.expiry!.month, soon.expiry!.day).difference(today).inDays;
         return days == 0 ? trf('{0} আজ শেষ', [soon.title]) : trf('{0} {1} দিন পর শেষ', [soon.title, bnDigits(days)]);
       }
-      return tr('পাসপোর্ট, লাইসেন্স — শেষ হওয়ার আগে মনে করাবে');
+      return null;
     }
+
+    final warn = warning();
+
+    // Lately kept: notes, papers and people, newest first. Passwords stay
+    // inside their locked page.
+    final recent = <(DateTime, String, String, IconData, VoidCallback)>[
+      for (final n in d.notes) (n.updatedAt, n.title, tr(n.category), Icons.description_outlined, () => push(NewItemScreen(note: n))),
+      for (final x in d.docs)
+        (x.updatedAt, x.title, tr('ডকুমেন্টস'), Icons.folder_outlined, () async {
+          final ok = await verifyUser(context, reason: trf('{0} — দেখতে যাচাই করুন', [x.title]));
+          if (ok && context.mounted) push(DocScreen(id: x.id, unlocked: true));
+        }),
+      for (final c in d.contacts) (c.updatedAt, c.name, tr('যোগাযোগ'), Icons.person_outline_rounded, () => push(const CallsScreen())),
+    ]..sort((a, b) => b.$1.compareTo(a.$1));
+
+    final smalls = [
+      small(const Key('store-special'), tr('বিশেষ দিন'), Icons.card_giftcard_outlined, () => push(const SpecialDaysScreen())),
+      small(const Key('store-health'), tr('স্বাস্থ্য'), Icons.favorite_border_rounded, () => push(const HealthScreen())),
+      if (!medicalOff) small(const Key('store-emergency'), tr('জরুরি কার্ড'), Icons.emergency_outlined, () => push(const EmergencyScreen())),
+      small(const Key('store-tags'), tr('ট্যাগ'), Icons.sell_outlined, () => push(const TagsScreen())),
+    ];
+    Widget row(List<Widget> ws) => Row(children: [
+          for (final (i, w) in ws.indexed) ...[if (i > 0) const SizedBox(width: 8), w],
+        ]);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        TabTitle(tr('আমার ফাইল'), sub: tr('আপনার সব দরকারি জিনিস, এই ফোনে তালাবদ্ধ')),
-        const SizedBox(height: 14),
+        TabTitle(tr('আমার ফাইল')),
+        const SizedBox(height: 12),
         Material(
-          color: C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: C.border)),
+          color: C.surface2,
+          borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(12),
             onTap: () => push(const SearchScreen()),
             child: SizedBox(
-              height: 48,
+              height: 46,
               child: Row(children: [
-                const SizedBox(width: 16),
+                const SizedBox(width: 13),
                 Icon(Icons.search_rounded, color: C.muted, size: 20),
                 const SizedBox(width: 10),
-                Expanded(child: Text(tr('নোট, নম্বর, পাসওয়ার্ড খুঁজুন…'), style: body(14.5, color: C.muted))),
-                IconButton(tooltip: tr('বলে খুঁজুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.green)),
+                Expanded(child: Text(tr('খুঁজুন'), style: body(14.5, color: C.muted))),
+                IconButton(tooltip: tr('বলে খুঁজুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.muted, size: 21)),
               ]),
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         Row(children: [
-          big(const Key('store-notes'), trm('নোট'), d.notes.length, tr('সব লেখা'), Icons.sticky_note_2_outlined, C.ochre, C.ochreTint, () => push(const NotesScreen())),
+          tile(const Key('store-notes'), trm('নোট'), d.notes.length, Icons.description_outlined, () => push(const NotesScreen())),
           const SizedBox(width: 10),
-          big(const Key('store-vault'), trm('পাসওয়ার্ড'), d.vault.length, tr('তালাবদ্ধ'), Icons.key_outlined, C.blue, C.blueTint, () => push(const VaultPage())),
-          const SizedBox(width: 10),
-          big(const Key('store-docs'), tr('ডকুমেন্টস'), d.docs.length, tr('তালাবদ্ধ'), Icons.folder_copy_outlined, C.teal, C.tealTint, () => push(const DocsScreen())),
+          tile(const Key('store-vault'), trm('পাসওয়ার্ড'), d.vault.length, Icons.key_outlined, () => push(const VaultPage())),
         ]),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-          clipBehavior: Clip.antiAlias,
-          child: Material(
-            color: Colors.transparent,
-            child: Column(children: [
-              for (final (i, w) in [
-                item(const Key('store-contacts'), tr('যোগাযোগ'), tr('নাম বললেই ফোন, মেসেজ'), Icons.call_outlined, C.purple, C.purpleTint, () => push(const CallsScreen()), count: d.contacts.length),
-                item(const Key('store-special'), tr('বিশেষ দিন'), tr('জন্মদিন, বিবাহবার্ষিকী'), Icons.cake_outlined, C.rose, C.roseTint, () => push(const SpecialDaysScreen()), count: d.specialDays.length),
-                item(const Key('store-expiry'), tr('কাগজের মেয়াদ'), expirySub(), Icons.event_busy_outlined, C.ochre, C.ochreTint, () => push(const ExpiryScreen()),
-                    count: dated.length, warn: soon != null || gone != null),
-                item(const Key('store-health'), tr('স্বাস্থ্য'), medicalOff ? tr('BMI, ওজন, পানি, হাঁটা, ঘুম') : tr('BMI, প্রেশার, সুগার, টিকা'), Icons.favorite_border_rounded, C.rose, C.roseTint,
-                    () => push(const HealthScreen())),
-                if (!medicalOff) item(const Key('store-emergency'), tr('জরুরি কার্ড'), tr('রক্তের গ্রুপ, জরুরি নম্বর'), Icons.emergency_outlined, C.red, C.roseTint, () => push(const EmergencyScreen())),
-                item(const Key('store-tags'), tr('ট্যাগ'), tr('সব জিনিস নিজের মতো সাজান'), Icons.sell_outlined, C.teal, C.tealTint, () => push(const TagsScreen())),
-              ].indexed) ...[
-                if (i > 0) Divider(height: 1, indent: 64, endIndent: 14, color: C.border),
-                w,
-              ],
-            ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          tile(const Key('store-docs'), tr('ডকুমেন্টস'), d.docs.length, Icons.folder_outlined, () => push(const DocsScreen())),
+          const SizedBox(width: 10),
+          tile(const Key('store-contacts'), tr('যোগাযোগ'), d.contacts.length, Icons.person_outline_rounded, () => push(const CallsScreen())),
+        ]),
+        const SizedBox(height: 10),
+        if (smalls.length <= 3)
+          row(smalls)
+        else ...[
+          row(smalls.sublist(0, 2)),
+          const SizedBox(height: 8),
+          row(smalls.sublist(2)),
+        ],
+        const SizedBox(height: 10),
+        // The papers' end dates: a quiet row, or a warm one when one runs out.
+        Material(
+          color: warn != null ? C.warnBg : C.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: warn != null ? C.warnBorder : C.border)),
+          child: InkWell(
+            key: const Key('store-expiry'),
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => push(const ExpiryScreen()),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(13, 11, 12, 11),
+              child: Row(children: [
+                Icon(warn != null ? Icons.error_outline_rounded : Icons.event_outlined, color: warn != null ? C.warn : C.muted, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(warn ?? tr('কাগজের মেয়াদ'), maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: body(13.5, weight: FontWeight.w500, color: warn != null ? C.orangeDark : C.ink)),
+                ),
+                if (warn != null)
+                  Text(tr('দেখুন'), style: body(13.5, weight: FontWeight.w700, color: C.warn))
+                else ...[
+                  if (dated.isNotEmpty) Text(bnDigits(dated.length), style: body(13.5, color: C.muted)),
+                  Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
+                ],
+              ]),
+            ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(0, 16, 0, 6),
+          padding: const EdgeInsets.fromLTRB(4, 18, 0, 4),
           child: Row(children: [
-            Expanded(child: Text(tr('সম্প্রতি রাখা নোট'), style: display(17, weight: 600))),
+            Expanded(child: Text(tr('সম্প্রতি'), style: body(13, weight: FontWeight.w600, color: C.muted))),
             TextButton.icon(
               onPressed: () => push(const NewItemScreen(category: ItemCategory.note)),
               icon: Icon(Icons.add_rounded, size: 18, color: C.green),
-              label: Text(tr('নতুন'), style: body(14, weight: FontWeight.w600, color: C.green)),
+              label: Text(tr('নতুন'), style: body(13.5, weight: FontWeight.w600, color: C.green)),
             ),
           ]),
         ),
-        Container(
-          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-          clipBehavior: Clip.antiAlias,
-          child: recent.isEmpty
+        box(
+          recent.isEmpty
               ? Padding(
                   padding: const EdgeInsets.all(14),
                   child: Text(tr('এখনো কোনো নোট নেই। সহকারীকে বলুন — “মনে রাখো: গাড়ির কাগজ আলমারিতে”।'), style: body(14, color: C.muted, height: 1.5)),
                 )
               : Column(children: [
-                  for (final (i, n) in recent.indexed) ...[
-                    if (i > 0) Divider(height: 1, indent: 14, endIndent: 14, color: C.border),
+                  for (final (i, r) in recent.take(4).indexed) ...[
+                    if (i > 0) Divider(height: 1, indent: 60, color: C.border),
                     InkWell(
-                      onTap: () => push(NewItemScreen(note: n)),
+                      onTap: r.$5,
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                         child: Row(children: [
                           Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)),
-                              child: Icon(Icons.description_outlined, color: C.green, size: 20)),
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(10)),
+                            child: Icon(r.$4, color: C.ink, size: 18),
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(n.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
-                              Text('${tr(n.category)} · ${notePreview(n)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
+                              Text(r.$2, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w500)),
+                              Text(r.$3, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
                             ]),
                           ),
-                          Icon(Icons.chevron_right_rounded, color: C.muted),
+                          const SizedBox(width: 8),
+                          Text(relativeDay(r.$1, now), style: body(12.5, color: C.muted)),
                         ]),
                       ),
                     ),

@@ -3174,6 +3174,7 @@ const enStrings = <String, String>{
   'সম্পাদনা': 'Edit',
   'সম্প্রতি রাখা': 'Recently added',
   'সম্প্রতি রাখা নোট': 'Recently added notes',
+  'সম্প্রতি': 'Recent',
   'সম্ভবত': 'Probably',
   'সম্ভাব্য কারণ: {0}। সেটিংস থেকে ঠিক করে নিন — খুলে দেওয়া মানে অনুমতি পাওয়া নয়, ফিরে এসে আবার দেখে নেব।': 'Likely reasons: {0}. Fix this in Settings — opening the page doesn’t grant the permission; I’ll check again when you come back.',
   'সরকারি আইনি সহায়তা': 'Government legal aid',
