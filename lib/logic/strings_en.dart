@@ -3014,7 +3014,7 @@ const enStrings = <String, String>{
   'শুভ বিজয়া': 'Shubho Bijoya',
   'শুভ বিবাহবার্ষিকী! আপনাদের দুজনের পথচলা ভালোবাসা আর আনন্দে ভরে থাকুক।': 'Happy anniversary! May your journey together be full of love and joy.',
   'শুভ বুদ্ধপূর্ণিমা': 'Happy Buddha Purnima',
-  'শুভ রাত': 'Good night',
+  'শুভ রাত্রি': 'Good night',
   'শুভ সন্ধ্যা': 'Good evening',
   'শুভেচ্ছা পাঠান': 'Send wishes',
   'শুরু': 'Start',

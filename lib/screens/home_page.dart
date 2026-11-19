@@ -52,7 +52,7 @@ String helloFor(DateTime now) {
   if (h >= 11 && h < 15) return tr('শুভ দুপুর');
   if (h >= 15 && h < 18) return tr('শুভ বিকেল');
   if (h >= 18 && h < 22) return tr('শুভ সন্ধ্যা');
-  return tr('শুভ রাত');
+  return tr('শুভ রাত্রি');
 }
 
 /// হোম (the approved design of 24 Oct, docs/design/2026-10-24-home-final):
