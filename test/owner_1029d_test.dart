@@ -109,9 +109,8 @@ void main() {
       await b.refreshHolidaysAbroad();
       await settle(t);
       expect(b.holidaysAbroad(b.services.now()).map((h) => h.name), ["Saint Andrew's Day", 'National Day']);
-      await t.scrollUntilVisible(find.byKey(const Key('home-holidays-abroad')), 300, scrollable: find.byType(Scrollable).first);
+      await t.scrollUntilVisible(find.byKey(const Key('home-holidays')), 300, scrollable: find.byType(Scrollable).first);
       expect(find.text("Saint Andrew's Day"), findsOneWidget);
-      expect(find.byKey(const Key('home-holidays')), findsNothing);
       // Kept: not asked again.
       final asked = w.holidayAsks;
       await b.refreshHolidaysAbroad();

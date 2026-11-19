@@ -67,6 +67,7 @@ import '../services/platform.dart';
 import '../services/location_share.dart';
 import '../logic/calendar_bd.dart';
 import '../logic/holidays_abroad.dart' show builtInHolidays;
+import '../logic/holiday_mix.dart';
 import '../logic/meal.dart';
 import '../ui/theme.dart' show Look, defaultAccentKey;
 import '../logic/lang.dart';
@@ -1364,11 +1365,86 @@ class Brain extends ChangeNotifier {
     return all.where((h) => !h.date.isBefore(today)).take(count).toList();
   }
 
+  /// The holiday lists the member keeps on the home (owner, 19 Nov): '@'
+  /// for the profile location's country, two letters for any other, and
+  /// 'INTL' for the international days.
+  List<String> get holLists {
+    try {
+      final l = jsonDecode(text('hol_lists', ''));
+      if (l is List) return [for (final x in l) '$x'];
+    } catch (_) {}
+    return holDefault;
+  }
+
+  /// The lists hidden for now by their chip on the home.
+  Set<String> get holOff {
+    try {
+      final l = jsonDecode(text('hol_off', '[]'));
+      if (l is List) return {for (final x in l) '$x'};
+    } catch (_) {}
+    return {};
+  }
+
+  /// The countries of [holLists], '@' turned into the profile's country,
+  /// each once, in order.
+  List<String> get holCountriesShown {
+    final out = <String>[];
+    for (final t in holLists) {
+      if (t == holIntl) continue;
+      final cc = t == holAuto ? placeNamed(district).country : t;
+      if (cc.isNotEmpty && !out.contains(cc)) out.add(cc);
+    }
+    return out;
+  }
+
+  Future<void> setHolLists(List<String> lists) async {
+    prefs['hol_lists'] = jsonEncode(lists);
+    await _put('hol_lists', prefs['hol_lists']!);
+    final off = holOff..removeWhere((t) => t != holIntl && !holCountriesShown.contains(t));
+    prefs['hol_off'] = jsonEncode(off.toList());
+    await _put('hol_off', prefs['hol_off']!);
+    notifyListeners();
+    unawaited(refreshHolidaysAbroad().catchError((_) {}));
+  }
+
+  /// A chip on the home: hides or shows that list ([holIntl] or a country).
+  Future<void> toggleHolOff(String t) async {
+    final off = holOff;
+    if (!off.remove(t)) off.add(t);
+    prefs['hol_off'] = jsonEncode(off.toList());
+    await _put('hol_off', prefs['hol_off']!);
+    notifyListeners();
+  }
+
+  /// The home's সামনের ছুটি: the shown lists in one, by date.
+  List<MixedHoliday> homeHolidays(DateTime now) {
+    final off = holOff;
+    final ccs = [for (final c in holCountriesShown) if (!off.contains(c)) c];
+    final intl = holLists.contains(holIntl) && !off.contains(holIntl);
+    final book = _holidayBook();
+    final abroad = <String, List<AbroadHoliday>>{
+      for (final cc in ccs)
+        if (cc != 'BD')
+          cc: [
+            for (final y in [now.year, now.year + 1])
+              if (book['${cc}_$y'] is List) ...(book['${cc}_$y'] as List).map(AbroadHoliday.fromJson).whereType<AbroadHoliday>(),
+          ],
+    };
+    final sources = ccs.length + (intl ? 1 : 0);
+    return mixHolidays(now, countries: ccs, abroad: abroad, intl: intl, count: sources <= 1 ? 3 : (sources == 2 ? 4 : 5));
+  }
+
   /// Fetches this year's (and, late in the year, next year's) holidays of
-  /// the country the member is in, when not kept yet.
+  /// the countries on the home (and the one the member is in), when not
+  /// kept yet.
   Future<void> refreshHolidaysAbroad() async {
-    final cc = placeNamed(district).country;
-    if (cc == 'BD' || cc.isEmpty) return;
+    final here = placeNamed(district).country;
+    for (final cc in {if (here != 'BD' && here.isNotEmpty) here, ...holCountriesShown.where((c) => c != 'BD')}) {
+      await _refreshHolidays(cc);
+    }
+  }
+
+  Future<void> _refreshHolidays(String cc) async {
     final now = services.now();
     for (final y in [now.year, if (now.month >= 10) now.year + 1]) {
       final k = '${cc}_$y';
@@ -1752,7 +1828,7 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'hol_abroad', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'hol_abroad', 'hol_lists', 'hol_off', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
     // Owner, 4 Nov: time in the app a day; the home picture and what lives on it.
     'usage_days', 'home_scene', 'scene_weather', 'scene_motion', 'scene_special',
     // Owner, 6 Nov: the microphone's language.
