@@ -528,13 +528,12 @@ class _LockScreenState extends State<LockScreen> {
       ]),
     ]);
 
-    final top = MediaQuery.paddingOf(context).top;
     final bottom = MediaQuery.paddingOf(context).bottom;
     Widget footPad(Widget f) => Padding(padding: EdgeInsets.fromLTRB(24, 20, 24, bottom + 12), child: f);
 
 // Dark above with the mark, a light sheet rising from below.
 final bodyW = LayoutBuilder(builder: (context, box) {
-      final upper = box.maxHeight * (big ? 0.40 : 0.27);
+      final upper = box.maxHeight * (big ? 0.30 : 0.16);
       return SingleChildScrollView(
         child: Column(children: [
           SizedBox(
@@ -555,7 +554,6 @@ final bodyW = LayoutBuilder(builder: (context, box) {
                   ),
                 ),
               ),
-              Padding(padding: EdgeInsets.only(top: top), child: Center(child: brand(p.title, p.text))),
             ]),
           ),
           ConstrainedBox(
@@ -567,9 +565,13 @@ final bodyW = LayoutBuilder(builder: (context, box) {
               // 19 Nov: "অল্প একটু নিচে", not at the bottom).
               child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Padding(
-                  padding: EdgeInsets.fromLTRB(24, big ? 30 : 24, 24, 0),
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
                   child: Column(children: [
-                    if (big) ...[LangSwitch(pal: p), const SizedBox(height: 64)],
+                    // The mark starts right where the picture melts into
+                    // the sheet (owner, 20 Nov: not in the middle of it).
+                    brand(p.title, p.text),
+                    SizedBox(height: big ? 28 : 14),
+                    if (big) ...[LangSwitch(pal: p), const SizedBox(height: 40)],
                     if (unlock && _bioAvailable && !_usePin && _lockedUntil == null) const SizedBox(height: 40),
                     content,
                   ]),
