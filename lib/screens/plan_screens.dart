@@ -15,6 +15,7 @@ import '../ui/early_picker.dart';
 import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../ui/kit.dart' show Hairline;
 import 'alarm_screens.dart';
 import 'new_item_screen.dart';
 import '../logic/lang.dart';
@@ -173,10 +174,129 @@ class TaskAlarmButton extends StatelessWidget {
   }
 }
 
+/// Tap a row of Home's "আজকের কাজ" (owner, 20 Nov: "যে কাজে ক্লিক করলে
+/// সেটা ওপেন হবে, ইউজার চাইলে ইডিট করতে পারবে"): the whole thing in a sheet —
+/// full title, day, time, repeat, list, note — and "এডিট করুন" beside it.
+Future<void> openPlanItem(BuildContext context, PlanItem item) => showAppSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ItemSheet(item: item, host: context),
+    );
+
+class _ItemSheet extends StatelessWidget {
+  const _ItemSheet({required this.item, required this.host});
+  final PlanItem item;
+
+  /// The page under the sheet: the edit form opens from it once the sheet is gone.
+  final BuildContext host;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    // The latest copy: a tick or an edit made from this sheet shows at once.
+    final t = item.task == null ? null : brain.data.tasks.where((x) => x.id == item.task!.id).firstOrNull;
+    final r = item.reminder == null ? null : brain.data.reminders.where((x) => x.id == item.reminder!.id).firstOrNull;
+    if (t == null && r == null) return const SizedBox(height: 120);
+    final ring = t?.reminderId == null ? item.ring : brain.data.reminders.where((x) => x.id == t!.reminderId).firstOrNull;
+    final timed = r ?? ring;
+    final passed = r != null && r.repeat == Repeat.none && !r.notifyAt(now).isAfter(now);
+    final done = t?.done ?? passed;
+
+    String day() {
+      if (t != null) {
+        if (t.due == null) return tr('যেকোনো দিন');
+        if (t.span != TaskSpan.day) return taskWhenText(t.copyWith(urgent: false, note: ''), now) ?? tr('যেকোনো দিন');
+        final d = t.due!;
+        final near = dayOnly(d).difference(dayOnly(now)).inDays;
+        return near >= -1 && near <= 1 ? '${relativeDay(d, now)}, ${fullDate(d)}' : fullDate(d);
+      }
+      final at = r!.notifyAt(now);
+      final near = dayOnly(at).difference(dayOnly(now)).inDays;
+      return near >= -1 && near <= 1 ? '${relativeDay(at, now)}, ${fullDate(at)}' : fullDate(at);
+    }
+
+    String? time() {
+      if (timed == null || timed.repeat.isInterval) return null;
+      final at = timed.notifyAt(now);
+      return bnTime(at.hour, at.minute);
+    }
+
+    final repeat = t?.repeat != null ? repeatLabel(t!.repeat!) : (timed != null && timed.repeat != Repeat.none ? repeatText(timed) : null);
+    final note = (t?.note ?? r?.note ?? '').trim();
+
+    Widget row(IconData icon, String label, String value, {Color? color}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, size: 19, color: color ?? C.muted),
+            const SizedBox(width: 12),
+            SizedBox(width: 72, child: Text(label, style: body(13, color: C.muted, height: 1.45))),
+            Expanded(child: Text(value, style: body(14.5, color: color ?? C.ink, height: 1.4))),
+          ]),
+        );
+
+    Future<void> edit() async {
+      Navigator.of(context).pop();
+      if (!host.mounted) return;
+      if (t != null) {
+        await editTask(host, t);
+      } else {
+        await Navigator.of(host).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r)));
+      }
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 4, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(t != null ? Icons.check_circle_outline_rounded : Icons.notifications_active_outlined, size: 16, color: C.green),
+          const SizedBox(width: 6),
+          Text(t != null ? tr('কাজ') : tr('রিমাইন্ডার'), style: body(12.5, weight: FontWeight.w600, color: C.green)),
+          if (t?.urgent ?? false) ...[const SizedBox(width: 8), Pill(tr('জরুরি'), fg: C.warn, bg: C.warnBg)],
+          const Spacer(),
+          if (done) Text(t != null ? tr('হয়ে গেছে') : tr('বেজেছে'), style: body(12.5, weight: FontWeight.w600, color: C.muted)),
+        ]),
+        const SizedBox(height: 8),
+        SelectableText(item.title,
+            style: display(21).copyWith(color: done ? C.muted : C.ink, decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
+        const SizedBox(height: 10),
+        const Hairline(),
+        const SizedBox(height: 4),
+        row(Icons.event_outlined, tr('তারিখ'), day()),
+        if (time() != null) row(Icons.alarm_rounded, tr('সময়'), time()!, color: passed ? C.muted : C.green),
+        if (repeat != null) row(Icons.repeat_rounded, tr('বারবার'), repeat),
+        if (t != null && t.list.isNotEmpty) row(Icons.list_alt_rounded, tr('তালিকা'), t.list),
+        if (note.isNotEmpty) row(Icons.notes_rounded, tr('নোট'), note),
+        if (t != null && t.done && t.doneAt != null) row(Icons.task_alt_rounded, tr('শেষ করেছেন'), '${relativeDay(t.doneAt!, now)}, ${bnTime(t.doneAt!.hour, t.doneAt!.minute)}'),
+        const SizedBox(height: 14),
+        Row(children: [
+          Expanded(child: SecondaryButton(label: tr('এডিট করুন'), icon: Icons.edit_outlined, onPressed: edit)),
+          if (t != null) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: PrimaryButton(
+                label: t.done ? tr('আবার খুলুন') : tr('হয়ে গেছে'),
+                icon: t.done ? Icons.undo_rounded : Icons.check_rounded,
+                height: 48,
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await brain.setTaskDone(t, !t.done);
+                },
+              ),
+            ),
+          ],
+        ]),
+      ]),
+    );
+  }
+}
+
 /// Change or delete a task.
 Future<void> editTask(BuildContext context, Task t) async {
   final brain = BrainScope.read(context);
   final c = TextEditingController(text: t.title);
+  final n = TextEditingController(text: t.note);
   var due = t.due;
   final r = await showDialog<String>(
     context: context,
@@ -185,6 +305,8 @@ Future<void> editTask(BuildContext context, Task t) async {
         title: Text(tr('কাজ'), style: display(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(textCapitalization: TextCapitalization.sentences, controller: c, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('কী করতে হবে'))),
+          const SizedBox(height: 10),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: n, minLines: 1, maxLines: 4, decoration: InputDecoration(labelText: tr('নোট (চাইলে)'))),
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: Text(due == null ? tr('যেকোনো দিন') : fullDate(due!), style: body(15))),
@@ -211,7 +333,7 @@ Future<void> editTask(BuildContext context, Task t) async {
     await brain.deleteTask(t.id);
     if (context.mounted) toast(context, tr('কাজটা মুছে দিলাম'));
   } else if (r == 'save' && c.text.trim().isNotEmpty) {
-    await brain.saveTask(t.copyWith(title: c.text.trim(), due: due, clearDue: due == null));
+    await brain.saveTask(t.copyWith(title: c.text.trim(), note: n.text.trim(), due: due, clearDue: due == null));
   }
 }
 

@@ -16,7 +16,6 @@ import 'google_backup.dart' show restoreFromPhoneFile;
 import 'more_screen.dart' show BackupScreen;
 import 'help_screen.dart';
 import 'plan_screens.dart';
-import 'new_item_screen.dart';
 import '../logic/lang.dart';
 
 /// আজকের কাজ on the home: the next thing with its actions, then what is
@@ -224,7 +223,7 @@ class _NextCard extends StatelessWidget {
     final line = [if (timed) clock, if (meta.isNotEmpty) meta].join(' · ');
     return AppCard(
       key: const Key('home-next'),
-      onTap: () => t != null ? editTask(context, t) : null,
+      onTap: () => openPlanItem(context, item),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -324,7 +323,7 @@ class _TaskRow extends StatelessWidget {
     ].join(' · ');
     final tone = late ? C.warn : (done ? C.muted : (timed != null ? C.green : C.muted));
     return InkWell(
-      onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
+      onTap: () => openPlanItem(context, item),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
         child: Row(children: [
