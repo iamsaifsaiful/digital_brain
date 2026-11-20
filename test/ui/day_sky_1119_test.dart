@@ -157,5 +157,6 @@ void main() {
     await settle(t);
     expect(find.byKey(const Key('wx-hours')), findsOneWidget);
     expect(find.byKey(const Key('cal-choose')), findsNothing);
+    debugDisableShadows = true;
   });
 }

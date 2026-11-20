@@ -232,7 +232,8 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
           hero,
           // (No overlap on the picture: a part moved up over it cannot be tapped there.)
           Padding(
-            padding: const EdgeInsets.only(bottom: 20),
+            // Above the phone's own buttons at the foot (owner, 20 Nov: the last card hid under them).
+            padding: EdgeInsets.only(bottom: 24 + MediaQuery.of(context).padding.bottom),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

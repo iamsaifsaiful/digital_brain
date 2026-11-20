@@ -105,6 +105,32 @@ class _CalendarPanelState extends State<CalendarPanel> {
                 padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
                 child: Text(tr('কোনো তারিখে চাপ দিলে সেদিনের কাজ দেখা যাবে, নতুন কাজ বা রিমাইন্ডারও রাখা যাবে।'), style: body(12, color: C.muted)),
               ),
+              // Right under the month it moves (owner, 20 Nov: "যৌক্তিক ভাবে"). The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
+              if (chosen.contains('hijri')) ...[
+              const SizedBox(height: 10),
+              Panel(
+                padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+                child: Row(children: [
+                  Expanded(
+                    child: Text(
+                        brain.hijriShift == 0
+                            ? tr('হিজরি তারিখ চাঁদ দেখার ওপর এক দিন আগে-পরে হতে পারে')
+                            : trf('হিজরি তারিখ {0} দিন সরানো আছে', [bnDigits(brain.hijriShift > 0 ? '+${brain.hijriShift}' : '${brain.hijriShift}')]),
+                        style: body(12.5, color: C.muted)),
+                  ),
+                  IconButton(
+                    tooltip: tr('হিজরি তারিখ এক দিন পিছিয়ে দিন'),
+                    onPressed: brain.hijriShift <= -2 ? null : () => brain.setPref('hijri_adjust', brain.hijriShift - 1),
+                    icon: const Icon(Icons.remove_circle_outline_rounded),
+                  ),
+                  IconButton(
+                    tooltip: tr('হিজরি তারিখ এক দিন এগিয়ে দিন'),
+                    onPressed: brain.hijriShift >= 2 ? null : () => brain.setPref('hijri_adjust', brain.hijriShift + 1),
+                    icon: const Icon(Icons.add_circle_outline_rounded),
+                  ),
+                ]),
+              ),
+              ],
               if (pickedHol != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -178,32 +204,6 @@ class _CalendarPanelState extends State<CalendarPanel> {
                 padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
                 child: Text(tr('চাঁদ দেখার ওপর নির্ভর ছুটি এক-দুই দিন বদলাতে পারে।'), style: body(12, color: C.muted)),
               ),
-              // (Below the holidays: a setting, seldom needed.) The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
-              if (chosen.contains('hijri')) ...[
-              const SizedBox(height: 10),
-              Panel(
-                padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
-                child: Row(children: [
-                  Expanded(
-                    child: Text(
-                        brain.hijriShift == 0
-                            ? tr('হিজরি তারিখ চাঁদ দেখার ওপর এক দিন আগে-পরে হতে পারে')
-                            : trf('হিজরি তারিখ {0} দিন সরানো আছে', [bnDigits(brain.hijriShift > 0 ? '+${brain.hijriShift}' : '${brain.hijriShift}')]),
-                        style: body(12.5, color: C.muted)),
-                  ),
-                  IconButton(
-                    tooltip: tr('হিজরি তারিখ এক দিন পিছিয়ে দিন'),
-                    onPressed: brain.hijriShift <= -2 ? null : () => brain.setPref('hijri_adjust', brain.hijriShift - 1),
-                    icon: const Icon(Icons.remove_circle_outline_rounded),
-                  ),
-                  IconButton(
-                    tooltip: tr('হিজরি তারিখ এক দিন এগিয়ে দিন'),
-                    onPressed: brain.hijriShift >= 2 ? null : () => brain.setPref('hijri_adjust', brain.hijriShift + 1),
-                    icon: const Icon(Icons.add_circle_outline_rounded),
-                  ),
-                ]),
-              ),
-              ],
             ]);
   }
 
