@@ -217,7 +217,8 @@ class ToolTile extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // A two-line name (মুসলিম টাইম, ঋতুপঞ্জি) shrinks the tile a little, never spills over.
+          child: LayoutBuilder(builder: (_, c) => FittedBox(fit: BoxFit.scaleDown, child: ConstrainedBox(constraints: BoxConstraints(maxWidth: c.maxWidth.isFinite ? c.maxWidth : 72), child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(
               width: 40,
               height: 40,
@@ -226,7 +227,7 @@ class ToolTile extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(label, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(11.5, height: 1.25)),
-          ]),
+          ])))),
         ),
       );
 }

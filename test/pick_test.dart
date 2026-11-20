@@ -6,7 +6,7 @@ import 'package:digital_brain/screens/reminders_screen.dart';
 import 'package:digital_brain/screens/tasks_screen.dart';
 import 'package:digital_brain/screens/transactions_screen.dart';
 import 'package:digital_brain/services/files.dart' show FakeFiles;
-import 'package:digital_brain/ui/widgets.dart' show SwipeTabs, showAppSheet;
+import 'package:digital_brain/ui/widgets.dart' show SwipeTabs, showAppSheet, ListRow;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,9 +41,9 @@ void main() {
     expect(find.byKey(const Key('pick-bar')), findsNothing);
     await pick(t, find.byKey(Key('task-${a.id}')), first: true);
     expect(find.byKey(const Key('pick-bar')), findsOneWidget);
-    expect(find.text('১টা বাছাই'), findsOneWidget);
+    expect(find.text('১টি বাছাই'), findsOneWidget);
     await pick(t, find.byKey(Key('task-${c.id}')));
-    expect(find.text('২টা বাছাই'), findsOneWidget);
+    expect(find.text('২টি বাছাই'), findsOneWidget);
     await t.tap(find.byKey(const Key('pick-শেষ')));
     await settle(t);
     expect(b.data.tasks.where((x) => x.done).map((x) => x.title).toSet(), {'ব্যাংকে যাওয়া', 'বিল দেওয়া'});
@@ -60,7 +60,7 @@ void main() {
     await pick(t, find.byKey(Key('task-${a.id}')), first: true);
     await t.tap(find.byKey(const Key('pick-all')));
     await settle(t);
-    expect(find.text('২টা বাছাই'), findsOneWidget);
+    expect(find.text('২টি বাছাই'), findsOneWidget);
     await t.tap(find.byKey(const Key('pick-মুছুন')));
     await settle(t);
     await t.tap(find.text('মুছুন').last);
@@ -97,7 +97,7 @@ void main() {
     await pick(t, find.byKey(Key('cash-${x.id}')), first: true);
     await t.ensureVisible(find.byKey(Key('cash-${y.id}')));
     await pick(t, find.byKey(Key('cash-${y.id}')));
-    expect(find.text('২টা বাছাই'), findsOneWidget);
+    expect(find.text('২টি বাছাই'), findsOneWidget);
     expect(find.text('খরচ ৳৮০০'), findsOneWidget);
     await t.tap(find.byKey(const Key('pick-পাঠান')));
     await settle(t);
@@ -123,7 +123,7 @@ void main() {
     await open(t, const TransactionsScreen());
     await pick(t, find.text('রহিম'), first: true);
     await pick(t, find.text('করিম'));
-    expect(find.text('২টা বাছাই'), findsOneWidget);
+    expect(find.text('২টি বাছাই'), findsOneWidget);
     await t.tap(find.byKey(const Key('pick-মুছুন')));
     await settle(t);
     await t.tap(find.text('মুছুন').last);
@@ -174,12 +174,48 @@ void main() {
       ..['parts'] = ['notes', 'docs']
       ..['files_key'] = '';
     await open(t, HeirViewScreen(title: 'আব্বা', data: Map<String, dynamic>.from(data)));
-    expect(find.text('ছবি দেখুন'), findsNWidgets(2));
+    // A glance first; each part on its own page (owner, 17 Nov).
+    await t.tap(find.byKey(const Key('heir-part-docs')));
+    await settle(t);
+    expect(find.text('ছবি দেখুন'), findsOneWidget);
+    await t.tap(find.byTooltip('ফিরে যান').first);
+    await settle(t);
+    await t.tap(find.byKey(const Key('heir-part-notes')));
+    await settle(t);
+    expect(find.text('ছবি দেখুন'), findsOneWidget);
     await t.tap(find.byKey(Key('heir-file-${photo.id}')));
     await settle(t);
     expect(find.textContaining('এখনো আসেনি'), findsOneWidget);
   });
 
+  testWidgets('উত্তরাধিকারী: 1,100 numbers and many loans — a glance, then a searchable page; backup locked with the account key, no password asked, and how to open it', (t) async {
+    final rig = await start(t);
+    await rig.brain.services.lock.keys.write('drive_pw', 'k' * 48);
+    await rig.brain.services.lock.keys.write('drive_key_server', 'true');
+    final data = AppData(
+      contacts: [for (var i = 0; i < 1100; i++) Contact(name: 'মানুষ $i', phone: '0171${i.toString().padLeft(7, '0')}')],
+      ledger: [for (var i = 0; i < 60; i++) LedgerEntry(person: 'জন $i', amount: 100 + i, kind: LedgerKind.lent, date: DateTime(2026, 10, 1))],
+    ).toJson()
+      ..['parts'] = ['contacts', 'money']
+      ..['files_key'] = '';
+    await open(t, HeirViewScreen(title: 'আব্বা', data: Map<String, dynamic>.from(data)));
+    expect(find.text('১১০০ জন'), findsOneWidget);
+    expect(find.textContaining('মানুষ ৫'), findsNothing, reason: 'not listed on the first page');
+    await t.tap(find.byKey(const Key('heir-part-contacts')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('heir-search')), 'মানুষ 1099');
+    await settle(t);
+    expect(find.widgetWithText(ListRow, 'মানুষ 1099'), findsOneWidget);
+    expect(find.byType(ListRow), findsOneWidget);
+    await t.tap(find.byTooltip('ফিরে যান').first);
+    await settle(t);
+    await t.tap(find.byKey(const Key('heir-backup')));
+    await settle(t);
+    expect(find.byKey(const Key('heir-pass')), findsNothing, reason: 'no password asked');
+    expect(find.byKey(const Key('heir-backup-help')), findsOneWidget);
+    expect(find.textContaining('অন্য একটা মোবাইলে'), findsOneWidget);
+    expect(find.textContaining('পাসওয়ার্ড লাগবে না'), findsOneWidget);
+  });
 
   testWidgets('SwipeTabs: a fling left goes to the next tab, right to the one before; ends stay put', (t) async {
     var tab = 'a';

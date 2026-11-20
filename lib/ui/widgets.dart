@@ -1057,7 +1057,12 @@ class FilterTitle<T> extends StatelessWidget {
     ];
     return Padding(
       padding: const EdgeInsets.only(top: 24, bottom: 8),
+      // The title and its chips take the room, the ⋮ sits at the right end
+      // (owner, 13 Nov: "থ্রী ডট একদম ডানে নাই" — a Flexible title and a
+      // Spacer had split the free room, leaving the ⋮ in the middle).
       child: Row(children: [
+        Expanded(
+          child: Row(children: [
         Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 600))),
         for (final (label, key, clear) in chips)
           Padding(
@@ -1080,7 +1085,8 @@ class FilterTitle<T> extends StatelessWidget {
               ),
             ),
           ),
-        const Spacer(),
+          ]),
+        ),
         PopupMenuButton<Object>(
           key: menuKey,
           tooltip: tr('ফিল্টার'),

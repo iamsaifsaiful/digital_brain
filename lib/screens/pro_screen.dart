@@ -109,14 +109,35 @@ class _ProScreenState extends State<ProScreen> {
             : brain.pro
                 ? switch (brain.proKind) {
                     'test' => tr('প্রিমিয়াম চালু (প্রিভিউ পরীক্ষা)'),
-                    _ => until == null ? tr('প্রিমিয়াম চালু') : trf('প্রিমিয়াম চালু — {0} পর্যন্ত', [fullDate(until)]),
+                    _ => until == null
+                        ? tr('প্রিমিয়াম চালু')
+                        : trf('প্রিমিয়াম চালু — {0} পর্যন্ত, আর {1} দিন বাকি।', [
+                            fullDate(until),
+                            bnDigits(DateTime(until.year, until.month, until.day).difference(DateUtils.dateOnly(brain.services.now())).inDays),
+                          ]),
                   }
                 : brain.trialOver
                     ? tr('৭ দিনের ফ্রি ট্রায়াল শেষ। এই কয়দিনে যা রেখেছেন সব আছে, দেখা যাবে; প্রিমিয়ামের সুবিধাগুলো আবার পেতে প্রিমিয়াম নিন।')
-                    : null;
+                    : brain.canStartTrial
+                        ? tr('চাইলে ৭ দিন বিনা খরচে সব প্রিমিয়াম সুবিধা চালিয়ে দেখুন। কোনো টাকা লাগবে না, পরে নিজে থেকে কিছু কাটবে না।')
+                        : null;
 
     final playSells = playEdition && sell;
     Widget getPro() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          // Owner, 18 Nov: the trial only when the user asks for it, once.
+          if (sell && brain.canStartTrial) ...[
+            OutlinedButton.icon(
+              key: const Key('start-trial'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), side: BorderSide(color: C.green, width: 1.5)),
+              onPressed: () async {
+                await brain.startTrial();
+                if (context.mounted) toast(context, trf('৭ দিনের ফ্রি ট্রায়াল চালু — {0} পর্যন্ত', [fullDate(brain.trialEnds!)]));
+              },
+              icon: Icon(Icons.card_giftcard_rounded, color: C.green),
+              label: Text(tr('৭ দিন ফ্রি ট্রায়াল নিন'), style: body(16, weight: FontWeight.w700, color: C.green)),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (playSells) ...[
             if (!brain.pro || brain.proKind == Brain.playPending || brain.onTrial)
               PrimaryButton(
@@ -262,17 +283,17 @@ class _ProScreenState extends State<ProScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(tr(e.value.title), style: body(15, weight: FontWeight.w600)),
                 Text(tr(e.value.what), style: body(13, color: C.muted, height: 1.45)),
-                Text(e.value.free.isEmpty ? tr('ফ্রিতে: নেই') : trf('ফ্রিতে: {0}', [tr(e.value.free)]), style: body(12, color: C.muted2)),
+                Text(e.value.free.isEmpty ? tr('ফ্রি সংস্করণে: নেই') : trf('ফ্রি সংস্করণে: {0}', [tr(e.value.free)]), style: body(12, color: C.muted2)),
               ]),
             ),
           ]),
         ),
       const SizedBox(height: 4),
-      SectionTitle(tr('সবসময় ফ্রি')),
+      SectionTitle(tr('সবসময় বিনামূল্যে')),
       Text(tr(freeList), key: const Key('pro-free-list'), style: body(14, color: C.muted2, height: 1.55)),
       if (sell) ...[
         const SizedBox(height: 18),
-        SectionTitle(tr('ফ্রি ভার্সনে বিজ্ঞাপন কোথায় দেখাবে')),
+        SectionTitle(tr('ফ্রি সংস্করণে বিজ্ঞাপন কোথায় দেখাবে')),
         for (final (title, where) in adPlaces)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),

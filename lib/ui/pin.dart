@@ -14,11 +14,14 @@ final pinLength = 4;
 
 /// Dots plus a number pad. Calls [onComplete] once [pinLength] digits are in.
 class PinPad extends StatefulWidget {
-  PinPad({super.key, required this.onComplete, this.dark = true, this.onBiometric, this.enabled = true});
+  PinPad({super.key, required this.onComplete, this.dark = true, this.onBiometric, this.enabled = true, this.colors});
   final Future<void> Function(String pin, VoidCallback clear) onComplete;
   final bool dark;
   final VoidCallback? onBiometric;
   final bool enabled;
+
+  /// Its own colours (the PIN page's look): text, key, dot filled, dot empty.
+  final (Color, Color, Color, Color)? colors;
 
   @override
   State<PinPad> createState() => _PinPadState();
@@ -65,10 +68,11 @@ class _PinPadState extends State<PinPad> {
 
   @override
   Widget build(BuildContext context) {
-    final fg = widget.dark ? Colors.white : C.ink;
-    final keyBg = widget.dark ? C.dark2 : C.line2;
-    final dotOn = widget.dark ? C.mint : C.green;
-    final dotOff = widget.dark ? const Color(0xFF5D6B65) : C.border;
+    final own = widget.colors;
+    final fg = own?.$1 ?? (widget.dark ? Colors.white : C.ink);
+    final keyBg = own?.$2 ?? (widget.dark ? C.dark2 : C.line2);
+    final dotOn = own?.$3 ?? (widget.dark ? C.mint : C.green);
+    final dotOff = own?.$4 ?? (widget.dark ? const Color(0xFF5D6B65) : C.border);
 
     Widget key(String d) => Semantics(
           button: true,
@@ -88,7 +92,7 @@ class _PinPadState extends State<PinPad> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Semantics(
-          label: trf('{0}টা অঙ্ক দেওয়া হয়েছে', [bnDigits(_pin.length)]),
+          label: trf('{0}টি অঙ্ক দেওয়া হয়েছে', [bnDigits(_pin.length)]),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -128,7 +132,7 @@ class _PinPadState extends State<PinPad> {
                     : IconButton(
                         tooltip: tr('আঙুলের ছাপে খুলুন'),
                         onPressed: widget.onBiometric,
-                        icon: Icon(Icons.fingerprint_rounded, size: 36, color: widget.dark ? C.mint : C.green),
+                        icon: Icon(Icons.fingerprint_rounded, size: 36, color: own?.$3 ?? (widget.dark ? C.mint : C.green)),
                       ),
               ),
             ),
@@ -141,7 +145,7 @@ class _PinPadState extends State<PinPad> {
                 child: IconButton(
                   tooltip: tr('মুছুন'),
                   onPressed: _back,
-                  icon: Icon(Icons.backspace_outlined, size: 26, color: widget.dark ? C.onDarkMuted : C.muted),
+                  icon: Icon(Icons.backspace_outlined, size: 26, color: own?.$1 ?? (widget.dark ? C.onDarkMuted : C.muted)),
                 ),
               ),
             ),

@@ -221,7 +221,7 @@ class ExpiryScreen extends StatelessWidget {
                 ),
               if (noDate.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Text(trf('{0}টা ডকুমেন্টে মেয়াদ দেওয়া নেই', [bnDigits(noDate.length)]), style: body(13, color: C.muted)),
+                Text(trf('{0}টি ডকুমেন্টে মেয়াদ দেওয়া নেই', [bnDigits(noDate.length)]), style: body(13, color: C.muted)),
               ],
             ]),
           ),
@@ -320,9 +320,9 @@ class EmergencyScreen extends StatelessWidget {
               if (card.isEmpty)
                 EmptyState(
                   icon: Icons.emergency_outlined,
-                  title: tr('জরুরি কার্ড বানান'),
+                  title: tr('জরুরি কার্ড তৈরি করুন'),
                   text: tr('রক্তের গ্রুপ, জরুরি নম্বর, ওষুধ আর অ্যালার্জি। বিপদে কেউ যেন PIN ছাড়াই দেখতে পারে — অ্যাপের লক পাতায় আর চাইলে ফোনের লক স্ক্রিনে।'),
-                  action: tr('এখনই বানাই'),
+                  action: tr('এখনই তৈরি করুন'),
                   onAction: () => _push(context, const EmergencyEditScreen()),
                 )
               else ...[
@@ -332,7 +332,7 @@ class EmergencyScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   value: card.onLockScreen,
                   onChanged: (v) => brain.saveEmergency(card.copyWith(onLockScreen: v)),
-                  title: Text(tr('ফোনের লক স্ক্রিনে দেখাও'), style: body(15, weight: FontWeight.w500)),
+                  title: Text(tr('লক স্ক্রিনে দেখান'), style: body(15, weight: FontWeight.w500)),
                   subtitle: Text(tr('নোটিফিকেশনে থাকবে, ফোন না খুলেই দেখা যাবে। শুধু এই কার্ডের তথ্য — আর কিছু না।'), style: body(12.5, color: C.muted)),
                 ),
                 Text(tr('অ্যাপ লক থাকলেও লক পাতার “জরুরি তথ্য” বোতাম থেকে এটা দেখা যায়।'), style: body(12.5, color: C.muted, height: 1.5)),

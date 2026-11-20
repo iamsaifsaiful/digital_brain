@@ -116,7 +116,7 @@ class _AlarmScreenState extends State<AlarmScreen> {
                   ],
                 ]),
                 const SizedBox(height: 12),
-                _AlarmButton(label: tr('হয়ে গেছে, বন্ধ করো'), primary: true, onTap: () => _close()),
+                _AlarmButton(label: tr('হয়ে গেছে, বন্ধ করুন'), primary: true, onTap: () => _close()),
               ],
             ]),
           ),

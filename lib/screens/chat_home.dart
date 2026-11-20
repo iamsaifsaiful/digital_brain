@@ -119,7 +119,9 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
   int _doneGen = -1;
   int _silences = 0;
 
-  static final _suggestions = [
+  // A getter, not a final: read once, the words stayed in the language of
+  // the first open after a switch to English (14 Nov).
+  static List<(String, String)> get _suggestions => [
     (tr('টাকা দিলাম'), tr('রবিনকে ৫০০০ টাকা ধার দিলাম')),
     (tr('মনে করাও'), tr('কাল সকাল ১০টায় মিটিং মনে করিয়ে দিও')),
     (tr('কাজের তালিকা'), tr('আজকের কাজের তালিকা')),
@@ -714,7 +716,7 @@ class ChatHomeState extends State<ChatHome> with SingleTickerProviderStateMixin,
       say = await _chat.hear(said);
     } catch (e) {
       debugPrint('chat failed: $e');
-      say = tr('দুঃখিত, একটু সমস্যা হলো। আরেকবার বলবেন?');
+      say = tr('দুঃখিত, একটি সমস্যা হয়েছে। আরেকবার বলবেন?');
       _chat.addInfo(say);
     } finally {
       if (mounted) setState(() => _busy = false);

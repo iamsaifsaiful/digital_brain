@@ -6,7 +6,8 @@ import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../app_test.dart' show settle, start;
+import '../app_test.dart' show settle, start, vScroll;
+import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
 import 'home_final_shots_test.dart' show icons, shots;
 
 void main() {
@@ -24,6 +25,9 @@ void main() {
       await settle(t);
       if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/more1103-main-${look.name}.png'));
       for (final k in ['look', 'remind', 'assistant', 'model', 'safety']) {
+        await t.scrollUntilVisible(find.byKey(Key('more-set-$k')), 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
+        await t.ensureVisible(find.byKey(Key('more-set-$k')));
+        await settle(t);
         await t.tap(find.byKey(Key('more-set-$k')));
         await settle(t);
         expect(find.byKey(Key('settings-$k')), findsOneWidget);

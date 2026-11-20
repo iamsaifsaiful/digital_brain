@@ -240,6 +240,8 @@ const shopCostKinds = {'মাল কেনা', 'ডিলারকে পর�
 String fillTagada(String template, {required String name, required String due, required String shop, String phone = ''}) {
   // The [] words in Bangla or, for the English app, in English.
   var t = template.replaceAll('[নাম]', name).replaceAll('[name]', name).replaceAll('[বাকি]', due).replaceAll('[due]', due);
+  // No shop name yet: "[দোকান]-এ" reads "আমাদের দোকানে", not "দোকান-এ" (owner, 13 Nov).
+  if (shop.isEmpty) t = t.replaceAll('[দোকান]-এ', tr('আমাদের দোকানে')).replaceAll('[দোকান]-এর', tr('আমাদের দোকানের'));
   t = t.replaceAll('[দোকান]', shop.isEmpty ? tr('দোকান') : shop).replaceAll('[shop]', shop.isEmpty ? tr('দোকান') : shop).replaceAll('[মোবাইল]', phone).replaceAll('[mobile]', phone);
   t = t.replaceAllMapped(RegExp(r'\s+([,।])'), (m) => m[1]!).replaceAll(RegExp(r'  +'), ' ');
   return t.trim();

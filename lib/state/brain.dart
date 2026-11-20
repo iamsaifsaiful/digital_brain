@@ -1,3 +1,4 @@
+import '../services/app_dir.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -10,6 +11,7 @@ import 'package:flutter/widgets.dart';
 import '../logic/examples.dart' show exampleInBangla;
 import '../logic/shop_logic.dart';
 import '../logic/vault_age.dart';
+import '../logic/world_calendars.dart' show parseCalendars;
 import '../logic/steps.dart' show StepBook, stepDay;
 import '../logic/ai_safe.dart';
 import '../logic/doc_dates.dart';
@@ -41,7 +43,6 @@ import '../nlu/reader.dart' show NluPiece;
 import '../nlu/router.dart';
 import '../nlu/samples.dart' show nluAppVersion, nluConsentVer, delexicalize;
 import '../nlu/updater.dart';
-import 'package:path_provider/path_provider.dart';
 import '../logic/parser.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
@@ -65,7 +66,9 @@ import '../services/voice.dart';
 import '../services/platform.dart';
 import '../services/location_share.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/countries.dart' show mainHolidays;
 import '../logic/holidays_abroad.dart' show builtInHolidays;
+import '../logic/holiday_mix.dart';
 import '../logic/meal.dart';
 import '../ui/theme.dart' show Look, defaultAccentKey;
 import '../logic/lang.dart';
@@ -156,6 +159,36 @@ class Brain extends ChangeNotifier {
   AppData data = AppData();
   bool loaded = false;
   String? loadError;
+
+  /// The data could not be read right now (the phone did not give the app its
+  /// folder, a file was busy) — not a lock that does not fit. Problem log,
+  /// 19 Nov: such a start offered "start fresh" for data that was fine.
+  bool loadErrorPassing = false;
+
+  /// Tries reading the data again (the page "তথ্য খুলতে সমস্যা").
+  Future<bool> retryLoad() async {
+    try {
+      data = await services.store.load();
+      loadError = null;
+      loadErrorPassing = false;
+      try {
+        photo = await services.store.loadDocFile(_photoId);
+      } catch (_) {}
+      notifyListeners();
+      await _reschedule();
+      return true;
+    } catch (e, st) {
+      loadError = '$e';
+      loadErrorPassing = !_lockProblem(e);
+      ErrorLog.problem('DataLoad', e.runtimeType.toString(), st: st);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// A lock that does not open the file (or a file that is not data): the
+  /// only case where restoring or starting fresh is offered first.
+  static bool _lockProblem(Object e) => e is WrongKey || e is DataKeyMissing || e is FormatException;
 
   /// True between the user unlocking and the app locking again.
   bool unlocked = false;
@@ -282,6 +315,17 @@ class Brain extends ChangeNotifier {
   bool get trialOver => gated && !paidPro && trialEnds != null && !services.now().isBefore(trialEnds!);
 
   bool get pro => !gated || paidPro || onTrial;
+
+  /// The seven days have not been taken yet on this phone (owner, 18 Nov).
+  bool get canStartTrial => gated && !paidPro && trialStart == null;
+
+  /// "৭ দিন ফ্রি ট্রায়াল নিন": starts the trial now, once.
+  Future<void> startTrial() async {
+    if (!canStartTrial) return;
+    trialStart = services.now();
+    await services.lock.keys.write('trial_start', trialStart!.toIso8601String());
+    notifyListeners();
+  }
   bool get showAds => gated && !pro;
 
   /// The preview draws sample ad spaces (real ads need AdMob).
@@ -308,6 +352,10 @@ class Brain extends ChangeNotifier {
   }
   bool get canAddVault => pro || data.vault.length < freeVaultItems;
   bool get canAddDoc => pro || data.docs.length < freeDocs;
+
+  /// ব্যবসায়ী মোড (owner, 13 Nov): free up to 20 customers and 30 products.
+  bool get canAddCustomer => has(ProFeature.business) || shop.customers.length < freeCustomers;
+  bool get canAddProduct => has(ProFeature.business) || shop.products.length < freeProducts;
 
   /// Reminders that still ring (the app's own ones — bills, papers, habits — count too).
   int get activeReminders => data.reminders.where((r) => r.enabled && r.vaultId == null).length;
@@ -549,13 +597,9 @@ class Brain extends ChangeNotifier {
         await keys.delete('pro_until');
         await keys.delete('pro_kind');
       }
-      // The trial starts the first time this version (or a later one) opens —
-      // members from before get their seven days too, once.
+      // Owner, 18 Nov: no trial on its own — the user starts the seven days
+      // from the Premium page when they want, once (startTrial).
       trialStart = DateTime.tryParse(await keys.read('trial_start') ?? '');
-      if (trialStart == null) {
-        trialStart = services.now();
-        await keys.write('trial_start', trialStart!.toIso8601String());
-      }
       firstUse = DateTime.tryParse(await keys.read('first_use') ?? '');
       if (firstUse == null) {
         firstUse = services.now();
@@ -722,8 +766,13 @@ class Brain extends ChangeNotifier {
   /// The admin's rules for the app's own notifications (on/off, time, wording, who).
   NoticeRules noticeRules = NoticeRules.none;
 
+  /// Our support WhatsApp number, set on the website ('' = no button).
+  /// Kept on the phone so the button works offline.
+  String supportWhatsapp = '';
+
   Future<void> _loadServerNotices() async {
     try {
+      supportWhatsapp = await services.lock.keys.read('support_wa') ?? '';
       final rules = await services.lock.keys.read('srv_note_rules');
       if (rules != null) noticeRules = NoticeRules.fromJson(jsonDecode(rules));
       final raw = await services.lock.keys.read('srv_notices');
@@ -741,7 +790,13 @@ class Brain extends ChangeNotifier {
     if (list != null) {
       serverNoticeList = list;
       noticeRules = NoticeRules.fromJson(services.server.lastRules);
+      final wa = services.server.lastSupportWhatsapp;
+      if (wa != null && wa != supportWhatsapp) {
+        supportWhatsapp = wa;
+        notifyListeners();
+      }
       try {
+        if (wa != null) await services.lock.keys.write('support_wa', wa);
         await services.lock.keys.write('srv_notices', jsonEncode([for (final n in list) n.toJson()]));
         await services.lock.keys.write('srv_note_rules', jsonEncode(noticeRules.toJson()));
       } catch (_) {}
@@ -1113,7 +1168,7 @@ class Brain extends ChangeNotifier {
     if (session.isEmpty || !services.server.configured || nluMode == 'off') return;
     try {
       final r = await services.server.send('GET', '/nlu/model', session);
-      final files = NluModelFiles(await getApplicationSupportDirectory());
+      final files = NluModelFiles(await appSupportDir());
       final what = await updateNluModel(files, r.status, r.data, mayDownload: await unmetered());
       Trace.log('nlu', 'model update', {'result': what});
       nluModelState = what.startsWith('updated:') ? 'ready' : (what == 'same' ? 'ready' : what);
@@ -1180,6 +1235,16 @@ class Brain extends ChangeNotifier {
 
   /// The place for sunrise, sunset and prayer times (see `bdPlaces`).
   String district = 'ঢাকা';
+
+  /// The user's own mobile number (owner, 17 Nov), kept on this phone only;
+  /// filled in for them where a number is asked (blood donation).
+  String userPhone = '';
+
+  Future<void> setUserPhone(String v) async {
+    userPhone = v.replaceAll(RegExp(r'[^0-9+]'), '');
+    await services.lock.keys.write('user_phone', userPhone);
+    notifyListeners();
+  }
 
   Future<void> setUserName(String v) async {
     userName = v.trim();
@@ -1331,24 +1396,107 @@ class Brain extends ChangeNotifier {
     return all.where((h) => !h.date.isBefore(today)).take(count).toList();
   }
 
+  /// The holiday lists the member keeps on the home (owner, 19 Nov): '@'
+  /// for the profile location's country, two letters for any other, and
+  /// 'INTL' for the international days.
+  List<String> get holLists {
+    try {
+      final l = jsonDecode(text('hol_lists', ''));
+      if (l is List) return [for (final x in l) '$x'];
+    } catch (_) {}
+    return holDefault;
+  }
+
+  /// The lists hidden for now by their chip on the home.
+  Set<String> get holOff {
+    try {
+      final l = jsonDecode(text('hol_off', '[]'));
+      if (l is List) return {for (final x in l) '$x'};
+    } catch (_) {}
+    return {};
+  }
+
+  /// The countries of [holLists], '@' turned into the profile's country,
+  /// each once, in order.
+  List<String> get holCountriesShown {
+    final out = <String>[];
+    for (final t in holLists) {
+      if (t == holIntl) continue;
+      final cc = t == holAuto ? placeNamed(district).country : t;
+      if (cc.isNotEmpty && !out.contains(cc)) out.add(cc);
+    }
+    return out.take(holMaxCountries).toList();
+  }
+
+  Future<void> setHolLists(List<String> lists) async {
+    prefs['hol_lists'] = jsonEncode(lists);
+    await _put('hol_lists', prefs['hol_lists']!);
+    final off = holOff..removeWhere((t) => t != holIntl && !holCountriesShown.contains(t));
+    prefs['hol_off'] = jsonEncode(off.toList());
+    await _put('hol_off', prefs['hol_off']!);
+    notifyListeners();
+    unawaited(refreshHolidaysAbroad().catchError((_) {}));
+  }
+
+  /// A chip on the home: hides or shows that list ([holIntl] or a country).
+  Future<void> toggleHolOff(String t) async {
+    final off = holOff;
+    if (!off.remove(t)) off.add(t);
+    prefs['hol_off'] = jsonEncode(off.toList());
+    await _put('hol_off', prefs['hol_off']!);
+    notifyListeners();
+  }
+
+  /// The home's সামনের ছুটি: the shown lists in one, by date.
+  List<MixedHoliday> homeHolidays(DateTime now) {
+    final off = holOff;
+    final ccs = [for (final c in holCountriesShown) if (!off.contains(c)) c];
+    final intl = holLists.contains(holIntl) && !off.contains(holIntl);
+    final book = _holidayBook();
+    final abroad = <String, List<AbroadHoliday>>{
+      for (final cc in ccs)
+        if (cc != 'BD')
+          cc: [
+            for (final y in [now.year, now.year + 1])
+              if (book['${cc}_$y'] is List) ...(book['${cc}_$y'] as List).map(AbroadHoliday.fromJson).whereType<AbroadHoliday>(),
+          ],
+    };
+    final sources = ccs.length + (intl ? 1 : 0);
+    return mixHolidays(now, countries: ccs, abroad: abroad, intl: intl, count: sources <= 1 ? 3 : (sources == 2 ? 4 : 5));
+  }
+
   /// Fetches this year's (and, late in the year, next year's) holidays of
-  /// the country the member is in, when not kept yet.
+  /// the countries on the home (and the one the member is in), when not
+  /// kept yet.
   Future<void> refreshHolidaysAbroad() async {
-    final cc = placeNamed(district).country;
-    if (cc == 'BD' || cc.isEmpty) return;
+    final here = placeNamed(district).country;
+    for (final cc in {if (here != 'BD' && here.isNotEmpty) here, ...holCountriesShown.where((c) => c != 'BD')}) {
+      await _refreshHolidays(cc);
+    }
+  }
+
+  Future<void> _refreshHolidays(String cc) async {
     final now = services.now();
     for (final y in [now.year, if (now.month >= 10) now.year + 1]) {
       final k = '${cc}_$y';
       if (_holidayBook().containsKey(k)) continue;
       // The Gulf, Malaysia, Pakistan: worked out on the phone; the rest asked.
-      final got = builtInHolidays(cc, y, adjust: hijriShift) ?? await services.weather.holidays(cc, y);
+      var got = builtInHolidays(cc, y, adjust: hijriShift) ?? await services.weather.holidays(cc, y);
       if (got == null) continue;
+      // A country the web has no list for (owner, 20 Nov: every country in
+      // the UN's list): its main days, worked out on the phone.
+      final basic = got.isEmpty;
+      if (basic) got = mainHolidays(cc, y, adjust: hijriShift) ?? const [];
       final book = _holidayBook()..[k] = [for (final h in got) h.toJson()];
+      if (basic) book['${cc}_main'] = true;
       prefs['hol_abroad'] = jsonEncode(book);
       await _put('hol_abroad', prefs['hol_abroad']!);
       notifyListeners();
     }
   }
+
+  /// Only the main days are known for [cc] (no full list on the web).
+  bool holMainOnly(String cc) => _holidayBook()['${cc}_main'] == true;
 
   /// Holidays kept by "CC_year".
   Map<String, Object?> _holidayBook() {
@@ -1362,6 +1510,9 @@ class Brain extends ChangeNotifier {
 
   /// Days the Hijri date is moved: the user's own choice, else +1 outside
   /// South Asia (the month there usually starts a day before Bangladesh).
+  /// The calendars shown beside the English date (owner, 19 Nov), at most two.
+  List<String> get calendars => parseCalendars(prefs['calendars']);
+
   int get hijriShift => prefs.containsKey('hijri_adjust') ? number('hijri_adjust') : (placeNamed(district).region == 'sa' ? 0 : 1);
 
   /// The place's name in the app's language (a district or a city abroad).
@@ -1475,7 +1626,8 @@ class Brain extends ChangeNotifier {
       look = Look.values.firstWhere((l) => l.name == saved, orElse: () => Look.sun);
       accentKey = await keys.read('accent') ?? defaultAccentKey;
       darkKey = await keys.read('dark_set') ?? 'night';
-      english = (await keys.read('lang')) == 'en';
+      final lang = await keys.read('lang');
+      english = lang == null ? englishFirst && !await services.lock.hasPin() : lang == 'en';
       _applyVoiceLang();
       letterSize = double.tryParse(await keys.read('letter_size') ?? '') ?? 1.0;
       easyMode = (await keys.read('easy_mode')) == 'true';
@@ -1715,11 +1867,18 @@ class Brain extends ChangeNotifier {
   /// Saved settings read at start into [prefs].
   static const prefKeys = [
     'hijri_adjust', 'quiet_on', 'quiet_from', 'quiet_to', 'daily_cap', 'n_jumuah', 'n_plan', 'n_smart', 'n_health', 'n_festival', 'n_weekly', 'n_quote', 'n_fix',
-    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'hol_abroad', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
+    'n_streak', 'n_comeback', 'n_news', 'n_prayer', 'prayer_set', 'n_ramadan', 'blood_group', 'blood_last', 'blood_last_unknown', 'blood_phone', 'blood_sync', 'donor_on', 'last_open', 'open_days', 'last_backup', 'zakat_gold_vori', 'zakat_gold_price', 'zakat_silver_vori', 'zakat_silver_price', 'zakat_business', 'zakat_other', 'zakat_gold_carat', 'zakat_gold_list', 'order_home_tools', 'order_doc_folders', 'order_projects', 'hol_abroad', 'hol_lists', 'hol_off', 'g_card_off', 'p_card_off', 'trace_on', 'trace_share', 'hc_on', 'hc_gone', 'steps_book',
     // Owner, 4 Nov: time in the app a day; the home picture and what lives on it.
     'usage_days', 'home_scene', 'scene_weather', 'scene_motion', 'scene_special',
     // Owner, 6 Nov: the microphone's language.
     'voice_lang',
+    // Owner, 19 Nov: prayer, sehri and iftar pinned to Home (off unless chosen).
+    'home_waqt', 'home_sehri', 'home_iftar',
+    // Owner, 19 Nov: the calendars beside English, the weather's other places,
+    // and °C or °F (these were saved but not read back at start).
+    'calendars', 'weather_places', 'temp_unit',
+    // Owner, 20 Nov: the member's religion (optional, only on this phone).
+    'religion',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1803,6 +1962,7 @@ class Brain extends ChangeNotifier {
         prefs[key] = '$value';
         if (key == 'hijri_adjust') hijriAdjust = hijriShift;
         if (key == 'voice_lang') _applyVoiceLang();
+        if (key == 'temp_unit') tempF = value == 'f';
     }
     notifyListeners();
     await _put(key, '$value');
@@ -1831,6 +1991,7 @@ class Brain extends ChangeNotifier {
         if (v != null) prefs[k] = v;
       }
       _applyVoiceLang();
+      tempF = prefs['temp_unit'] == 'f';
       // The diagnostic trace: on in development builds, or when the user turned it on.
       Trace.enabled = kDebugMode || prefs['trace_on'] == 'true';
       askZakat = zakatSaved;
@@ -2034,6 +2195,47 @@ class Brain extends ChangeNotifier {
       notifyListeners();
     }
     return got ?? w;
+  }
+
+  /// The other places on the weather page (owner, 19 Nov), as [Place.key]s;
+  /// the user's own place is always first and is not kept here.
+  List<String> get weatherPlaces => [for (final k in text('weather_places').split('\n')) if (k.trim().isNotEmpty && k != district) k];
+
+  Future<void> addWeatherPlace(Place p) async {
+    final k = p.key;
+    if (k == district || weatherPlaces.contains(k)) return;
+    await setPref('weather_places', [...weatherPlaces, k].join('\n'));
+    notifyListeners();
+  }
+
+  Future<void> removeWeatherPlace(String key) async {
+    await setPref('weather_places', [for (final k in weatherPlaces) if (k != key) k].join('\n'));
+    _casts.remove(key);
+    notifyListeners();
+  }
+
+  final Map<String, Forecast> _casts = {};
+
+  /// The weather page's forecast for a place ([Place.key]) kept 30 minutes.
+  Forecast? forecastKept(String key) => _casts[key];
+
+  /// Fetches it when older than 30 minutes; the last one when offline.
+  Future<Forecast?> forecastFor(String key) async {
+    final now = services.now();
+    final had = _casts[key];
+    if (had != null && now.difference(had.now.at).inMinutes < 30) return had;
+    final place = placeNamed(key);
+    final got = await services.weather.forecast(place.lat, place.lon, place.name, now);
+    if (got != null) {
+      _casts[key] = got;
+      if (key == district) {
+        _weather = got.now;
+        _weatherKey = key;
+        todayWeather = got.now;
+      }
+      notifyListeners();
+    }
+    return got ?? had;
   }
 
   MetalPrice? _metal;
@@ -2418,6 +2620,7 @@ class Brain extends ChangeNotifier {
       services.ai.quality = AiQuality.fast;
       aiShareData = (await services.lock.keys.read('ai_share_data')) != 'false';
       userName = await services.lock.keys.read('user_name') ?? '';
+      userPhone = await services.lock.keys.read('user_phone') ?? '';
       askUserName = userName;
       district = await services.lock.keys.read('district') ?? 'ঢাকা';
       askPlace = district;
@@ -2453,6 +2656,7 @@ class Brain extends ChangeNotifier {
       } catch (_) {}
     } catch (e, st) {
       loadError = '$e';
+      loadErrorPassing = !_lockProblem(e);
       ErrorLog.problem('DataLoad', e.runtimeType.toString(), st: st);
     }
     loaded = true;
@@ -2961,6 +3165,21 @@ class Brain extends ChangeNotifier {
     await _save();
   }
 
+  // ── আমার ফাইল › ব্যাংক একাউন্ট (owner, 20 Nov) ──
+
+  Future<void> saveBankAccount(BankAccount a) async {
+    _upsert(data.bankAccounts, a, (x) => x.id);
+    await _save();
+  }
+
+  Future<void> deleteBankAccount(String id) async {
+    for (final a in data.bankAccounts.where((x) => x.id == id)) {
+      _trash(a.bank, [('bankAccounts', a.toJson())]);
+    }
+    data.bankAccounts.removeWhere((x) => x.id == id);
+    await _save();
+  }
+
   Future<void> deleteDoc(Doc d) async {
     _trash(d.title, [('docs', d.toJson()), ..._remindersJson([d.reminderId])], files: [for (final f in d.files) f.id]);
     data.docs.removeWhere((x) => x.id == d.id);
@@ -3188,6 +3407,20 @@ class Brain extends ChangeNotifier {
     final created = Project(name: name.trim(), createdAt: services.now());
     await saveProject(created);
     return created;
+  }
+
+  /// The data file cannot be opened on this phone and there is no backup to
+  /// bring back (owner, 19 Nov: the page had only "restore"): start with
+  /// empty data. The unreadable file is kept aside, never deleted.
+  Future<void> startFresh() async {
+    if (loadError == null) return;
+    await services.store.startOverKeepingOld();
+    data = AppData();
+    await services.store.save(data);
+    loadError = null;
+    photo = null;
+    notifyListeners();
+    await _reschedule();
   }
 
   /// Replaces everything with a restored backup.

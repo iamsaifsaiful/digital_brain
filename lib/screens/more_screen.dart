@@ -1,4 +1,5 @@
 import 'notice_screen.dart';
+import 'family_screen.dart' show FamilyScreen;
 import 'place_picker.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -6,6 +7,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
+import '../models/models.dart' show Via;
 import '../logic/csv.dart';
 import '../services/data_store.dart';
 import '../services/lock.dart';
@@ -16,28 +18,27 @@ import 'home_picture_screen.dart';
 import '../ui/pin.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../ui/kit.dart';
 import 'alarm_screens.dart';
 import 'help_screen.dart';
+import 'home_page.dart' show appTools;
 import 'assistant_settings.dart';
 import 'settings_parts.dart';
 import 'sound_screen.dart';
 import 'feedback_screen.dart';
-import 'requests_screen.dart';
-import 'zakat_screen.dart';
-import 'family_screen.dart';
 import 'trash_screen.dart';
 import 'nlu_model_screen.dart';
 import 'trace_screen.dart';
 import '../services/trace.dart';
 import '../services/ads.dart';
-import 'pro_screen.dart';
 import 'google_backup.dart';
+import 'pro_screen.dart';
 import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-const appVersion = '1.0.8';
+const appVersion = '1.0.14';
 
 /// The app's version, shown and sent to our server (sign-in, feedback,
 /// problem logs). The Play app has its own numbering from 1.0.0 (owner, 29
@@ -71,10 +72,13 @@ class _MoreScreenState extends State<MoreScreen> {
     super.dispose();
   }
 
-  bool? _bioOn;
-  bool _bioAvailable = false;
-  int _autoLock = 30;
-  String? _lastBackup;
+  // Static (owner, 13 Nov: "ব্যবসায়ী মোড চালু করলে এখনো কিছুটা গ্লিজ মারে"):
+  // switching the mode builds this page anew; it starts with what was read
+  // last time instead of the defaults, so nothing jumps when they load.
+  static bool? _bioOn;
+  static bool _bioAvailable = false;
+  static int _autoLock = 30;
+  static String? _lastBackup;
 
   @override
   void initState() {
@@ -211,7 +215,7 @@ class _MoreScreenState extends State<MoreScreen> {
                       try {
                         final r = await brain.services.ai.route(tr('হ্যালো, তুমি কেমন আছো?'), brain.aiContext());
                         final reply = r?['reply'];
-                        status = trf('✓ কাজ করছে! AI বলল: {0}', [reply ?? 'ঠিক আছে']);
+                        status = trf('✓ কাজ করছে। AI বলল: {0}', [reply ?? 'ঠিক আছে']);
                         await brain.setAiKey(key);
                       } catch (e) {
                         brain.services.ai.key = old;
@@ -261,7 +265,7 @@ class _MoreScreenState extends State<MoreScreen> {
                   ),
                   ListTile(
                     leading: Icon(current == null ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded, color: C.green),
-                    title: Text(tr('নিজে থেকে সেরাটা বেছে নাও')),
+                    title: Text(tr('স্বয়ংক্রিয়ভাবে সেরাটি বেছে নিন')),
                     onTap: () async {
                       await brain.setVoice(null);
                       setSheet(() {});
@@ -331,8 +335,9 @@ class _MoreScreenState extends State<MoreScreen> {
           ]),
         );
 
-    Widget linkRow(IconData icon, String title, {String? sub, Color? subColor, VoidCallback? onTap, Widget? trailing}) => ListRow(
-          leading: Icon(icon, color: C.muted2, size: 22),
+    Widget linkRow(IconData icon, String title, {Key? key, String? sub, Color? subColor, VoidCallback? onTap, Widget? trailing}) => ListRow(
+          key: key,
+          leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(11)), child: Icon(icon, color: C.muted2, size: 20)),
           title: title,
           subtitle: sub,
           subtitleColor: subColor,
@@ -355,7 +360,7 @@ class _MoreScreenState extends State<MoreScreen> {
       Panel(
         child: Rows(children: [
           linkRow(Icons.notifications_none_rounded, tr('নোটিফিকেশন প্যানেল'),
-              sub: tr('কোনটা কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
+              sub: tr('কোনটি কখন আসবে, আগে কী এসেছে'), onTap: () => push(const NoticeScreen())),
           linkRow(Icons.notifications_active_outlined, tr('রিমাইন্ডার ঠিকমতো বাজবে তো?'), sub: tr('ফোনের সেটিং দেখে নিন, ১ মিনিটে পরীক্ষা করুন'), onTap: () => push(const ReminderCheckScreen())),
           switchRow(Icons.alarm_rounded, tr('অ্যালার্মের মতো বাজবে'), tr('বন্ধ না করা পর্যন্ত, ফোন পকেটে থাকলেও শোনা যায়'), brain.alarmInsistent,
               (v) => brain.setAlarmInsistent(v)),
@@ -408,7 +413,7 @@ class _MoreScreenState extends State<MoreScreen> {
       const SizedBox(height: 10),
       Panel(
         child: Rows(children: [
-          switchRow(Icons.volume_up_outlined, tr('উত্তর কণ্ঠে শোনাও'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
+          switchRow(Icons.volume_up_outlined, tr('উত্তর পড়ে শোনান'), tr('পাসওয়ার্ড কখনো জোরে পড়া হয় না'), brain.speakOn, (v) => brain.setSpeakOn(v)),
           linkRow(Icons.record_voice_over_outlined, tr('কণ্ঠ বেছে নিন'), sub: tr('ফোনে থাকা বাংলা কণ্ঠগুলো শুনে দেখুন'), onTap: _pickVoice),
           switchRow(Icons.record_voice_over_rounded, tr('উত্তরের মাঝে কথা বলে থামানো'), tr('বন্ধ থাকলে অ্যাপ কথা শেষ করে তারপর শোনে — নিজের কথা ভুল করে ধরে না। চালু করলে লম্বা উত্তরের মাঝেই বলতে পারবেন (কিছু ফোনে ভুল ধরতে পারে)'),
               brain.bargeIn, (v) => brain.setBargeIn(v)),
@@ -439,14 +444,6 @@ class _MoreScreenState extends State<MoreScreen> {
       'safety': () => [
       Panel(
         child: Rows(children: [
-          linkRow(Icons.cloud_download_outlined, tr('Google অ্যাকাউন্ট ও ব্যাকআপ'),
-              sub: brain.driveOn
-                  ? (brain.has(ProFeature.autoBackup)
-                      ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
-                      : trf('{0} · শেষ Drive ব্যাকআপ {1}', [brain.googleEmail, brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
-                  : (last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
-              subColor: backupOld && !brain.driveOn ? C.orange : C.muted,
-              onTap: () => push(const BackupScreen())),
           linkRow(Icons.lock_outline_rounded, tr('PIN বদলান'), onTap: _changePin),
           switchRow(
             Icons.fingerprint_rounded,
@@ -497,145 +494,103 @@ class _MoreScreenState extends State<MoreScreen> {
         );
 
     return ListView(
+      // Keeps its place when the mode switches (the page is built again).
+      key: const PageStorageKey('more-list'),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
-        TabTitle(tr('আরও'), sub: tr('প্রোফাইল, সেটিংস আর আরও সুবিধা')),
-        const SizedBox(height: 14),
-        ProfileCard(onName: _setName, onPlace: _setDistrict),
+        // Owner, 17 Nov (third look): who you are and what needs doing on
+        // top, Premium as one bright card, the features grouped by what they
+        // are for, then settings, your data, help and the app itself.
+        TabTitle(tr('আরও')),
         const SizedBox(height: 12),
-        // ব্যবসায়ী মোড (owner, 6 Nov): one switch — on, the tabs are the
-        // shop's (হোম · বিক্রি · গ্রাহক · হিসাব · স্টক); off, the app as it was.
-        // Premium; a free user may switch it on and look around.
-        Panel(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(17),
-            onTap: () => brain.setPref('business_mode', !brain.businessMode),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-              child: Row(children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(color: brain.businessMode ? C.green : C.greenTint, borderRadius: BorderRadius.circular(12)),
-                  child: Icon(Icons.storefront_outlined, color: brain.businessMode ? C.onAccent : C.green, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Flexible(child: Text(tr('ব্যবসায়ী মোড'), style: body(15, weight: FontWeight.w600))),
-                      if (!brain.has(ProFeature.business)) ...[const SizedBox(width: 6), const ProMark()],
-                    ]),
-                    Text(brain.businessMode ? tr('চালু — হোম, বিক্রি, গ্রাহক, হিসাব, স্টক দোকানের জন্য। বন্ধ করলে আগের মতো।') : tr('দোকান চালালে চালু করুন — বিক্রি, গ্রাহকের বাকি, ডিলার, স্টক, PDF রসিদ'),
-                        style: body(12, color: C.muted, height: 1.4)),
-                  ]),
-                ),
-                Switch(key: const Key('more-business'), value: brain.businessMode, onChanged: (v) => brain.setPref('business_mode', v)),
-              ]),
-            ),
-          ),
+        // Owner, 18 Nov (after trying it): the profile first again, as before.
+        _MeCard(
+          onProfile: () => push(_ProfilePage(onName: _setName, onPlace: _setDistrict)),
+          backup: brain.driveOn
+              ? (brain.has(ProFeature.autoBackup) ? tr('অটো ব্যাকআপ চালু') : trf('ব্যাকআপ {0}', [brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
+              : (last == null ? tr('ব্যাকআপ নেই') : trf('ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
+          backupWarn: (last == null || backupOld) && !brain.driveOn,
+          onBackup: () => push(const BackupScreen()),
         ),
         const SizedBox(height: 12),
-        // Owner, 2 Nov: in a logical order — what you use (Premium, family,
-        // zakat, blood), your data (recycle bin, PDF, CSV), the settings
-        // (look, reminders and notifications, assistant and voice, the phone's
-        // model, keeping data safe), and last help and the app itself.
-        for (final row in [
-          [
-            _Tile(
-                key: const Key('more-pro'),
-                icon: Icons.workspace_premium_outlined,
-                fg: C.ochre,
-                bg: C.ochreTint,
-                title: tr('প্রিমিয়াম'),
-                sub: brain.onTrial
-                    ? trf('ফ্রি ট্রায়াল — আর {0} দিন', [bnDigits(brain.trialEnds!.difference(brain.services.now()).inHours ~/ 24 + 1)])
-                    : brain.gated && brain.pro
-                        ? tr('চালু আছে')
-                        : tr('কী কী পাবেন'),
-                onTap: () => push(const ProScreen())),
-            _Tile(
-                key: const Key('more-family'),
-                icon: Icons.family_restroom_rounded,
-                fg: C.purple,
-                bg: C.purpleTint,
-                title: tr('পরিবার'),
-                sub: tr('পরিবারের জন্য কাজ ও রিমাইন্ডার'),
-                onTap: () => push(const FamilyScreen())),
-          ],
-          [
-            _Tile(
-                key: const Key('more-zakat'),
-                icon: Icons.volunteer_activism_outlined,
-                fg: C.ochre,
-                bg: C.ochreTint,
-                title: tr('যাকাত'),
-                sub: tr('আপনার হিসাব থেকে নিজে হিসাব'),
-                onTap: () => push(const ZakatScreen())),
-            _Tile(key: const Key('more-requests'), icon: Icons.bloodtype_outlined, fg: C.rose, bg: C.roseTint, title: trm('রক্তদান'), sub: tr('রক্ত দিন, রক্ত চান — সারা দেশে'), onTap: () => push(const RequestsScreen())),
-          ],
-        ]) ...[
-          Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
-          const SizedBox(height: 10),
-        ],
-        const SizedBox(height: 6),
-        SectionTitle(tr('আপনার তথ্য')),
-        Panel(
-          child: Rows(children: [
-            linkRow(Icons.delete_outline_rounded, tr('রিসাইকেল বিন'),
-                sub: brain.data.trash.isEmpty ? tr('যা মুছবেন, ৩০ দিন এখানে থাকবে') : trf('{0}টা — ৩০ দিনের মধ্যে ফিরিয়ে আনা যায়', [bnDigits(brain.data.trash.length)]),
-                onTap: () => push(const TrashScreen())),
-            linkRow(Icons.picture_as_pdf_outlined, tr('সবকিছু PDF আকারে'), sub: tr('কাজ, হিসাব, নোট, স্বাস্থ্য… যা চান বেছে নিয়ে এক PDF-এ'), onTap: () => exportEverything(context),
-                trailing: brain.has(ProFeature.pdf) ? Icon(Icons.download_rounded, color: C.muted) : const ProMark()),
-            linkRow(Icons.table_view_outlined, tr('ধার-দেনার রিপোর্ট (CSV)'), sub: tr('Excel বা Google Sheets-এ খোলা যায়'), onTap: _csv,
-                trailing: Icon(Icons.ios_share_rounded, color: C.muted)),
-          ]),
-        ),
-        // Owner, 3 Nov: the settings as five rows, each opening its own page —
-        // the same switches and choices as before, in the 2 Nov order.
+        const _PremiumCard(),
+        const _GroupedTools(),
         SectionTitle(tr('সেটিংস')),
         Panel(
           child: Rows(children: [
             setRow(const Key('more-set-look'), Icons.palette_outlined, C.green, C.greenTint, tr('চেহারা ও ভাষা'), tr('আলো-আঁধার, রং, ভাষা, লেখার মাপ'), 'look'),
-            setRow(const Key('more-set-remind'), Icons.notifications_none_rounded, C.ochre, C.ochreTint, tr('রিমাইন্ডার ও নোটিফিকেশন'), tr('নোটিফিকেশন প্যানেল, ঠিকমতো বাজবে কিনা, রিংটোন'), 'remind'),
+            setRow(const Key('more-set-remind'), Icons.notifications_none_rounded, C.ochre, C.ochreTint, tr('রিমাইন্ডার ও নোটিফিকেশন'), tr('ঠিকমতো বাজবে কিনা, রিংটোন'), 'remind'),
             setRow(const Key('more-set-assistant'), Icons.mic_none_rounded, C.blue, C.blueTint, tr('সহকারী ও কণ্ঠ'),
                 brain.speakOn ? tr('কণ্ঠে উত্তর চালু · কণ্ঠ বেছে নিন') : tr('কণ্ঠে উত্তর বন্ধ · কণ্ঠ বেছে নিন'), 'assistant'),
-            setRow(const Key('more-set-model'), Icons.psychology_outlined, C.purple, C.purpleTint, tr('কথা বোঝা'), switch (brain.nluModelState) {
-                    'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
-                    'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB) — মোবাইল ডেটায় নয়'),
-                    'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
-                    '' => tr('কেন, কীভাবে শিখছে, কী উন্নতি হলো'),
-                    _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
-                  }, 'model'),
-            setRow(const Key('more-set-safety'), Icons.shield_outlined, C.teal, C.tealTint, tr('তথ্য নিরাপদ রাখা'), brain.driveOn
-                    ? (brain.has(ProFeature.autoBackup)
-                        ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
-                        : trf('{0} · শেষ Drive ব্যাকআপ {1}', [brain.googleEmail, brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
-                    : (last == null ? tr('এখনো নেওয়া হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])), 'safety',
-                subColor: backupOld && !brain.driveOn ? C.orange : null),
+            // Owner, 17 Nov: the backup on its own row (inside "তথ্য নিরাপদ রাখা" it was missed).
+            ListRow(
+              key: const Key('more-set-backup'),
+              leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.cloud_upload_outlined, color: C.blue, size: 20)),
+              title: tr('ব্যাকআপ'),
+              subtitle: brain.driveOn
+                  ? (brain.has(ProFeature.autoBackup)
+                      ? trf('{0} · Drive-এ অটো ব্যাকআপ চালু', [brain.googleEmail])
+                      : trf('{0} · শেষ Drive ব্যাকআপ {1}', [brain.googleEmail, brain.lastDrive == null ? tr('হয়নি') : daysLeftLabel(brain.lastDrive!, now)]))
+                  : (last == null ? tr('এখনো নেওয়া হয়নি — ফোন হারালে সব হারাবে') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
+              subtitleColor: (last == null || backupOld) && !brain.driveOn ? C.orange : null,
+              trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+              onTap: () => push(const BackupScreen()),
+            ),
+            setRow(const Key('more-set-safety'), Icons.shield_outlined, C.teal, C.tealTint, tr('তালা ও নিরাপত্তা'), tr('PIN, আঙুলের ছাপ, নিজে থেকে লক'), 'safety'),
           ]),
         ),
-        const SizedBox(height: 22),
+        // Owner, 18 Nov: these take the data out (and back from the bin) — not "your data".
+        SectionTitle(tr('তথ্য এক্সপোর্ট ও রিসাইকেল বিন')),
+        Row(children: [
+          Expanded(child: _MiniTile(key: const Key('more-pdf'), icon: Icons.picture_as_pdf_outlined, label: tr('সব PDF-এ'), badge: brain.has(ProFeature.pdf) ? null : const ProMark(), onTap: () => exportEverything(context))),
+          const SizedBox(width: 10),
+          Expanded(child: _MiniTile(key: const Key('more-csv'), icon: Icons.table_view_outlined, label: tr('ধার-দেনা CSV'), onTap: _csv)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: _MiniTile(
+                  key: const Key('more-trash'),
+                  icon: Icons.delete_outline_rounded,
+                  label: tr('রিসাইকেল বিন'),
+                  count: brain.data.trash.length,
+                  onTap: () => push(const TrashScreen()))),
+        ]),
         SectionTitle(tr('সাহায্য ও যোগাযোগ')),
-        for (final row in [
-          [
-            _Tile(icon: Icons.lightbulb_outline_rounded, fg: C.green, bg: C.greenTint, title: tr('কী কী করা যায়'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
-            _Tile(
-                key: const Key('more-feedback'),
-                icon: Icons.forum_outlined,
-                fg: C.blue,
-                bg: C.blueTint,
-                title: tr('সমস্যা বা পরামর্শ দিন'),
-                sub: brain.feedbackUnread > 0 ? trf('{0}টা নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
-                badge: brain.feedbackUnread > 0,
-                onTap: () => push(const FeedbackScreen())),
-          ],
-        ]) ...[
-          Row(children: [Expanded(child: SizedBox(height: 70, child: row[0])), const SizedBox(width: 10), Expanded(child: SizedBox(height: 70, child: row[1]))]),
-          const SizedBox(height: 10),
-        ],
         Panel(
           child: Rows(children: [
+            // Owner, 17 Nov: WhatsApp support; the number is set on the website (none in the app).
+            if (brain.supportWhatsapp.isNotEmpty) SupportWhatsapp(number: brain.supportWhatsapp),
+            ListRow(
+              key: const Key('more-feedback'),
+              leading: Badge(
+                  isLabelVisible: brain.feedbackUnread > 0,
+                  smallSize: 10,
+                  child: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.forum_outlined, color: C.muted2, size: 20))),
+              title: tr('সমস্যা বা পরামর্শ দিন'),
+              subtitle: brain.feedbackUnread > 0 ? trf('{0}টি নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'),
+              subtitleColor: brain.feedbackUnread > 0 ? C.greenDark : null,
+              trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+              onTap: () => push(const FeedbackScreen()),
+            ),
+          ]),
+        ),
+        SectionTitle(tr('অ্যাপ সম্পর্কে')),
+        Panel(
+          child: Rows(children: [
+            // Owner, 18 Nov: what the app has belongs with the app, not with help.
+            linkRow(Icons.lightbulb_outline_rounded, tr('কী কী করা যায়'), key: const Key('more-help'), sub: tr('সব সুবিধা, মাইকে কী বলবেন'), onTap: () => push(const HelpScreen())),
+            // Owner, 17 Nov: how the app understands speech is not a setting.
+            linkRow(Icons.psychology_outlined, tr('কথা বোঝা'),
+                key: const Key('more-set-model'),
+                sub: switch (brain.nluModelState) {
+                  'ready' => trf('নামানো আছে · {0}', [brain.nluModelVersion]),
+                  'wait-wifi' => tr('Wi-Fi পেলে নিজে নামবে (প্রায় ১৪ MB)'),
+                  'builtin' => tr('এখনো চালু হয়নি — অ্যাপ নিজের নিয়মে বুঝছে'),
+                  '' => tr('কীভাবে শিখছে, কী উন্নতি হলো'),
+                  _ => tr('নামানো যায়নি — পরে আবার চেষ্টা হবে'),
+                },
+                onTap: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => _SettingsPage(key: const Key('settings-model'), title: tr('কথা বোঝা'), changed: _changed, parts: () => _parts['model']!())))
+                    .then((_) => _load())),
             linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
                 sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),
             if (proTestSwitch)
@@ -649,10 +604,23 @@ class _MoreScreenState extends State<MoreScreen> {
                     ? linkRow(Icons.ads_click_outlined, tr('বিজ্ঞাপনের গোপনীয়তা'), sub: tr('Google বিজ্ঞাপনের জন্য আপনার সম্মতি বদলান'), onTap: Ads.changePrivacyChoice)
                     : const SizedBox.shrink(),
               ),
-            linkRow(Icons.info_outline_rounded, tr('লাইসেন্স ও সংস্করণ'),
-                sub: 'My Assistant ${bnDigits(shownVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}',
-                onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: shownVersion)),
           ]),
+        ),
+        const SizedBox(height: 18),
+        // The app's name and version, small, at the very end (tap: licences).
+        Center(
+          child: InkWell(
+            key: const Key('more-version'),
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => showLicensePage(context: context, applicationName: 'My Assistant', applicationVersion: shownVersion),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Column(children: [
+                Text('My Assistant ${bnDigits(shownVersion)}${previewEdition ? ' · ${tr('প্লে স্টোর প্রিভিউ')}' : ''}', style: body(12.5, weight: FontWeight.w600, color: C.muted)),
+                Text(tr('আপনার তথ্য আপনার ফোনেই · লাইসেন্স'), style: body(11.5, color: C.muted)),
+              ]),
+            ),
+          ),
         ),
       ],
     );
@@ -815,7 +783,11 @@ class _BackupScreenState extends State<BackupScreen> {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
-    final last = _lastBackup == null ? null : DateTime.tryParse(_lastBackup!);
+    final file = _lastBackup == null ? null : DateTime.tryParse(_lastBackup!);
+    // The newer of the file backup and the Google Drive one (13 Nov: with
+    // Drive backing up, the page still said "no backup taken").
+    final drive = brain.lastDrive;
+    final last = file == null ? drive : (drive != null && drive.isAfter(file) ? drive : file);
     final old = last == null || now.difference(last).inDays > 7;
     return Scaffold(
       body: SafeArea(
@@ -908,40 +880,558 @@ class _NewPinSheetState extends State<_NewPinSheet> {
 }
 
 /// A big square-ish shortcut at the top of আরও.
-class _Tile extends StatelessWidget {
-  const _Tile({super.key, required this.icon, required this.fg, required this.bg, required this.title, required this.sub, required this.onTap, this.badge = false});
+
+
+/// "হোয়াটসঅ্যাপে কথা বলুন": opens a chat with our support number, with a
+/// short greeting the member can change before sending. Nothing about the
+/// member goes with it — only the app's version.
+class SupportWhatsapp extends StatelessWidget {
+  const SupportWhatsapp({super.key, required this.number});
+  final String number;
+
+  static const _waGreen = Color(0xFF1DA851);
+
+  /// 01712345678 → ০১৭১২-৩৪৫৬৭৮
+  static String shown(String n) {
+    final d = n.replaceAll(RegExp(r'[^0-9]'), '');
+    final local = d.startsWith('880') && d.length == 13 ? '0${d.substring(3)}' : d;
+    final s = local.length == 11 ? '${local.substring(0, 5)}-${local.substring(5)}' : local;
+    return bnDigits(s);
+  }
+
+  Future<void> _open(BuildContext context) async {
+    final brain = BrainScope.read(context);
+    final text = trf('আসসালামু আলাইকুম, My Assistant অ্যাপ নিয়ে জানতে চাই। (অ্যাপ {0})', [bnDigits(shownVersion)]);
+    final ok = await brain.services.launcher.open(Via.whatsapp, number, text: text);
+    if (!ok && context.mounted) toast(context, tr('হোয়াটসঅ্যাপ খোলা গেল না'));
+  }
+
+  @override
+  Widget build(BuildContext context) => ListRow(
+        key: const Key('more-whatsapp'),
+        leading: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(color: _waGreen.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+          child: const Icon(Icons.chat_rounded, color: _waGreen, size: 21),
+        ),
+        title: tr('হোয়াটসঅ্যাপে কথা বলুন'),
+        subtitle: shown(number),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: _waGreen, borderRadius: BorderRadius.circular(20)),
+          child: Text(tr('মেসেজ'), style: body(13, weight: FontWeight.w700, color: Colors.white)),
+        ),
+        onTap: () => _open(context),
+      );
+}
+
+/// "কেন প্রিমিয়াম নেবেন": every reason from [proInfo] in the owner's order;
+/// a tap shows what Premium gives and what the free app has instead.
+class WhyPremium extends StatefulWidget {
+  const WhyPremium({super.key, this.showTitle = true});
+  final bool showTitle;
+  @override
+  State<WhyPremium> createState() => _WhyPremiumState();
+}
+
+class _WhyPremiumState extends State<WhyPremium> {
+  ProFeature? _open;
+
+  static const _icons = <ProFeature, IconData>{
+    ProFeature.business: Icons.storefront_outlined,
+    ProFeature.reminders: Icons.notifications_active_outlined,
+    ProFeature.docs: Icons.folder_outlined,
+    ProFeature.projects: Icons.account_balance_wallet_outlined,
+    ProFeature.will: Icons.history_edu_outlined,
+    ProFeature.familyHealth: Icons.monitor_heart_outlined,
+    ProFeature.vault: Icons.lock_outline_rounded,
+    ProFeature.family: Icons.family_restroom_rounded,
+    ProFeature.autoBackup: Icons.cloud_sync_outlined,
+    ProFeature.pdf: Icons.picture_as_pdf_outlined,
+    ProFeature.ai: Icons.auto_awesome_outlined,
+    ProFeature.noAds: Icons.block_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final has = brain.gated && brain.pro;
+    final items = [for (final e in proInfo.entries) if (!e.value.later) e];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (widget.showTitle) SectionTitle(has ? tr('প্রিমিয়ামে যা পাচ্ছেন') : tr('কেন প্রিমিয়াম নেবেন')),
+      Panel(
+        key: const Key('more-why-pro'),
+        child: Column(children: [
+          for (final (i, e) in items.indexed) ...[
+            if (i > 0) Divider(height: 1, indent: 62, color: C.border),
+            InkWell(
+              key: Key('why-${e.key.name}'),
+              onTap: () => setState(() => _open = _open == e.key ? null : e.key),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(11)),
+                      child: Icon(_icons[e.key] ?? Icons.star_outline_rounded, color: C.ochre, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text(tr(e.value.title), style: body(14.5, weight: FontWeight.w600))),
+                    AnimatedRotation(
+                      turns: _open == e.key ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      child: Icon(Icons.expand_more_rounded, color: C.muted),
+                    ),
+                  ]),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 180),
+                    alignment: Alignment.topCenter,
+                    child: _open != e.key
+                        ? const SizedBox(width: double.infinity)
+                        : Padding(
+                            padding: const EdgeInsets.fromLTRB(48, 8, 6, 2),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(tr(e.value.what), style: body(13.5, height: 1.45)),
+                              if (e.value.free.isNotEmpty) ...[
+                                const SizedBox(height: 6),
+                                Text(trf('ফ্রি সংস্করণে: {0}', [tr(e.value.free)]), style: body(12.5, color: C.muted, height: 1.4)),
+                              ],
+                            ]),
+                          ),
+                  ),
+                ]),
+              ),
+            ),
+          ],
+          if (!has) ...[
+            Divider(height: 1, color: C.border),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text(tr('আপনার রাখা কোনো তথ্য কখনো তালাবদ্ধ হবে না — প্রিমিয়াম শেষ হলেও সব দেখা যাবে।'), style: body(12.5, color: C.muted, height: 1.4)),
+                const SizedBox(height: 10),
+                PrimaryButton(key: const Key('why-pro-open'), label: tr('প্রিমিয়াম দেখুন'), icon: Icons.workspace_premium_outlined, onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProScreen()))),
+              ]),
+            ),
+          ],
+        ]),
+      ),
+    ]);
+  }
+}
+
+
+
+class _ProfilePage extends StatelessWidget {
+  const _ProfilePage({required this.onName, required this.onPlace});
+  final VoidCallback onName;
+  final VoidCallback onPlace;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: Column(children: [
+            TopBar(title: tr('প্রোফাইল')),
+            Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [ProfileCard(onName: onName, onPlace: onPlace)])),
+          ]),
+        ),
+      );
+}
+
+
+class _WhyPremiumPage extends StatelessWidget {
+  const _WhyPremiumPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    return Scaffold(
+      body: SafeArea(
+        child: Column(children: [
+          TopBar(title: brain.gated && brain.pro ? tr('প্রিমিয়ামে যা পাচ্ছেন') : tr('কেন প্রিমিয়াম নেবেন')),
+          Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: const [WhyPremium(showTitle: false)])),
+        ]),
+      ),
+    );
+  }
+}
+
+
+/// You and what needs doing: photo, name, place and blood group (a tap
+/// opens the profile), then the backup and the shop switch side by side.
+class _MeCard extends StatelessWidget {
+  const _MeCard({required this.onProfile, required this.backup, required this.backupWarn, required this.onBackup});
+  final VoidCallback onProfile;
+  final String backup;
+  final bool backupWarn;
+  final VoidCallback onBackup;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final blood = brain.data.emergency.blood;
+    Widget chip({required Key key, required IconData icon, required String text, required Color fg, required Color bg, VoidCallback? onTap, Widget? end, int flex = 5}) => Expanded(
+          flex: flex,
+          child: Material(
+            color: bg,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              key: key,
+              borderRadius: BorderRadius.circular(12),
+              onTap: onTap,
+              child: SizedBox(
+                height: 44,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(10, 0, end == null ? 10 : 0, 0),
+                  child: Row(children: [
+                    Icon(icon, size: 18, color: fg),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w600, color: fg))),
+                    if (end != null) end,
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        );
+    return Panel(
+      child: Column(children: [
+        InkWell(
+          key: const Key('more-profile'),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(17)),
+          onTap: onProfile,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 16, 10, 12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              // Owner, 18 Nov: Premium or free under the photo. Owner, 19 Nov: how
+              // long it lasts only on the Premium page, not here.
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                const UserPhoto(size: 60),
+                if (brain.gated) ...[const SizedBox(height: 6), const _PlanTag()],
+              ]),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(brain.userName.isEmpty ? tr('আপনার নাম দিন') : brain.userName, maxLines: 2, overflow: TextOverflow.ellipsis, style: display(19, weight: 700, color: brain.userName.isEmpty ? C.muted : C.ink)),
+                  // Owner, 19 Nov: how full the profile is, in place of the plan's days.
+                  const SizedBox(height: 6),
+                  _Fullness(onProfile: onProfile),
+                ]),
+              ),
+              Icon(Icons.chevron_right_rounded, color: C.muted),
+            ]),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: Row(children: [
+            _Fact(key: const Key('more-place'), icon: Icons.location_on_outlined, fg: C.blue, bg: C.blueTint, label: tr('লোকেশন'), value: brain.placeLabel.isEmpty ? tr('জেলা দিন') : brain.placeLabel, empty: brain.placeLabel.isEmpty, onTap: onProfile),
+            const SizedBox(width: 8),
+            _Fact(key: const Key('more-blood'), icon: Icons.water_drop_outlined, fg: C.red, bg: C.roseTint, label: tr('রক্তের গ্রুপ'), value: blood.isEmpty ? tr('দিন') : blood, empty: blood.isEmpty, onTap: onProfile),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Row(children: [
+            chip(
+                key: const Key('more-backup-chip'),
+                icon: backupWarn ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
+                text: backup,
+                fg: backupWarn ? C.orange : C.greenDark,
+                bg: backupWarn ? C.orangeTint : C.greenTint,
+                onTap: onBackup),
+            const SizedBox(width: 8),
+            chip(
+              key: const Key('more-business-chip'),
+              icon: Icons.storefront_outlined,
+              text: tr('ব্যবসায়ী মোড'),
+              flex: 6,
+              fg: brain.businessMode ? C.greenDark : C.muted2,
+              bg: C.surface2,
+              onTap: () => brain.setPref('business_mode', !brain.businessMode),
+              end: Transform.scale(
+                scale: 0.72,
+                child: Switch(key: const Key('more-business'), value: brain.businessMode, onChanged: (v) => brain.setPref('business_mode', v)),
+              ),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// "প্রিমিয়াম", "ট্রায়াল" or "ফ্রি" under the photo; a tap opens Premium.
+class _PlanTag extends StatelessWidget {
+  const _PlanTag();
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final pro = brain.pro;
+    final label = !pro ? tr('ফ্রি') : (brain.proKind == 'trial' ? tr('ট্রায়াল') : tr('প্রিমিয়াম'));
+    final fg = pro ? C.ochre : C.muted2;
+    return Material(
+      color: pro ? C.ochreTint : C.chip,
+      shape: StadiumBorder(side: BorderSide(color: fg.withValues(alpha: 0.35))),
+      child: InkWell(
+        key: const Key('plan-badge'),
+        customBorder: const StadiumBorder(),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProScreen())),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (pro) ...[Icon(Icons.workspace_premium_rounded, size: 13, color: fg), const SizedBox(width: 3)],
+            Text(label, style: body(11.5, weight: FontWeight.w700, color: fg)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// One part of the profile: its name, whether it is given, and what to tap
+/// to give it (the hint under the name says "এরপর: …").
+typedef _Part = ({String label, String todo, bool done, Future<void> Function(BuildContext) give});
+
+/// The parts counted for "প্রোফাইল ৮০%": photo, name, mobile, place, blood
+/// group, an heir (family), and in the website edition an emergency contact.
+List<_Part> _profileParts(Brain brain, VoidCallback onProfile) {
+  Future<void> profile(BuildContext _) async => onProfile();
+  return [
+    (label: tr('ছবি'), todo: tr('ছবি দিন'), done: brain.photo != null, give: changePhoto),
+    (label: tr('নাম'), todo: tr('নাম দিন'), done: brain.userName.isNotEmpty, give: profile),
+    (label: tr('মোবাইল নম্বর'), todo: tr('মোবাইল নম্বর দিন'), done: brain.userPhone.isNotEmpty, give: editUserPhone),
+    (label: tr('লোকেশন'), todo: tr('জেলা দিন'), done: brain.placeLabel.isNotEmpty, give: profile),
+    (label: tr('রক্তের গ্রুপ'), todo: tr('রক্তের গ্রুপ দিন'), done: brain.data.emergency.blood.isNotEmpty, give: pickBloodGroup),
+    if (!medicalOff) (label: tr('জরুরি যোগাযোগ'), todo: tr('জরুরি যোগাযোগ দিন'), done: brain.data.emergency.contacts.any((c) => c.trim().isNotEmpty), give: profile),
+    (
+      label: tr('উত্তরাধিকারী'),
+      todo: tr('উত্তরাধিকারী বাছুন'),
+      done: brain.family.links.any((l) => l.active && l.theyAreMyHeir),
+      give: (c) => Navigator.of(c).push(MaterialPageRoute<void>(builder: (_) => const FamilyScreen())),
+    ),
+  ];
+}
+
+/// Under the name: a thin bar, "প্রোফাইল ৮০%" and the next part to give
+/// (a tap gives it); "প্রোফাইল সম্পূর্ণ" when all are there.
+class _Fullness extends StatelessWidget {
+  const _Fullness({required this.onProfile});
+  final VoidCallback onProfile;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final parts = _profileParts(brain, onProfile);
+    final done = parts.where((p) => p.done).length;
+    final pct = (done * 100 / parts.length).round();
+    final next = parts.where((p) => !p.done).firstOrNull;
+    return Column(key: const Key('more-fullness'), crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Text(next == null ? tr('প্রোফাইল সম্পূর্ণ') : trf('প্রোফাইল {0}%', [bnDigits(pct)]), style: body(12.5, weight: FontWeight.w600, color: next == null ? C.green : C.muted2)),
+        if (next == null) ...[const SizedBox(width: 4), Icon(Icons.check_circle_outline_rounded, size: 15, color: C.green)],
+        const SizedBox(width: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(value: done / parts.length, minHeight: 5, backgroundColor: C.line2, valueColor: AlwaysStoppedAnimation(C.green)),
+          ),
+        ),
+      ]),
+      if (next != null)
+        InkWell(
+          key: const Key('more-fullness-next'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => next.give(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(children: [
+              Text(tr('এরপর: '), style: body(12.5, color: C.muted)),
+              Flexible(child: Text(next.todo, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w600, color: C.green))),
+              Icon(Icons.chevron_right_rounded, size: 16, color: C.green),
+            ]),
+          ),
+        ),
+    ]);
+  }
+}
+
+/// One fact about the user in the profile card: the place or the blood group.
+class _Fact extends StatelessWidget {
+  const _Fact({super.key, required this.icon, required this.fg, required this.bg, required this.label, required this.value, required this.empty, required this.onTap});
   final IconData icon;
   final Color fg;
   final Color bg;
-  final String title;
-  final String sub;
+  final String label;
+  final String value;
+  final bool empty;
   final VoidCallback onTap;
-  final bool badge;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Material(
+          color: C.surface2,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              child: Row(children: [
+                Container(width: 36, height: 36, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(11)), child: Icon(icon, size: 20, color: fg)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
+                    Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15.5, weight: FontWeight.w700, color: empty ? C.muted2 : C.ink)),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
+/// Premium as one card that stands out (flat colour, no gradient): three
+/// reasons at a glance, a tap opens all of them.
+class _PremiumCard extends StatelessWidget {
+  const _PremiumCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final has = brain.gated && brain.pro;
+    void open() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _WhyPremiumPage()));
+    if (has) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Panel(
+          child: ListRow(
+            key: const Key('more-why-pro'),
+            leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.workspace_premium_rounded, color: C.ochre, size: 21)),
+            title: tr('প্রিমিয়াম চালু আছে'),
+            subtitle: tr('যা যা পাচ্ছেন দেখুন'),
+            trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+            onTap: open,
+          ),
+        ),
+      );
+    }
+    final n = [for (final e in proInfo.values) if (!e.later) e].length;
+    Widget reason(IconData i, String t) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(i, size: 15, color: C.ochre),
+            const SizedBox(width: 4),
+            Text(t, style: body(12.5, weight: FontWeight.w600, color: C.ink)),
+          ]),
+        );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: C.ochreTint,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          key: const Key('more-why-pro'),
+          borderRadius: BorderRadius.circular(18),
+          onTap: open,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Icon(Icons.workspace_premium_rounded, color: C.ochre, size: 24),
+                const SizedBox(width: 8),
+                Expanded(child: Text(tr('কেন প্রিমিয়াম নেবেন'), style: display(17, weight: 700))),
+                Text(trf('{0}টি কারণ', [bnDigits(n)]), style: body(13, weight: FontWeight.w600, color: C.ochre)),
+                Icon(Icons.chevron_right_rounded, color: C.ochre),
+              ]),
+              const SizedBox(height: 10),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                reason(Icons.block_outlined, tr('বিজ্ঞাপন নেই')),
+                reason(Icons.cloud_sync_outlined, tr('অটো ব্যাকআপ')),
+                reason(Icons.notifications_active_outlined, tr('যত খুশি রিমাইন্ডার')),
+                reason(Icons.auto_awesome_outlined, tr('AI উত্তর')),
+                reason(Icons.picture_as_pdf_outlined, tr('PDF ডাউনলোড')),
+                reason(Icons.folder_outlined, tr('যত খুশি ডকুমেন্ট')),
+                reason(Icons.lock_outline_rounded, tr('যত খুশি পাসওয়ার্ড')),
+                reason(Icons.family_restroom_rounded, tr('উত্তরাধিকারী')),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// সব সুবিধা in groups, by what they are for (the bottom bar's own left out).
+class _GroupedTools extends StatelessWidget {
+  const _GroupedTools();
+
+  static const _groups = <(String, List<String>)>[
+    ('প্রতিদিন', ['reminders', 'alarms', 'calendar', 'notes']),
+    ('নিরাপদে রাখা', ['docs', 'vault', 'contacts']),
+    ('পরিবার ও স্বাস্থ্য', ['family', 'health', 'medicines', 'med_reminder', 'blood']),
+    ('মুসলিম টাইম ও যাকাত', ['compass', 'zakat']),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final byKey = {for (final x in appTools(context)) x.$1: x};
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SectionTitle(tr('সব সুবিধা')),
+      AppCard(
+        key: const Key('more-tools'),
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+        child: Column(children: [
+          for (final (i, (title, keys)) in _groups.indexed) ...[
+            if (i > 0) Divider(height: 1, indent: 6, endIndent: 6, color: C.line2),
+            // The group's name on the left, its tools on the right: one row each.
+            Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+              SizedBox(width: 62, child: Padding(padding: const EdgeInsets.only(left: 6), child: Text(tr(title), style: body(12, weight: FontWeight.w600, color: C.muted, height: 1.25)))),
+              for (final k in [...keys.where(byKey.containsKey).take(4)]) Expanded(child: SizedBox(height: 82, child: ToolTile(key: Key('tool-$k'), icon: byKey[k]!.$3, label: byKey[k]!.$2, onTap: byKey[k]!.$4))),
+              for (var j = keys.where(byKey.containsKey).take(4).length; j < 4; j++) const Expanded(child: SizedBox()),
+            ]),
+          ],
+        ]),
+      ),
+    ]);
+  }
+}
+
+/// A small square: icon over a short name (your data).
+class _MiniTile extends StatelessWidget {
+  const _MiniTile({super.key, required this.icon, required this.label, required this.onTap, this.badge, this.count = 0});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Widget? badge;
+  final int count;
 
   @override
   Widget build(BuildContext context) => Material(
         color: C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17), side: BorderSide(color: C.border)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: C.border)),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
-            child: Row(children: [
-              Badge(
-                isLabelVisible: badge,
-                smallSize: 10,
-                // One accent for every tool (the approved design's tiles).
-                child: Container(width: 40, height: 40, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: C.green, size: 22)),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600)),
-                  // English lines run a little taller in this box than Bangla ones.
-                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(11.5, color: badge ? C.greenDark : C.muted, height: isEn ? 1.15 : 1.25)),
+          child: SizedBox(
+            height: 78,
+            child: Stack(children: [
+              Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Badge(isLabelVisible: count > 0, label: Text(bnDigits(count)), child: Icon(icon, color: C.muted2, size: 24)),
+                  const SizedBox(height: 6),
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, weight: FontWeight.w600)),
                 ]),
               ),
+              if (badge != null) Positioned(top: 6, right: 6, child: badge!),
             ]),
           ),
         ),

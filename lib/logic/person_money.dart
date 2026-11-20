@@ -75,9 +75,9 @@ bool _nameMatches(String person, String q) {
 String _loanLabel(LedgerEntry e) => e.projectId == null
     ? e.kind.label
     : switch (e.kind) {
-        LedgerKind.lent => 'বকেয়া পাবো',
+        LedgerKind.lent => 'বকেয়া পাব',
         LedgerKind.received => 'বকেয়া আদায়',
-        LedgerKind.borrowed => 'বকেয়া দেবো',
+        LedgerKind.borrowed => 'বকেয়া দেব',
         LedgerKind.repaid => 'বকেয়া শোধ',
       };
 

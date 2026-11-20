@@ -1,9 +1,9 @@
+import 'services/app_dir.dart';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'services/health_connect.dart';
 import 'services/google_account.dart';
@@ -62,7 +62,7 @@ Future<void> main() async {
   // kept in a small file until sent, and sent a few seconds after.
   ErrorLog.version = shownVersion;
   try {
-    await ErrorLog.open(await getApplicationSupportDirectory());
+    await ErrorLog.open(await appSupportDir());
   } catch (_) {}
   final shown = FlutterError.onError;
   FlutterError.onError = (d) {
@@ -76,6 +76,9 @@ Future<void> main() async {
   final brain = Brain(services);
   ErrorLog.connect(services.server, () => brain.services.ai.session);
   nluAppVersion = shownVersion;
+  // The language before the first frame, so the intro after a new install
+  // speaks English and only turns Bangla once বাংলা is picked (owner, 20 Nov).
+  await brain.loadLook();
   runApp(DigitalBrainApp(brain: brain));
   await brain.load();
   // The window starts blocked from screenshots; once the first page is up,

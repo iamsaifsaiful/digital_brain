@@ -1335,7 +1335,7 @@ class _BkashPageState extends State<BkashPage> {
     if (!allowed) {
       if (mounted) {
         setState(() => _busy = false);
-        _say('SMS-এর অনুমতি দেওয়া হয়নি — ফোনের Settings › Apps › MA অ্যাডমিন › Permissions থেকে দিন');
+        _say('SMS-এর অনুমতি দেওয়া হয়নি — ফোনের Settings › Apps › এডমিন MA › Permissions থেকে দিন');
       }
       return;
     }

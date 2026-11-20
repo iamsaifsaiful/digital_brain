@@ -198,7 +198,7 @@ void main() {
     await say('আমার কাজের তালিকা দাও');
     final r = await say('৪নং থেকে ৮নং মুছে দাও। ৯নং এ রিমাইন্ডার যুক্ত কর');
     expect(r, isNot(contains('খুঁজে পেলাম না')));
-    expect(r, contains('৫টা'));
+    expect(r, contains('৫টি'));
     final y = await say('হ্যাঁ');
     expect(data().tasks.map((x) => x.id), unorderedEquals(['t1', 't2', 't3', 't9']));
     expect(y, contains('কাজ 9'), reason: 'the reminder part is heard after the yes');

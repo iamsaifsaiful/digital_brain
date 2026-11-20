@@ -42,7 +42,7 @@ Future<bool> needPro(BuildContext context, ProFeature feature, {bool allowed = f
           Text(tr(info.what), style: body(15, height: 1.5)),
           if (info.free.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(trf('ফ্রিতে: {0}', [tr(info.free)]), style: body(13, color: C.muted)),
+            Text(trf('ফ্রি সংস্করণে: {0}', [tr(info.free)]), style: body(13, color: C.muted)),
           ],
           const SizedBox(height: 6),
           Text(tr('আপনার রাখা তথ্য যেমন আছে তেমনই থাকবে — দেখা, বদলানো, মোছা সবসময় যাবে।'), style: body(13, color: C.muted, height: 1.45)),
@@ -159,7 +159,7 @@ Future<void> afterTaskDone(BuildContext context) async {
             const SizedBox(height: 16),
             Text(tr('পুরো পর্দার বিজ্ঞাপন (নমুনা)'), textAlign: TextAlign.center, style: display(22)),
             const SizedBox(height: 10),
-            Text(tr('ফ্রি ভার্সনে কাজ শেষ হওয়ার পর মাঝে মাঝে এমন একটা Google বিজ্ঞাপন আসবে — দিনে সর্বোচ্চ ২টা, প্রথম দিন একটাও না। কয়েক সেকেন্ড পর বন্ধ করা যায়।'),
+            Text(tr('ফ্রি সংস্করণে কাজ শেষ হওয়ার পর মাঝে মাঝে এমন একটা Google বিজ্ঞাপন আসবে — দিনে সর্বোচ্চ ২টি, প্রথম দিন একটাও না। কয়েক সেকেন্ড পর বন্ধ করা যায়।'),
                 textAlign: TextAlign.center, style: body(15, color: C.muted2, height: 1.55)),
             const Spacer(),
             PrimaryButton(

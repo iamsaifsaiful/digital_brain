@@ -31,7 +31,7 @@ const _icons = <String, IconData>{
   'health': Icons.favorite_border_rounded,
   'family': Icons.family_restroom_rounded,
   'requests': Icons.bloodtype_outlined,
-  'compass': Icons.explore_outlined,
+  'compass': Icons.mosque_outlined,
   'spending': Icons.pie_chart_outline_rounded,
   'pdf': Icons.picture_as_pdf_outlined,
   'medicines': Icons.medication_outlined,

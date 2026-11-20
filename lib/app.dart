@@ -31,6 +31,7 @@ import 'screens/lock_screen.dart';
 import 'screens/alarm_screens.dart';
 import 'logic/lang.dart';
 import 'state/brain.dart';
+import 'services/ads.dart' show Ads;
 import 'ui/theme.dart';
 
 class DigitalBrainApp extends StatefulWidget {
@@ -179,6 +180,9 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Our own full-screen ad is Google's screen over the app, not leaving it:
+    // no lock when it closes (owner, 13 Nov — a member could not get back in).
+    if (Ads.onScreen) return;
     if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       _leftAt ??= brain.services.now();
       if (brain.loaded) brain.usageStop();
@@ -277,7 +281,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       final ok = await showDialog<bool>(
         context: ctx,
         builder: (c) => AlertDialog(
-          title: Text(trf('আজ {0}টা কাজ বাকি রইল', [bnDigits(left.length)]), style: display(20)),
+          title: Text(trf('আজ {0}টি কাজ বাকি রইল', [bnDigits(left.length)]), style: display(20)),
           content: Text('${left.take(6).map((t) => '• ${t.title}').join('\n')}\n\n${tr('সবগুলো কালকের তালিকায় সরিয়ে দেব?')}', style: body(15, height: 1.5)),
           actions: [
             TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr('না, থাক'))),
@@ -287,7 +291,7 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       );
       if (ok == true) {
         final n = await brain.moveLeftToTomorrow();
-        if (ctx.mounted) toast(ctx, trf('{0}টা কাজ কালকের তালিকায় গেল', [bnDigits(n)]));
+        if (ctx.mounted) toast(ctx, trf('{0}টি কাজ কালকের তালিকায় গেল', [bnDigits(n)]));
       }
     } else if (id.startsWith(nudgeDue)) {
       push(PersonScreen(person: id.substring(nudgeDue.length)));
@@ -453,11 +457,59 @@ class _LockCover extends StatelessWidget {
   }
 }
 
-class _LoadError extends StatelessWidget {
+class _LoadError extends StatefulWidget {
   const _LoadError();
+  @override
+  State<_LoadError> createState() => _LoadErrorState();
+}
+
+class _LoadErrorState extends State<_LoadError> {
+  bool _busy = false;
+  int _tries = 0;
+
+  Future<void> _retry() async {
+    setState(() => _busy = true);
+    final ok = await BrainScope.read(context).retryLoad();
+    if (!mounted || ok) return;
+    setState(() {
+      _busy = false;
+      _tries++;
+    });
+  }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    // The data could not be read just now: try again first; the other ways
+    // only after two more failures (problem log, 19 Nov).
+    if (brain.loadErrorPassing && _tries < 2) {
+      return Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.hourglass_bottom_rounded, size: 48, color: C.green),
+              const SizedBox(height: 12),
+              Text(tr('তথ্য খুলতে একটু দেরি হচ্ছে'), style: display(22), textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(tr('ফোন এই মুহূর্তে অ্যাপের ফাইল দিতে পারেনি। আপনার তথ্য ঠিক আছে — কিছু মোছা হয়নি। আবার চেষ্টা করুন।'),
+                  style: body(15, color: C.muted, height: 1.6), textAlign: TextAlign.center),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                key: const Key('load-error-retry'),
+                onPressed: _busy ? null : _retry,
+                icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.refresh_rounded),
+                label: Text(tr('আবার চেষ্টা করুন')),
+              ),
+            ]),
+          ),
+        ),
+      );
+    }
+    return _lockedBuild(context);
+  }
+
+  Widget _lockedBuild(BuildContext context) => Scaffold(
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -478,6 +530,30 @@ class _LoadError extends StatelessWidget {
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BackupScreen())),
                   icon: const Icon(Icons.restore_rounded),
                   label: Text(tr('ব্যাকআপ থেকে ফিরিয়ে আনুন')),
+                ),
+                const SizedBox(height: 10),
+                // No backup (owner, 19 Nov: a new member had only "restore"):
+                // start empty, the old file kept aside.
+                OutlinedButton.icon(
+                  key: const Key('load-error-fresh'),
+                  onPressed: () async {
+                    final brain = BrainScope.read(context);
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(tr('নতুন করে শুরু করবেন?'), style: display(19)),
+                        content: Text(tr('অ্যাপ খালি অবস্থায় শুরু হবে। পুরনো ফাইলটা মুছে ফেলা হবে না, আলাদা করে রাখা থাকবে। পরে ব্যাকআপ পেলে সেখান থেকে ফিরিয়ে আনা যাবে।'),
+                            style: body(15, color: C.muted, height: 1.5)),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('বাতিল'))),
+                          TextButton(key: const Key('load-error-fresh-ok'), onPressed: () => Navigator.pop(ctx, true), child: Text(tr('নতুন করে শুরু করুন'))),
+                        ],
+                      ),
+                    );
+                    if (ok == true) await brain.startFresh();
+                  },
+                  icon: const Icon(Icons.restart_alt_rounded),
+                  label: Text(tr('ব্যাকআপ নেই — নতুন করে শুরু করুন')),
                 ),
               ],
             ),

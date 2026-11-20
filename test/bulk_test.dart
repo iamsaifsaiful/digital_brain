@@ -60,10 +60,10 @@ void main() {
       expect(shown(), unorderedEquals(todayIds));
       questions = 0;
       final r = await say('এইগুলো সব মুছে দাও');
-      expect(r, contains('আজকের এই ৫টা কাজ মুছে দেব?'));
+      expect(r, contains('আজকের এই ৫টি কাজ মুছে দেব?'));
       expect(ids(), containsAll(todayIds), reason: 'nothing removed before the yes');
       final done = await say('হ্যাঁ');
-      expect(done, contains('৫টা কাজ মুছে দিয়েছি'));
+      expect(done, contains('৫টি কাজ মুছে দিয়েছি'));
       expect(ids(), {'b1', 'b2', 'c1', 'c2'}, reason: 'other days untouched');
       expect(questions, 1, reason: 'one confirmation, no "কোন কাজ?"');
     });
@@ -137,7 +137,7 @@ void main() {
         await open(t);
         await say('আজকের কাজের তালিকা দাও');
         final r = await say(said);
-        expect(r, contains('৪টা'), reason: said);
+        expect(r, contains('৪টি'), reason: said);
         await say('হ্যাঁ');
         expect(ids(), {'a3', 'b1', 'b2', 'c1', 'c2'}, reason: said);
       }
@@ -165,7 +165,7 @@ void main() {
       final list = shown();
       await say('প্রথম দুটো মুছো');
       final r = await say('না, শেষের দুটো');
-      expect(r, contains('২টা'));
+      expect(r, contains('২টি'));
       await say('হ্যাঁ');
       expect(ids(), containsAll(list.take(3)));
       expect(ids().intersection({list[3], list[4]}), isEmpty);
@@ -193,10 +193,10 @@ void main() {
       await open(t, tasks: many);
       await say('আজকের কাজের তালিকা দাও');
       final r = await say('এগুলো সব মুছে দাও');
-      expect(r, contains('দেখানো ৩০টা, নাকি পাওয়া সব ৩৫টা?'));
+      expect(r, contains('দেখানো ৩০টি, নাকি পাওয়া সব ৩৫টি?'));
       expect(ids(), hasLength(35));
       final r2 = await say('দেখানো ৩০টা');
-      expect(r2, contains('৩০টা কাজ মুছে দেব?'));
+      expect(r2, contains('৩০টি কাজ মুছে দেব?'));
       await say('হ্যাঁ');
       expect(ids(), hasLength(5));
     });
@@ -217,8 +217,8 @@ void main() {
       rig.brain.data.tasks.add(Task(id: 'new', title: 'নতুন কাজ', due: today));
       await rig.brain.deleteTask('a5');
       final r = await say('হ্যাঁ, দাও');
-      expect(r, contains('৪টা কাজ মুছে দিয়েছি'));
-      expect(r, contains('১টা আগেই তালিকা থেকে সরে গিয়েছিল'));
+      expect(r, contains('৪টি কাজ মুছে দিয়েছি'));
+      expect(r, contains('১টি আগেই তালিকা থেকে সরে গিয়েছিল'));
       expect(ids(), contains('new'));
     });
 
@@ -370,7 +370,7 @@ void main() {
     testWidgets('৩৮. "সব দিনের সব কাজ মুছে দাও": the whole list, said so — asked once with its count', (t) async {
       await open(t);
       final r = await say('সব দিনের সব কাজ মুছে দাও');
-      expect(r, contains('৯টা'));
+      expect(r, contains('৯টি'));
       await say('হ্যাঁ');
       expect(ids(), isEmpty);
     });
@@ -383,7 +383,7 @@ void main() {
       ]);
       await say('আজকের কাজের তালিকা দাও');
       final r = await say('ফোনেরটা থাকবে, বাকিগুলো বাদ');
-      expect(r, contains('২টা আছে'));
+      expect(r, contains('২টি আছে'));
       expect(ids(), hasLength(3));
     });
 

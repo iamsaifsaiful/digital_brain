@@ -16,6 +16,9 @@ void main() {
       final rig = Rig(keys: MemoryKeyVault());
       await rig.brain.load();
       final b = rig.brain..gated = true;
+      // Owner, 18 Nov: started by the user, not on its own.
+      expect(b.onTrial, isFalse);
+      await b.startTrial();
       expect(b.onTrial, isTrue);
       expect(b.pro, isTrue);
       expect(b.canAddProject, isTrue);
@@ -34,13 +37,21 @@ void main() {
       expect((b.pro, b.onTrial, b.trialOver), (true, false, false));
     });
 
-    test('the start is kept: opening again does not start a new trial', () async {
+    test('no trial on its own; started by the user once, and the start is kept (owner, 18 Nov)', () async {
       final rig = Rig(keys: MemoryKeyVault());
       await rig.brain.load();
+      rig.brain.gated = true;
+      expect(rig.brain.trialStart, isNull);
+      expect((rig.brain.pro, rig.brain.canStartTrial), (false, true));
+      await rig.brain.startTrial();
       final first = rig.brain.trialStart;
+      expect((rig.brain.onTrial, rig.brain.canStartTrial), (true, false));
       rig.nowAt = rig.nowAt.add(const Duration(days: 10));
       await rig.brain.load();
       expect(rig.brain.trialStart, first);
+      await rig.brain.startTrial();
+      expect(rig.brain.trialStart, first, reason: 'once only');
+      expect(rig.brain.trialOver, isTrue);
     });
 
     test('a note the day before it ends', () {

@@ -15,6 +15,45 @@ import 'more_screen.dart' show shownVersion;
 /// Off in tests, so they start straight at the PIN.
 bool googleFirst = true;
 
+/// The sign-up and PIN pages' colours (owner, 19 Nov: design 6 of six, the
+/// app mark on the Cox's Bazar sea, melting into the part below, in the
+/// home's dark look).
+class LockPal {
+  const LockPal({
+    required this.bg,
+    required this.sheet,
+    required this.line,
+    required this.title,
+    required this.text,
+    required this.soft,
+    required this.accent,
+    required this.onAccent,
+    required this.track,
+    required this.error,
+    required this.pad,
+  });
+  final Color bg, sheet, line, title, text, soft, accent, onAccent, track, error;
+
+  /// The PIN pad: text, key, dot filled, dot empty.
+  final (Color, Color, Color, Color) pad;
+
+  /// The home screen's dark look (owner, 19 Nov: "হোম স্কিনে ডার্ক মোড
+  /// যেভাবে আছে"): the night-blue ground, its cards, the light teal.
+  static const night = LockPal(
+    bg: Color(0xFF121A33),
+    sheet: Color(0xFF1A2342),
+    line: Color(0xFF2E3859),
+    title: Color(0xFFEEF1F8),
+    text: Color(0xFFC7CEE0),
+    soft: Color(0xFFA3ADC6),
+    accent: Color(0xFF79DCF6),
+    onAccent: Color(0xFF0E2A36),
+    track: Color(0xFF242E50),
+    error: Color(0xFFFDBA74),
+    pad: (Color(0xFFEEF1F8), Color(0xFF242E50), Color(0xFF79DCF6), Color(0xFF3A456A)),
+  );
+}
+
 /// First run: sign in with Google, then choose a PIN. Every other time:
 /// unlock with fingerprint or PIN.
 class LockScreen extends StatefulWidget {
@@ -82,30 +121,47 @@ class _LockScreenState extends State<LockScreen> {
     });
   }
 
-  Widget _googleStep() => Column(children: [
-        Text(tr('শুরু করতে Google দিয়ে লগইন করুন'), textAlign: TextAlign.center, style: body(18, color: Colors.white, weight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        Text(tr('আপনার তথ্য Google Drive-এ তালাবদ্ধ ব্যাকআপ রাখা যাবে, ফোন বদলালেও সব ফিরে আসবে। এরপর একটা PIN ঠিক করবেন।'),
-            textAlign: TextAlign.center, style: body(14, color: const Color(0xFFC9D3CE), height: 1.55)),
-        const SizedBox(height: 22),
-        SizedBox(
-          width: double.infinity,
-          height: 54,
-          child: FilledButton.icon(
-            key: const Key('welcome-google'),
-            style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF1F2937), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-            onPressed: _signing ? null : _google,
-            icon: _signing
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF4285F4))),
-            label: Text(tr('Google দিয়ে লগইন'), style: body(16, weight: FontWeight.w600, color: const Color(0xFF1F2937))),
+  /// The Google sign-in button: white with a thin line, the same in every design.
+  Widget _googleButton(LockPal p) => SizedBox(
+        width: double.infinity,
+        height: 56,
+        child: FilledButton.icon(
+          key: const Key('welcome-google'),
+          style: FilledButton.styleFrom(
+            backgroundColor: p.accent,
+            foregroundColor: p.onAccent,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
           ),
+          onPressed: _signing ? null : _google,
+          icon: _signing
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: const Text('G', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF4285F4))),
+                ),
+          label: Text(tr('Google দিয়ে লগইন'), style: body(16, weight: FontWeight.w700, color: p.onAccent)),
         ),
+      );
+
+  /// Sign-up (owner, 19 Nov: less to read): one line, the Google button and
+  /// "not now". The language is chosen above it.
+  Widget _googleStep(LockPal p) => Column(children: [
+        Text(tr('শুরু করতে Google দিয়ে লগইন করুন'), textAlign: TextAlign.center, style: body(17, color: p.title, weight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        // One line on why (owner, 19 Nov: only the text that is needed).
+        Text(tr('ফোন বদলালেও সব তথ্য ফিরে পাবেন — Google Drive-এ তালাবদ্ধ ব্যাকআপ থাকে।'),
+            key: const Key('welcome-why'), textAlign: TextAlign.center, style: body(14, color: p.soft, height: 1.5)),
+        const SizedBox(height: 20),
+        _googleButton(p),
         if (_message != null) ...[
           const SizedBox(height: 12),
-          Text(_message!, textAlign: TextAlign.center, style: body(14, color: C.peach, weight: FontWeight.w600)),
+          Text(_message!, textAlign: TextAlign.center, style: body(14, color: p.error, weight: FontWeight.w600)),
         ],
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         TextButton(
           key: const Key('welcome-later'),
           onPressed: _signing
@@ -115,9 +171,36 @@ class _LockScreenState extends State<LockScreen> {
                     _message = null;
                     _padKey++;
                   }),
-          child: Text(tr('এখন না, পরে করব'), style: body(14, color: const Color(0xFFA9B5AF))),
+          child: Text(tr('এখন না, পরে করব'), style: body(15, color: p.soft, weight: FontWeight.w600)),
         ),
       ]);
+
+  /// What is said about privacy, one tap away instead of on the page.
+  void _privacy() => showAppSheet<void>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 6, 22, 22),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr('গোপনীয়তা'), style: display(20)),
+              const SizedBox(height: 12),
+              for (final line in [
+                tr('ব্যাকআপ তালাবদ্ধ থাকে — Google একা বা আমরা একা খুলতে পারি না।'),
+                tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা একই Google অ্যাকাউন্ট দিয়ে নতুন PIN দেওয়া যাবে।'),
+                tr('মুখে বললে কথাকে লেখায় রূপান্তর করে ফোনের নিজের ভয়েস সেবা (সাধারণত Google)। সেজন্য আপনার কণ্ঠ ইন্টারনেটে Google-এর কাছে যেতে পারে — আমাদের সার্ভারে নয়। না চাইলে লিখে ব্যবহার করুন।'),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Padding(padding: const EdgeInsets.only(top: 2), child: Icon(Icons.lock_outline_rounded, size: 18, color: C.green)),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(line, style: body(14, color: C.muted, height: 1.5))),
+                  ]),
+                ),
+            ]),
+          ),
+        ),
+      );
 
   void _pickPin() => setState(() {
         _usePin = true;
@@ -126,7 +209,7 @@ class _LockScreenState extends State<LockScreen> {
 
   /// The fingerprint or the PIN, the member's pick (owner, 13 Nov): two
   /// full-width buttons, the fingerprint first.
-  Widget _choose() {
+  Widget _choose(LockPal p) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 28),
       child: Column(children: [
@@ -135,10 +218,10 @@ class _LockScreenState extends State<LockScreen> {
           height: 58,
           child: FilledButton.icon(
             key: const Key('lock-choose-finger'),
-            style: FilledButton.styleFrom(backgroundColor: C.mint, foregroundColor: C.night, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+            style: FilledButton.styleFrom(backgroundColor: p.accent, foregroundColor: p.onAccent, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(29))),
             onPressed: _biometric,
             icon: const Icon(Icons.fingerprint_rounded, size: 26),
-            label: Text(tr('আঙুলের ছাপ দিয়ে খুলুন'), style: body(16, weight: FontWeight.w700, color: C.night)),
+            label: Text(tr('আঙুলের ছাপ দিয়ে খুলুন'), style: body(16, weight: FontWeight.w700, color: p.onAccent)),
           ),
         ),
         const SizedBox(height: 14),
@@ -147,10 +230,10 @@ class _LockScreenState extends State<LockScreen> {
           height: 58,
           child: OutlinedButton.icon(
             key: const Key('lock-choose-pin'),
-            style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: Colors.white.withValues(alpha: 0.22)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+            style: OutlinedButton.styleFrom(foregroundColor: p.title, side: BorderSide(color: p.soft.withValues(alpha: 0.4)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(29))),
             onPressed: _pickPin,
             icon: const Icon(Icons.dialpad_rounded, size: 22),
-            label: Text(tr('PIN দিয়ে খুলুন'), style: body(16, weight: FontWeight.w600, color: Colors.white)),
+            label: Text(tr('PIN দিয়ে খুলুন'), style: body(16, weight: FontWeight.w600, color: p.title)),
           ),
         ),
       ]),
@@ -313,6 +396,9 @@ class _LockScreenState extends State<LockScreen> {
   Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
 
   Widget _secretBuild(BuildContext context) {
+    final brain = BrainScope.of(context);
+    const p = LockPal.night;
+    final unlock = _mode == _Mode.unlock;
     final title = switch (_mode) {
       _Mode.create => tr('একটি ৪ অঙ্কের PIN ঠিক করুন'),
       _Mode.confirm => tr('PIN টি আবার দিন'),
@@ -320,130 +406,253 @@ class _LockScreenState extends State<LockScreen> {
       _Mode.unlock when _bioAvailable && !_usePin && _lockedUntil == null => '',
       _ => tr('PIN দিন'),
     };
-    return Scaffold(
-      backgroundColor: C.night,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, box) => SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: box.maxHeight),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(28, 40, 28, 24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      children: [
-                        // Our own app icon (owner, 28 Oct).
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.asset('assets/brand/app_mark.png', key: const Key('lock-app-mark'), width: 76, height: 76, filterQuality: FilterQuality.medium),
-                        ),
-                        const SizedBox(height: 12),
-                        Text('My Assistant', style: display(30, weight: 700, color: Colors.white)),
-                        const SizedBox(height: 4),
-                        Text(tr('আপনার ব্যক্তিগত সহকারী'),
-                            style: body(14, color: const Color(0xFFA9B5AF)), textAlign: TextAlign.center),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-                    if (_mode == _Mode.loading)
-                      const SizedBox(height: 300, child: Center(child: CircularProgressIndicator(color: C.mint)))
-                    else if (_mode == _Mode.google)
-                      _googleStep()
-                    else
-                      Column(
-                        children: [
-                          if (title.isNotEmpty) Text(title, style: body(17, color: const Color(0xFFE4EAE7), weight: FontWeight.w500)),
-                          const SizedBox(height: 6),
-                          SizedBox(
-                            height: 44,
-                            child: _lockedUntil != null
-                                ? LockCountdown(key: ValueKey(_lockedUntil), until: _lockedUntil!, style: body(14, color: C.peach, weight: FontWeight.w600))
-                                : _message == null
-                                ? null
-                                : Text(_message!, style: body(14, color: C.peach, weight: FontWeight.w600), textAlign: TextAlign.center),
-                          ),
-                          if (_mode == _Mode.unlock && _bioAvailable && !_usePin && _lockedUntil == null)
-                            _choose()
-                          else
-                            PinPad(
-                              key: ValueKey(_padKey),
-                              onComplete: _entered,
-                              onBiometric: _mode == _Mode.unlock && _bioAvailable ? _biometric : null,
-                            ),
-                          if (_mode == _Mode.unlock)
-                            TextButton(
-                              key: const Key('forgot-pin'),
-                              onPressed: _forgot,
-                              child: Text(tr('PIN ভুলে গেছেন?'), style: body(14, weight: FontWeight.w600, color: C.mint)),
-                            ),
-                        ],
+    final name = brain.userName.trim().split(RegExp(r'\s+')).first;
+    final line = unlock
+        ? (name.isEmpty ? bnEn('আবার স্বাগতম', 'Welcome back') : bnEn('আবার স্বাগতম, $name', 'Welcome back, $name'))
+        : tr('আপনার ব্যক্তিগত সহকারী');
+    final big = _mode == _Mode.google;
+
+    // The app mark, the name and one line, on the dark top.
+    Widget brand(Color nameC, Color lineC) => Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(big ? 24 : 18),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 24, offset: const Offset(0, 8))],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(big ? 24 : 18),
+              child: Image.asset('assets/brand/app_mark.png',
+                  key: const Key('lock-app-mark'), width: big ? 88 : 64, height: big ? 88 : 64, filterQuality: FilterQuality.medium),
+            ),
+          ),
+          SizedBox(height: big ? 16 : 12),
+          Text('My Assistant', style: display(big ? 30 : 24, weight: 700, color: nameC)),
+          const SizedBox(height: 4),
+          Text(line, key: const Key('lock-greeting'), style: body(15, color: lineC), textAlign: TextAlign.center),
+        ]);
+
+    final pin = Column(children: [
+      if (title.isNotEmpty) Text(title, style: body(18, color: p.title, weight: FontWeight.w700)),
+      if (_mode == _Mode.create && _message == null) ...[
+        const SizedBox(height: 6),
+        Text(tr('অ্যাপ খুলতে এই PIN লাগবে। এটা শুধু এই ফোনেই থাকে।'),
+            key: const Key('pin-why'), textAlign: TextAlign.center, style: body(14, color: p.soft, height: 1.5)),
+      ],
+      SizedBox(
+        height: 36,
+        child: Center(
+          child: _lockedUntil != null
+              ? LockCountdown(key: ValueKey(_lockedUntil), until: _lockedUntil!, style: body(14, color: p.error, weight: FontWeight.w600))
+              : _message == null
+                  ? null
+                  : Text(_message!, style: body(14, color: p.error, weight: FontWeight.w600), textAlign: TextAlign.center),
+        ),
+      ),
+      if (unlock && _bioAvailable && !_usePin && _lockedUntil == null)
+        _choose(p)
+      else
+        PinPad(
+          key: ValueKey(_padKey),
+          colors: p.pad,
+          onComplete: _entered,
+          onBiometric: unlock && _bioAvailable ? _biometric : null,
+        ),
+      if (unlock)
+        TextButton(
+          key: const Key('forgot-pin'),
+          onPressed: _forgot,
+          child: Text(tr('PIN ভুলে গেছেন?'), style: body(14, weight: FontWeight.w700, color: p.accent)),
+        ),
+    ]);
+
+    final content = _mode == _Mode.loading
+        ? SizedBox(height: 300, child: Center(child: CircularProgressIndicator(color: p.accent)))
+        : big
+            ? _googleStep(p)
+            : pin;
+
+    // The foot: emergency info, the language (on the PIN pages), privacy, who made it.
+    final foot = Column(children: [
+      if (unlock && !brain.data.emergency.isEmpty) ...[
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => Scaffold(
+              body: SafeArea(
+                child: Column(children: [
+                  TopBar(title: tr('জরুরি তথ্য')),
+                  Expanded(
+                    child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
+                      EmergencyView(
+                        card: BrainScope.read(context).data.emergency,
+                        onCall: (p) => BrainScope.read(context).services.launcher.open(Via.call, p),
                       ),
-                    if (_mode == _Mode.unlock && !BrainScope.of(context).data.emergency.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) => Scaffold(
-                              body: SafeArea(
-                                child: Column(children: [
-                                  TopBar(title: tr('জরুরি তথ্য')),
-                                  Expanded(
-                                    child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-                                      EmergencyView(
-                                        card: BrainScope.read(context).data.emergency,
-                                        onCall: (p) => BrainScope.read(context).services.launcher.open(Via.call, p),
-                                      ),
-                                    ]),
-                                  ),
-                                ]),
-                              ),
-                            ),
-                          )),
-                          icon: const Icon(Icons.emergency_outlined, color: Color(0xFFFCA5A5)),
-                          label: Text(tr('জরুরি তথ্য'), style: body(15, weight: FontWeight.w600, color: const Color(0xFFFCA5A5))),
-                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0x66FCA5A5)), shape: const StadiumBorder()),
-                        ),
-                      ),
-                    const SizedBox(height: 24),
-                    // Nothing said under the unlock (owner, 13 Nov): only while setting up.
-                    if (_mode != _Mode.unlock && _mode != _Mode.loading)
-                      Text(
-                        _mode == _Mode.google
-                            ? tr('ব্যাকআপ তালাবদ্ধ থাকে — Google একা বা আমরা একা খুলতে পারি না।')
-                            : tr('PIN শুধু এই ফোনে, এনক্রিপ্ট করে রাখা হয়। ভুলে গেলে আঙুলের ছাপ বা একই Google অ্যাকাউন্ট দিয়ে নতুন PIN দেওয়া যাবে।'),
-                        style: body(13, color: const Color(0xFFA9B5AF), height: 1.5),
-                        textAlign: TextAlign.center,
-                      ),
-                    // The company behind the app (owner, 28 Oct).
-                    Padding(
-                      padding: const EdgeInsets.only(top: 14),
-                      child: InkWell(
-                        key: const Key('lock-company'),
-                        onTap: () => BrainScope.read(context).services.launcher.openUrl(Uri.parse('https://owlgorithmlabs.com/')),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          child: Text('a product of Owlgorithm Labs', style: body(12, color: const Color(0xFF8E9B95)), textAlign: TextAlign.center),
-                        ),
-                      ),
-                    ),
-                    // Said at the start, where a new member reads it (owner, 28 Oct; was under আরও › রিমাইন্ডার ও কণ্ঠ).
-                    if (_mode == _Mode.google || _mode == _Mode.create || _mode == _Mode.confirm) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        tr('মুখে বললে কথাকে লেখায় রূপান্তর করে ফোনের নিজের ভয়েস সেবা (সাধারণত Google)। সেজন্য আপনার কণ্ঠ ইন্টারনেটে Google-এর কাছে যেতে পারে — আমাদের সার্ভারে নয়। না চাইলে লিখে ব্যবহার করুন।'),
-                        key: const Key('welcome-voice-note'),
-                        style: body(12, color: const Color(0xFF8E9B95), height: 1.5),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ],
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
+          )),
+          icon: const Icon(Icons.emergency_outlined, color: Color(0xFFDC2626)),
+          label: Text(tr('জরুরি তথ্য'), style: body(15, weight: FontWeight.w600, color: const Color(0xFFDC2626))),
+          style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0x66DC2626)), shape: const StadiumBorder()),
+        ),
+        const SizedBox(height: 10),
+      ],
+      if (!big && _mode != _Mode.loading) LangSwitch(compact: true, pal: p),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        if (!unlock)
+          InkWell(
+            key: const Key('welcome-voice-note'),
+            onTap: _privacy,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.lock_outline_rounded, size: 14, color: p.soft),
+                const SizedBox(width: 4),
+                Text(tr('গোপনীয়তা'), style: body(12.5, color: p.soft, weight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        if (!unlock) Text('·', style: body(12.5, color: p.soft)),
+        // The company behind the app (owner, 28 Oct).
+        InkWell(
+          key: const Key('lock-company'),
+          onTap: () => BrainScope.read(context).services.launcher.openUrl(Uri.parse('https://owlgorithmlabs.com/')),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Text('Owlgorithm Labs', style: body(12.5, color: p.soft)),
+          ),
+        ),
+      ]),
+    ]);
+
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    Widget footPad(Widget f) => Padding(padding: EdgeInsets.fromLTRB(24, 20, 24, bottom + 12), child: f);
+
+// Dark above with the mark, a light sheet rising from below.
+final bodyW = LayoutBuilder(builder: (context, box) {
+      final upper = box.maxHeight * (big ? 0.30 : 0.16);
+      return SingleChildScrollView(
+        child: Column(children: [
+          SizedBox(
+            height: upper,
+            // The home's Cox's Bazar sea at night behind the mark (owner,
+            // 19 Nov), darkened at the top so the name reads.
+            child: Stack(fit: StackFit.expand, children: [
+              Image.asset('assets/sky/cox_night.webp', key: const Key('lock-scene'), fit: BoxFit.cover, alignment: Alignment.bottomCenter, filterQuality: FilterQuality.medium),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    // Melting into the sheet below (owner, 19 Nov: no edge
+                    // between the picture and the part with the words).
+                    colors: [p.bg.withValues(alpha: 0.55), p.sheet.withValues(alpha: 0.05), p.sheet.withValues(alpha: 0.75), p.sheet],
+                    stops: const [0, 0.45, 0.82, 1],
+                  ),
                 ),
+              ),
+            ]),
+          ),
+          ConstrainedBox(
+            constraints: BoxConstraints(minHeight: box.maxHeight - upper),
+            child: Container(
+              width: double.infinity,
+              color: p.sheet,
+              // The buttons a little lower than right under the top (owner,
+              // 19 Nov: "অল্প একটু নিচে", not at the bottom).
+              child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                  child: Column(children: [
+                    // The mark starts right where the picture melts into
+                    // the sheet (owner, 20 Nov: not in the middle of it).
+                    brand(p.title, p.text),
+                    SizedBox(height: big ? 28 : 14),
+                    if (big) ...[LangSwitch(pal: p), const SizedBox(height: 40)],
+                    if (unlock && _bioAvailable && !_usePin && _lockedUntil == null) const SizedBox(height: 40),
+                    content,
+                  ]),
+                ),
+                footPad(foot),
+              ]),
+            ),
+          ),
+        ]),
+      );
+    });
+    return Scaffold(backgroundColor: p.bg, body: bodyW);
+  }
+}
+
+/// English | বাংলা (owner, 19 Nov). Big on the sign-up page: two halves of
+/// one pill, the chosen one filled. Small on the PIN pages: two words at the
+/// foot. Each name is in its own language, so anyone finds theirs.
+class LangSwitch extends StatelessWidget {
+  const LangSwitch({super.key, this.compact = false, this.pal = LockPal.night});
+
+  final bool compact;
+  final LockPal pal;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final en = brain.english;
+    final p = pal;
+    if (compact) {
+      Widget word(String label, bool on, bool toEn, Key key) => InkWell(
+            key: key,
+            borderRadius: BorderRadius.circular(14),
+            onTap: on ? null : () => brain.setEnglish(toEn),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(label, style: body(14, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? p.accent : p.soft)),
+            ),
+          );
+      return Row(key: const Key('lock-lang'), mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.translate_rounded, size: 16, color: p.soft),
+        const SizedBox(width: 2),
+        word('English', en, true, const Key('lock-lang-en')),
+        Container(width: 1, height: 14, color: p.soft.withValues(alpha: 0.4)),
+        word('বাংলা', !en, false, const Key('lock-lang-bn')),
+      ]);
+    }
+    final fill = p.accent;
+    final onFill = p.onAccent;
+    final off = p.text;
+    Widget half(String label, bool on, bool toEn, Key key) => Expanded(
+          child: Semantics(
+            button: true,
+            selected: on,
+            child: GestureDetector(
+              key: key,
+              behavior: HitTestBehavior.opaque,
+              onTap: on ? null : () => brain.setEnglish(toEn),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: on ? fill : Colors.transparent, borderRadius: BorderRadius.circular(21)),
+                child: Text(label, style: body(15, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? onFill : off)),
               ),
             ),
           ),
+        );
+    return ConstrainedBox(
+      key: const Key('lock-lang'),
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: p.track,
+          borderRadius: BorderRadius.circular(25),
         ),
+        child: Row(children: [
+          half('English', en, true, const Key('lock-lang-en')),
+          half('বাংলা', !en, false, const Key('lock-lang-bn')),
+        ]),
       ),
     );
   }

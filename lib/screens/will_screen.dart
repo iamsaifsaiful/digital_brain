@@ -144,7 +144,7 @@ class _WillScreenState extends State<WillScreen> {
                       _changed = true;
                     }),
                     icon: const Icon(Icons.edit_note_rounded),
-                    label: Text(tr('একটা নমুনা দিয়ে শুরু করুন')),
+                    label: Text(tr('একটি নমুনা দিয়ে শুরু করুন')),
                   ),
                 ),
               const SizedBox(height: 12),

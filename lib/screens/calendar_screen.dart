@@ -11,23 +11,42 @@ import 'diary_screen.dart' show itemsOn;
 import 'plan_screens.dart' show showAddSheet, PlanRow;
 import 'special_days_screen.dart';
 import '../logic/lang.dart';
+import '../logic/world_calendars.dart';
+import 'calendar_choice.dart';
+import '../logic/weather.dart';
+import 'weather_screen.dart' show DaySkyScreen, WeatherIcon;
 
-/// বাংলা তারিখ, ঋতু, সূর্যোদয়-সূর্যাস্ত, নামাজের সময় আর সরকারি ছুটি। The
-/// month shows Bangla or Arabic (Hijri) dates under each day; tapping a day
-/// shows what is on it and adds a to-do or reminder for it.
-enum CalSide { bangla, arabic }
+/// বাংলা তারিখ, ঋতু, সূর্যোদয়-সূর্যাস্ত আর সরকারি ছুটি। The
+/// month shows the dates of a chosen calendar (Bangla, Hijri, Chinese …:
+/// owner, 19 Nov) under each day; tapping a day shows what is on it and
+/// adds a to-do or reminder for it.
 
-class CalendarScreen extends StatefulWidget {
+/// Fonts for the dates in their own scripts; the phone's own fonts when these are not there.
+const nativeFonts = ['Hind', 'NotoNaskhArabic', 'NotoSansHebrew', 'NotoSansCJK', 'NotoSansThai', 'NotoSansDevanagari', 'NotoSansEthiopic'];
+
+/// The calendar tab of the ঋতুপঞ্জি page ([DaySkyScreen]).
+class CalendarScreen extends StatelessWidget {
   const CalendarScreen({super.key});
 
   @override
-  State<CalendarScreen> createState() => _CalendarScreenState();
+  Widget build(BuildContext context) => const DaySkyScreen(calendar: true);
 }
 
-class _CalendarScreenState extends State<CalendarScreen> {
+/// The month, the chosen calendar under each day, the coming days' weather in
+/// them ([forecast]: the user's own place), and the holidays.
+class CalendarPanel extends StatefulWidget {
+  const CalendarPanel({super.key, this.forecast});
+  final Forecast? forecast;
+
+  @override
+  State<CalendarPanel> createState() => _CalendarPanelState();
+}
+
+class _CalendarPanelState extends State<CalendarPanel> {
   DateTime? _month;
   DateTime? _picked;
-  CalSide _side = CalSide.bangla;
+  /// The calendar under each day in the month (one of those chosen).
+  String? _side;
 
   static final _red = C.rose;
 
@@ -38,10 +57,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final month = _month ?? DateTime(now.year, now.month);
     final picked = _picked ?? today;
-    final bd = banglaDate(picked);
-    final hj = hijriDate(picked, adjust: brain.hijriShift);
+    final chosen = brain.calendars;
+    final hasBangla = chosen.contains('bangla');
     final place = placeNamed(brain.district);
-    final sun = sunTimes(picked, place);
     final nextStart = nextBanglaMonthStart(today);
     final toNext = nextStart.difference(today).inDays;
     final nextBd = banglaDate(nextStart);
@@ -49,114 +67,47 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final abroad = place.abroad;
     final pickedHol = abroad ? null : holidayOn(picked);
     final away = abroad ? brain.holidaysAbroad(today, count: 6) : const <AbroadHoliday>[];
-    String t(DateTime d) => bnTime(d.hour, d.minute);
 
-    Widget sunTile(IconData icon, Color c, String label, String value) => Expanded(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-            decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              Icon(icon, color: C.green, size: 21),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(label, style: body(11.5, color: C.muted, height: 1.2)),
-                  Text(value, style: body(14, weight: FontWeight.w600, height: 1.3)),
-                ]),
-              ),
-            ]),
-          ),
-        );
-
-    return Scaffold(
-      body: SafeArea(
-        // (owner, 24 Oct: the page-wide swipe between the date tabs felt
-        // abrupt — the tabs change by a tap; a swipe on the month turns the month.)
-        child: Builder(
-          builder: (context) => ListView(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-            children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
-                IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30)),
-                Expanded(child: Text(tr('ক্যালেন্ডার'), style: display(21, weight: 600))),
-              ]),
-              const SizedBox(height: 6),
-              // A flat card like the rest (approved design: no coloured blocks).
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(picked == today ? tr('আজ বাংলা তারিখ') : tr('বাংলা তারিখ'), style: body(12, color: C.muted)),
-                        Text(bd.text, style: display(25, weight: 600, height: 1.3)),
-                        Text('${weekdayName(picked)} · ${bnDigits(picked.day)} ${monthName(picked.month)} ${bnDigits(picked.year)}', style: body(13, color: C.muted)),
-                        const SizedBox(height: 2),
-                        Text(trf('হিজরি · {0}', [hj.short]), style: body(13.5, weight: FontWeight.w600, color: C.green)),
-                        Text(hj.arabic, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 15, color: C.muted2, height: 1.5)),
-                      ]),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(12)),
-                      child: Column(children: [
-                        Icon(Icons.eco_outlined, color: C.green, size: 20),
-                        Text(trf('{0}কাল', [bd.season]), style: body(12, weight: FontWeight.w600, color: C.green)),
-                      ]),
-                    ),
-                  ]),
-                  const SizedBox(height: 12),
-                  Row(children: [
-                    sunTile(Icons.wb_twilight, const Color(0xFFFDE68A), tr('সূর্যোদয়'), t(sun.sunrise)),
-                    const SizedBox(width: 8),
-                    sunTile(Icons.nights_stay_outlined, const Color(0xFFFDBA74), tr('সূর্যাস্ত'), t(sun.sunset)),
-                  ]),
-                  const SizedBox(height: 8),
-                  Text(
-                      trf('{0} অনুযায়ী · জেলা সেটিংসে বদলানো যায়{1}', [
-                        place.label,
-                        picked == today ? ' · ${bnDigits(toNext)} ${tr('দিন পর')} ${bnDigits(1)} ${nextBd.monthName}${nextBd.month % 2 == 0 ? ', ${trf('{0}কাল শুরু', [nextBd.season])}' : ''}' : ''
-                      ]),
-                      style: body(11.5, color: C.muted, height: 1.45)),
-                ]),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.fromLTRB(4, 10, 4, 10),
-                decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(17), border: Border.all(color: C.border)),
-                child: Column(children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-                    child: Text(trf('নামাজের সময় ({0}, আনুমানিক)', [place.label]), style: body(12.5, color: C.muted)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text(
+                        hasBangla
+                            ? trf('{0} দিন পর {1} {2}{3}', [bnDigits(toNext), bnDigits(1), nextBd.monthName, nextBd.month % 2 == 0 ? ' · ${trf('{0}কাল শুরু', [nextBd.season])}' : ''])
+                            : trf('{0} অনুযায়ী', [place.label]),
+                        maxLines: 2,
+                        style: body(12, color: C.muted, height: 1.4)),
                   ),
-                  Row(children: [
-                    for (final (n, d) in [(tr('ফজর'), sun.fajr), (tr('জোহর'), sun.dhuhr), (tr('আসর'), sun.asr), (tr('মাগরিব'), sun.maghrib), (tr('এশা'), sun.isha)])
-                      Expanded(
-                        child: Column(children: [
-                          Text(n, style: body(11.5, color: C.muted)),
-                          Text(bnDigits('${d.hour > 12 ? d.hour - 12 : d.hour}:${d.minute.toString().padLeft(2, '0')}'), style: body(14, weight: FontWeight.w600)),
-                        ]),
-                      ),
-                  ]),
-                ]),
-              ),
-              if (hj.isRamadan) ...[
-                const SizedBox(height: 10),
-                Panel(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  child: Row(children: [
-                    Icon(Icons.nightlight_round, color: C.green),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(trf('রমজান · সেহরির শেষ সময় {0} · ইফতার {1} (আনুমানিক)', [bnTime(sun.sehriEnd.hour, sun.sehriEnd.minute), bnTime(sun.maghrib.hour, sun.maghrib.minute)]),
-                          style: body(14, weight: FontWeight.w500)),
-                    ),
-                  ]),
                 ),
+                // Which calendars beside English (owner, 19 Nov).
+                TextButton.icon(
+                  key: const Key('cal-choose'),
+                  onPressed: () => showCalendarChoice(context),
+                  icon: Icon(Icons.tune_rounded, size: 19, color: C.green),
+                  label: Text(tr('ক্যালেন্ডার বাছাই'), style: body(13, weight: FontWeight.w600, color: C.green)),
+                ),
+              ]),
+              // Prayer, sehri and iftar times are on the মুসলিম টাইম page now (owner, 19 Nov).
+              const SizedBox(height: 6),
+              if (chosen.length > 1) ...[
+                SegTabs<String>(
+                  key: const Key('cal-side-tabs'),
+                  items: [for (final id in chosen) (id, id == 'bangla' ? tr('বাংলা তারিখ') : (id == 'hijri' ? tr('আরবি (হিজরি) তারিখ') : calKind(id)!.name))],
+                  value: _sideOf(chosen)!,
+                  onChanged: (v) => setState(() => _side = v),
+                ),
+                const SizedBox(height: 8),
               ],
+              _monthGrid(month, today, picked, _sideOf(chosen)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                child: Text(tr('কোনো তারিখে চাপ দিলে সেদিনের কাজ দেখা যাবে, নতুন কাজ বা রিমাইন্ডারও রাখা যাবে।'), style: body(12, color: C.muted)),
+              ),
+              // Right under the month it moves (owner, 20 Nov: "যৌক্তিক ভাবে"). The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
+              if (chosen.contains('hijri')) ...[
               const SizedBox(height: 10),
-              // The Hijri date follows the moon seen in Bangladesh: a day either way can be set here.
               Panel(
                 padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
                 child: Row(children: [
@@ -179,18 +130,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                 ]),
               ),
-              const SizedBox(height: 10),
-              SegTabs<CalSide>(
-                items: [(CalSide.bangla, tr('বাংলা তারিখ')), (CalSide.arabic, tr('আরবি (হিজরি) তারিখ'))],
-                value: _side,
-                onChanged: (v) => setState(() => _side = v),
-              ),
-              const SizedBox(height: 8),
-              _monthGrid(month, today, picked),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
-                child: Text(tr('কোনো তারিখে চাপ দিলে সেদিনের কাজ দেখা যাবে, নতুন কাজ বা রিমাইন্ডারও রাখা যাবে।'), style: body(12, color: C.muted)),
-              ),
+              ],
               if (pickedHol != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -264,11 +204,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
                 child: Text(tr('চাঁদ দেখার ওপর নির্ভর ছুটি এক-দুই দিন বদলাতে পারে।'), style: body(12, color: C.muted)),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
+            ]);
   }
 
   String _inDays(int n) => n <= 0 ? tr('আজ') : (n == 1 ? tr('কাল') : trf('{0} দিন পর', [bnDigits(n)]));
@@ -281,15 +217,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _month = DateTime(month.year, month.month + by);
       });
 
-  Widget _monthGrid(DateTime month, DateTime today, DateTime picked) {
+  /// The chosen calendar shown under the days (the first, until another tab is picked).
+  String? _sideOf(List<String> chosen) => chosen.contains(_side) ? _side : (chosen.isEmpty ? null : chosen.first);
+
+  Widget _monthGrid(DateTime month, DateTime today, DateTime picked, String? side) {
     final days = DateTime(month.year, month.month + 1, 0).day;
     final lead = (DateTime(month.year, month.month).weekday + 1) % 7; // Saturday first
     final heads = [tr('শনি'), tr('রবি'), tr('সোম'), tr('মঙ্গল'), tr('বুধ'), tr('বৃহঃ'), tr('শুক্র')];
-    final first = banglaDate(DateTime(month.year, month.month));
-    final last = banglaDate(DateTime(month.year, month.month, days));
     final adjust = BrainScope.of(context).hijriShift;
-    final hFirst = hijriDate(DateTime(month.year, month.month), adjust: adjust);
-    final hLast = hijriDate(DateTime(month.year, month.month, days), adjust: adjust);
+    final first = side == null ? null : calDate(side, DateTime(month.year, month.month), hijriShift: adjust);
+    final last = side == null ? null : calDate(side, DateTime(month.year, month.month, days), hijriShift: adjust);
+    // "অগ্রহায়ণ – পৌষ ১৪৩৩"; for Thai and Japanese only the year ("রেইওয়া ৮").
+    final sub = first == null || last == null
+        ? ''
+        : calKind(side!)!.sameDays
+            ? last.yearLabel
+            : '${first.monthName == last.monthName ? '' : '${first.monthName} – '}${last.monthName} ${last.yearLabel}';
     return Container(
       padding: const EdgeInsets.fromLTRB(6, 4, 6, 10),
       decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16)),
@@ -299,8 +242,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           Expanded(
             child: Column(children: [
               Text('${monthName(month.month)} ${bnDigits(month.year)}', style: body(15, weight: FontWeight.w600)),
-              Text(_side == CalSide.bangla ? '${first.monthName} – ${last.monthName} ${bnDigits(last.year)}' : '${hFirst.monthName} – ${hLast.monthName} ${bnDigits(hLast.year)}',
-                  style: body(12, color: C.muted)),
+              if (sub.isNotEmpty) Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
             ]),
           ),
           IconButton(tooltip: tr('পরের মাস'), onPressed: () => _turn(month, 1), icon: const Icon(Icons.chevron_right_rounded)),
@@ -342,7 +284,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 childAspectRatio: 0.9,
                 children: [
                   for (var i = 0; i < lead; i++) const SizedBox.shrink(),
-                  for (var d = 1; d <= days; d++) _cell(DateTime(month.year, month.month, d), today, picked),
+                  for (var d = 1; d <= days; d++) _cell(DateTime(month.year, month.month, d), today, picked, side),
                 ],
               ),
             ),
@@ -352,7 +294,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _cell(DateTime d, DateTime today, DateTime picked) {
+  Widget _cell(DateTime d, DateTime today, DateTime picked, String? side) {
     final brain = BrainScope.of(context);
     final isToday = d == today;
     final busy = itemsOn(brain.data, d, brain.services.now()).isNotEmpty;
@@ -360,6 +302,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final place = placeNamed(brain.district);
     final hol = place.abroad ? brain.holidaysAbroad(d, count: 1).any((h) => h.date == d) : holidayOn(d) != null;
     final weekend = isWeekend(d);
+    // The chosen calendar's day under the English one (nothing for Thai and Japanese: the same days).
+    final c = side == null || calKind(side)!.sameDays ? null : calDate(side, d, hijriShift: brain.hijriShift);
+    final under = c == null ? '' : bnDigits(c.day);
+    // The weather of the coming days, small in the corner (owner, 19 Nov: the calendar and the weather together).
+    final cast = _castOn(d);
     final bg = isToday ? C.green : (hol ? C.roseTint : Colors.transparent);
     final fg = isToday ? C.onAccent : (hol || weekend ? _red : C.ink);
     return InkWell(
@@ -371,19 +318,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
       },
       child: Container(
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: isPicked ? Border.all(color: C.green, width: 1.5) : null),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        child: Stack(children: [
+          if (cast != null) Positioned(top: 2, right: 2, child: WeatherIcon(cast.code, size: 12)),
+          Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(bnDigits(d.day), style: body(14.5, weight: FontWeight.w600, color: fg, height: 1.2)),
-          Text(_side == CalSide.bangla ? bnDigits(banglaDate(d).day) : bnDigits(hijriDate(d, adjust: brain.hijriShift).day),
-              style: body(10, color: isToday ? C.onAccent.withValues(alpha: 0.75) : (_side == CalSide.arabic ? C.teal : C.muted), height: 1.2)),
+          Text(under, style: body(10, color: isToday ? C.onAccent.withValues(alpha: 0.75) : (side == 'bangla' ? C.muted : C.teal), height: 1.2)),
           Container(
             width: 5,
             height: 5,
             margin: const EdgeInsets.only(top: 1),
             decoration: BoxDecoration(shape: BoxShape.circle, color: busy ? (isToday ? C.onAccent : C.orange) : Colors.transparent),
           ),
+          ])),
         ]),
       ),
     );
+  }
+
+  DayCast? _castOn(DateTime d) {
+    for (final c in widget.forecast?.days ?? const <DayCast>[]) {
+      if (c.date.year == d.year && c.date.month == d.month && c.date.day == d.day) return c;
+    }
+    return null;
   }
 
   /// A day tapped: its dates, holiday, what is on it, and adding to it.
@@ -391,7 +347,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final brain = BrainScope.read(context);
     final now = brain.services.now();
     final hol = placeNamed(brain.district).abroad ? null : holidayOn(d);
-    final hj = hijriDate(d, adjust: brain.hijriShift);
+    final extra = [for (final id in brain.calendars) calDate(id, d, hijriShift: brain.hijriShift)?.text].whereType<String>().toList();
     final past = d.isBefore(dayOnly(now));
     await showAppSheet<void>(
       context: context,
@@ -403,7 +359,23 @@ class _CalendarScreenState extends State<CalendarScreen> {
             constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.8),
             child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
               Text('${weekdayName(d)}, ${bnDigits(d.day)} ${monthName(d.month)} ${bnDigits(d.year)}', style: display(20, weight: 700)),
-              Text('${banglaDate(d).text} · ${hj.dayMonth}', style: body(13.5, color: C.muted)),
+              if (extra.isNotEmpty) Text(extra.join(' · '), style: body(13.5, color: C.muted)),
+              // The dates in their own scripts: আরবি, 中文, עברית …
+              for (final id in brain.calendars)
+                if ((calDate(id, d, hijriShift: brain.hijriShift)?.native ?? '').isNotEmpty)
+                  Text(calDate(id, d, hijriShift: brain.hijriShift)!.native,
+                      textDirection: calKind(id)!.rtl ? TextDirection.rtl : TextDirection.ltr, style: TextStyle(fontSize: 14, color: C.muted2, height: 1.5, fontFamilyFallback: nativeFonts)),
+              if (_castOn(d) case final c?) ...[
+                const SizedBox(height: 8),
+                Row(key: const Key('cal-day-weather'), children: [
+                  WeatherIcon(c.code, size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('${weatherWords(c.code)} · ${deg(c.min)} – ${deg(c.max)}${c.rain >= 30 ? ' · ${trf('বৃষ্টির সম্ভাবনা {0}%', [bnDigits(c.rain)])}' : ''}',
+                        style: body(14, weight: FontWeight.w500)),
+                  ),
+                ]),
+              ],
               if (hol != null) Text(trf('ছুটি: {0}', [hol.label]), style: body(14, weight: FontWeight.w600, color: _red)),
               const SizedBox(height: 14),
               if (items.isEmpty) Text(tr('এই দিনে কিছু রাখা নেই।'), style: body(14.5, color: C.muted)) else Panel(child: Rows(children: [for (final i in items) PlanRow(item: i)])),

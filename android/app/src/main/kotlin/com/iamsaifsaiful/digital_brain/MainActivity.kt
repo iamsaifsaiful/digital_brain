@@ -677,6 +677,15 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 result.success(null)
             }
+            "diskSpace" -> {
+                // The phone's free and whole room, for আমার ফাইল's ring.
+                try {
+                    val st = android.os.StatFs(filesDir.path)
+                    result.success(mapOf("free" to st.availableBytes, "total" to st.totalBytes))
+                } catch (e: Exception) {
+                    result.success(null)
+                }
+            }
             "openWith" -> {
                 // A copy in the app's cache, offered to the phone's PDF/Word/… apps.
                 val bytes = call.argument<ByteArray>("bytes")
@@ -746,6 +755,14 @@ class MainActivity : FlutterFragmentActivity() {
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/contacts").setMethodCallHandler { call, result ->
             contactsChannel(call, result)
+        }
+        // The app's own folders, for when path_provider's call fails (problem log, 19 Nov).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/paths").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "support" -> result.success(applicationContext.filesDir.absolutePath)
+                "cache" -> result.success(applicationContext.cacheDir.absolutePath)
+                else -> result.notImplemented()
+            }
         }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/files").setMethodCallHandler { call, result ->
             if (call.method != "saveFile") {

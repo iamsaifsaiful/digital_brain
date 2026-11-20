@@ -15,10 +15,12 @@ import 'package:digital_brain/screens/biz/biz_stock.dart';
 import 'package:digital_brain/screens/home_shell.dart';
 import 'package:digital_brain/services/launcher.dart';
 import 'package:digital_brain/state/brain.dart' show BrainShop;
+import 'package:digital_brain/logic/pro.dart' show freeCustomers, freeProducts;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'app_test.dart' show settle, start;
+import 'app_test.dart' show settle, start, vScroll;
+import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
 
 void main() {
   testWidgets('the switch: six tabs in the day\'s order; off brings the normal app back on the same tab', (t) async {
@@ -45,6 +47,9 @@ void main() {
 
     // Switched off from আরও: still on আরও, the normal tabs back.
     await t.tap(find.text('আরও').last);
+    await settle(t);
+    await t.scrollUntilVisible(find.byKey(const Key('more-business')), 300, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
+    await t.ensureVisible(find.byKey(const Key('more-business')));
     await settle(t);
     await t.tap(find.byKey(const Key('more-business')));
     await settle(t);
@@ -166,7 +171,8 @@ void main() {
     expect(find.byKey(const Key('biz-reminder-on')), findsOneWidget);
 
     // Paid in full: the due is gone, so is the reminder.
-    await t.scrollUntilVisible(find.byKey(const Key('biz-customer-paid')), -200, scrollable: find.descendant(of: find.byType(CustomerPage), matching: find.byType(Scrollable)).first);
+    await t.ensureVisible(find.byKey(const Key('biz-customer-paid')));
+    await settle(t);
     await t.tap(find.byKey(const Key('biz-customer-paid')));
     await settle(t);
     await t.tap(find.text('রাখুন').last);
@@ -219,7 +225,7 @@ void main() {
     expect(find.text('পুরোনো গ্রাহক'), findsWidgets);
   });
 
-  testWidgets('free app: everything opens, nothing is added; the Premium sheet says why', (t) async {
+  testWidgets('free app (owner, 13 Nov): selling is free; the 21st customer, the 31st product and the PDF receipt ask for Premium', (t) async {
     final rig = await start(t);
     final b = rig.brain;
     b.gated = true;
@@ -228,7 +234,7 @@ void main() {
     final egg = Product(name: 'ডিম', unit: 'হালি', sell: 52, stock: 30);
     b.shop.products.add(egg);
     await settle(t);
-    expect(find.byKey(const Key('biz-free-banner')), findsOneWidget);
+    expect(find.byKey(const Key('biz-free-banner')), findsNothing, reason: 'far from the limits');
     final nav = Navigator.of(t.element(find.byType(HomeShell)));
     nav.push(MaterialPageRoute(builder: (_) => const SellPage()));
     await settle(t);
@@ -238,8 +244,21 @@ void main() {
     await settle(t);
     await t.tap(find.byKey(const Key('biz-sell-done')));
     await settle(t);
-    expect(find.textContaining('প্রিমিয়াম সুবিধা'), findsOneWidget);
-    expect(b.shop.sales, isEmpty);
+    expect(find.textContaining('প্রিমিয়াম সুবিধা'), findsNothing);
+    expect(b.shop.sales, hasLength(1));
+    expect(b.canAddCustomer, isTrue);
+    expect(b.canAddProduct, isTrue);
+    for (var i = 0; i < freeCustomers; i++) {
+      b.shop.customers.add(Customer(name: 'গ্রাহক $i'));
+    }
+    for (var i = b.shop.products.length; i < freeProducts; i++) {
+      b.shop.products.add(Product(name: 'পণ্য $i', unit: 'পিস'));
+    }
+    expect(b.canAddCustomer, isFalse);
+    expect(b.canAddProduct, isFalse);
+    await b.setProForTest(true);
+    expect(b.canAddCustomer, isTrue);
+    expect(b.canAddProduct, isTrue);
   });
 
   testWidgets('every page renders with data, no overflow', (t) async {

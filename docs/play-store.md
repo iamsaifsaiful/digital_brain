@@ -179,51 +179,58 @@ variable না বসালে Play release বিল্ডে Google-এর �
 
 **৩০ অক্টোবর:** Google "Medication and treatment management" (Medical) ঘোষণার কারণে প্রত্যাখ্যান করেছে। ব্যক্তিগত অ্যাকাউন্টে Medical অ্যাপ চলে না। তাই Play-র অ্যাপে ওষুধ, প্রেশার, সুগার, টিকা, চেকআপ, ডাক্তারের সারাংশ আর জরুরি কার্ড নেই (`lib/logic/pro.dart` `medicalOff`)। স্টোরের লেখা আর ছবিতেও এগুলো থাকবে না। অর্গানাইজেশন অ্যাকাউন্ট হলে ফেরানো যাবে।
 
-**App name:** My Assistant - বাংলা সহকারী
+**App name:** My Assistant: Daily Organizer (owner, 14 Nov; before: My Assistant - বাংলা সহকারী)
 
 **Short description (৮০ অক্ষরের মধ্যে):**
 - বাংলা: `রিমাইন্ডার, হিসাব, ডকুমেন্ট আর পাসওয়ার্ড: বাংলায় বলুন, তালাবদ্ধ থাকে ফোনেই`
 - English: `Reminders, money, documents and passwords: say it in Bangla, kept locked`
 
-**Full description (বাংলা):**
+**Full description (বাংলা)** — ১৬ নভেম্বর: Health Connect-এর আলাদা অংশ যোগ (Google প্রত্যাখ্যান করেছিল "Does not clearly describe health connect functionality in your Google Play app description"):
 ```
-My Assistant: বাংলায় বলুন, কাজ হয়ে যাবে নিজে থেকেই।
+My Assistant: সংসার, টাকা আর কাজের সব সুবিধা — এক অ্যাপে।
 
-"কাল সকাল ৯টায় বিদ্যুৎ বিল দেওয়ার কথা মনে করিয়ে দিও", "রহিমকে ৫০০ টাকা দিলাম", "এই মাসে বাজারে কত খরচ হলো?" বলুন, অ্যাপ বুঝে নিজেই রেখে দেয়।
-
-যা যা করে:
-• রিমাইন্ডার আর কাজের তালিকা: অ্যালার্মের মতো বাজে, ফোন লক থাকলেও
-• হিসাব: আয়-ব্যয়, ধার-দেনা, দোকান আর অন্যান্য হিসাব; মাসের রিপোর্ট
+যা যা পাবেন:
+• টাকার হিসাব: আয়-ব্যয়, খাত অনুযায়ী খরচ, "এখন আছে" কত, মাসের রিপোর্ট
+• ধার-দেনা: কে কত পাবে বা দেবে, ফেরতের দিনে মনে করানো
+• রিমাইন্ডার ও কাজের তালিকা: অ্যালার্মের মতো বাজে, ফোন লক থাকলেও
 • ডকুমেন্টস: NID, পাসপোর্ট, দলিল গুছিয়ে রাখা; মেয়াদ শেষের আগে খবর
 • পাসওয়ার্ড: শুধু আপনার ফোনে, তালাবদ্ধ ভল্টে
-• ফ্যামিলি: পরিবারের সদস্যদের কাজ, রিমাইন্ডার আর নোট পাঠানো; লোকেশন; উত্তরাধিকার
-• যাকাত: এখন আছে, ধার-দেনা, সঞ্চয় আর সোনা-রুপা ধরে হিসাব
-• অটো ব্যাকআপ: আপনার নিজের Google Drive-এ, তালাবদ্ধ হয়ে
+• ব্যবসায়ী মোড: দোকানের বিক্রি, গ্রাহকের বাকি, ডিলার আর স্টকের হিসাব
+• পরিবার: সদস্যদের কাজ, রিমাইন্ডার আর নোট পাঠানো; উত্তরাধিকার
+• যাকাত: টাকা, ধার-দেনা, সঞ্চয় আর সোনা-রুপা ধরে হিসাব
 • নামাজের সময়, কিবলা কম্পাস, আবহাওয়া, ছুটির দিন
+• মুখে বলে বা লিখে — দুইভাবেই সব কাজ
 
-আপনার তথ্য আপনার: পাসওয়ার্ড, ভল্ট আর PIN কখনো ফোনের বাইরে যায় না। ব্যাকআপ end-to-end তালাবদ্ধ, আমরাও পড়তে পারি না।
+স্বাস্থ্য ও Health Connect:
+আপনি চাইলে অ্যাপের স্বাস্থ্য পাতা থেকে Health Connect চালু করতে পারেন। তখন অ্যাপ Health Connect থেকে শুধু পড়ে — আজকের হাঁটার স্টেপ, ব্যায়ামের মিনিট আর গত রাতের ঘুমের সময় — আর স্বাস্থ্য পাতায় আপনার নিজের মাপ হিসেবে দেখায়। জিজ্ঞেস করলে ("আজ কত হাঁটলাম?") উত্তরও দেয়। অ্যাপ Health Connect-এ কিছু লেখে না। এই তথ্য শুধু আপনার ফোনে থাকে; আমাদের সার্ভারে, AI-তে বা কোনো তৃতীয় পক্ষের কাছে যায় না, বিজ্ঞাপনে ব্যবহার হয় না। যেকোনো সময় Health Connect-এর সেটিংস থেকে অনুমতি বন্ধ করা যায়।
 
-ফ্রিতে প্রায় সব কিছু। প্রিমিয়ামে: AI উত্তর, বিজ্ঞাপন নেই, অটো ব্যাকআপ, আরও বেশি রিমাইন্ডার-ডকুমেন্ট-পাসওয়ার্ড, পরিবারের পুরো সুবিধা। শুরুতে ৭ দিন সব ফ্রি।
+আপনার তথ্য আপনার ফোনেই থাকে। ফোন হারালেও চিন্তা নেই — নিজের Google Drive-এর তালাবদ্ধ ব্যাকআপ থেকে নতুন ফোনে সব ফিরে আসে। পাসওয়ার্ড, ভল্ট আর PIN কখনো ফোনের বাইরে যায় না।
+
+ডাউনলোড ফ্রি, প্রায় সব সুবিধাও ফ্রি। চাইলে প্রিমিয়াম: যত খুশি রিমাইন্ডার-ডকুমেন্ট-পাসওয়ার্ড, অটো ব্যাকআপ, PDF, AI উত্তর, বিজ্ঞাপন ছাড়া।
 ```
 
 **Full description (English):**
 ```
-My Assistant: say it in Bangla and it's done.
+My Assistant: everything for your home, money and tasks — in one app.
 
-"Remind me to pay the electricity bill at 9 tomorrow", "I gave Rahim 500 taka", "How much did I spend on groceries this month?" Speak, and the app understands and keeps it.
-
+What you get:
+• Money: income and expenses, spending by category, cash in hand, monthly reports
+• Loans: who owes whom, with a reminder on the repayment day
 • Reminders and to-dos that ring like an alarm, even on a locked phone
-• Money: income and expenses, loans, shop and other accounts, monthly reports
-• Documents: ID, passport, deeds in one place, with a reminder before they expire
+• Documents: ID, passport, deeds in one place, with an alert before they expire
 • Passwords: on your phone only, in a locked vault
-• Family: send tasks, reminders and notes to family members; location; inheritance
+• Business mode: shop sales, customer credit, suppliers and stock
+• Family: send tasks, reminders and notes to family members; heirs
 • Zakat: calculated from your money, loans, savings, gold and silver
-• Automatic backup to your own Google Drive, locked
 • Prayer times, Qibla compass, weather and holidays
+• Speak or type — everything works both ways
 
-Your data is yours: passwords, the vault and your PIN never leave your phone. Backups are end-to-end locked; we cannot read them.
+Health and Health Connect:
+If you choose, you can connect Health Connect from the app's Health page. The app then only reads from Health Connect — today's steps, exercise minutes and last night's sleep — and shows them as your own readings on the Health page. It can also answer your own questions ("How much did I walk today?"). The app never writes to Health Connect. This data stays on your phone; it is never sent to our server, to an AI service or to any third party, and is never used for advertising. You can turn the permission off at any time in Health Connect settings.
 
-Almost everything is free. Premium adds AI answers, no ads, automatic backup, more reminders, documents and passwords, and the full family features. The first 7 days are fully free.
+Your data stays on your phone. Lose your phone and nothing is lost — everything comes back on a new phone from your own encrypted Google Drive backup. Passwords, the vault and your PIN never leave your phone.
+
+Free to download, and almost everything is free. Premium adds unlimited reminders, documents and passwords, automatic backup, PDF, AI answers and no ads.
 ```
 
 **স্ক্রিনশট:** হোম, রিমাইন্ডার অ্যালার্ম ("বিদ্যুৎ বিল দেওয়া"), হিসাব, ডকুমেন্টস, পাসওয়ার্ড, ফ্যামিলি (সদস্যের তালিকা), যাকাত, ব্যাকআপ। কোনো ছবিতে ওষুধ নেই (`test/ui/store_shots_test.dart`)।

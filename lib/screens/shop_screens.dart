@@ -139,13 +139,13 @@ class ShopScreen extends StatelessWidget {
           ]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              if (shops.length > 1) Text(trf('{0}টা দোকান মিলিয়ে', [bnDigits(shops.length)]), style: body(13.5, color: C.muted)),
+              if (shops.length > 1) Text(trf('{0}টি দোকান মিলিয়ে', [bnDigits(shops.length)]), style: body(13.5, color: C.muted)),
               const SizedBox(height: 6),
               Panel(
                 padding: const EdgeInsets.all(14),
                 child: Column(children: [
                   Row(children: [
-                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টা বিক্রি', [bnDigits(today.count)]))),
+                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টি বিক্রি', [bnDigits(today.count)]))),
                     Expanded(child: Figure(label: trf('{0}-এর বিক্রি', [monthName(now.month)]), amount: taka(month), color: C.green, size: 22)),
                   ]),
                   const SizedBox(height: 10),
@@ -174,7 +174,7 @@ class ShopScreen extends StatelessWidget {
                 ]),
               ),
               const SizedBox(height: 12),
-              SecondaryButton(label: tr('আরেকটা দোকান যোগ করুন'), icon: Icons.add_business_outlined, onPressed: add),
+              SecondaryButton(label: tr('আরেকটি দোকান যোগ করুন'), icon: Icons.add_business_outlined, onPressed: add),
             ]),
           ),
         ]),
@@ -240,7 +240,7 @@ class ShopDetailScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(14),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                   Row(children: [
-                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টা বিক্রি', [bnDigits(today.count)]))),
+                    Expanded(child: Figure(label: tr('আজকের বিক্রি'), amount: taka(today.total), color: C.green, size: 22, sub: trf('{0}টি বিক্রি', [bnDigits(today.count)]))),
                     Expanded(child: Figure(label: trf('{0}-এর বিক্রি', [monthName(now.month)]), amount: taka(m.sales), color: C.green, size: 22)),
                   ]),
                   const SizedBox(height: 10),
@@ -291,7 +291,7 @@ class ShopDetailScreen extends StatelessWidget {
                 ]),
               ),
               const SizedBox(height: 14),
-              SectionTitle(trf('রসিদ · {0}টা', [bnDigits(receipts.length)])),
+              SectionTitle(trf('রসিদ · {0}টি', [bnDigits(receipts.length)])),
               if (receipts.isEmpty)
                 Text(tr('এই দোকানে এখনো কোনো রসিদ দেওয়া হয়নি। “রসিদ” চাপলে তৈরি করা যাবে, এখানে জমা থাকবে।'), style: body(14, color: C.muted, height: 1.5))
               else

@@ -132,8 +132,8 @@ List<String> spendAdvice(SpendHealth h) {
     final tip = switch (s.category) {
       'খাবার' => tr('সপ্তাহে কয়েক দিন বাসা থেকে খাবার নিন'),
       'কেনাকাটা' => tr('কেনার আগে এক দিন অপেক্ষা করে দেখুন — সত্যিই দরকার কিনা'),
-      'বেড়ানো' => tr('ঘোরাঘুরির একটা মাসিক সীমা ঠিক করুন'),
-      _ => tr('এই খাতের একটা সীমা ঠিক করুন'),
+      'বেড়ানো' => tr('ঘোরাঘুরির একটি মাসিক সীমা ঠিক করুন'),
+      _ => tr('এই খাতের একটি সীমা ঠিক করুন'),
     };
     out.add(h.hasIncome
         ? trf('{0} খাতে আয়ের {1}% ({2}) — অর্ধেক কমালেই {4} বাঁচবে। {3}।', [spendLabel(s.category), bnDigits(p), taka(s.amount), tip, taka(s.amount ~/ 2)])
@@ -145,7 +145,7 @@ List<String> spendAdvice(SpendHealth h) {
   if (h.hasIncome && h.kept >= 0) {
     final keep = h.pct(h.kept);
     out.add(keep >= keepGoal
-        ? trf('আয়ের {0}% বেঁচে আছে — ভালো! এটা সঞ্চয়ে সরিয়ে রাখুন।', [bnDigits(keep)])
+        ? trf('আয়ের {0}% বেঁচে আছে — ভালো অগ্রগতি। এটা সঞ্চয়ে সরিয়ে রাখুন।', [bnDigits(keep)])
         : trf('আয়ের মাত্র {0}% বেঁচেছে — অন্তত {1}% রাখার চেষ্টা করুন।', [bnDigits(keep), bnDigits(keepGoal)]));
   }
   final unknown = h.sum(SpendGroup.other);
@@ -156,7 +156,7 @@ List<String> spendAdvice(SpendHealth h) {
     final what = h.days >= 30 ? tr('আগের ৩০ দিনের') : tr('আগের সপ্তাহের');
     out.add(h.wants > h.lastWants
         ? trf('শখের খরচ {0} চেয়ে {1} বেশি।', [what, taka(h.wants - h.lastWants)])
-        : trf('শখের খরচ {0} চেয়ে {1} কম — চমৎকার!', [what, taka(h.lastWants - h.wants)]));
+        : trf('শখের খরচ {0} চেয়ে {1} কম — ভালো অগ্রগতি।', [what, taka(h.lastWants - h.wants)]));
   }
   return out;
 }

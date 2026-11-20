@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -22,7 +23,7 @@ class FakeServer {
   String minVersion = '';
   final payments = <Map<String, Object?>>[
     {'id': 1, 'created': _ago(const Duration(minutes: 30)), 'email': 'rakib.hasan92@gmail.com', 'name': 'রাকিব হাসান', 'phone': '', 'plan': 'বার্ষিক', 'amount': 999, 'method': 'বিকাশ', 'sender': '01712345678', 'trx': 'BJK4Q9X2PL', 'note': '', 'status': 'pending', 'reason': '', 'reviewed_by': '', 'reviewed': null},
-    {'id': 2, 'created': _ago(const Duration(hours: 2)), 'email': 'ayesha.s@gmail.com', 'name': 'Ayesha Siddika', 'phone': '', 'plan': 'মাসিক', 'amount': 99, 'method': 'নগদ', 'sender': '01987654321', 'trx': '7NG2KD81QZ', 'note': 'তাড়াতাড়ি চালু করবেন', 'status': 'pending', 'reason': '', 'reviewed_by': '', 'reviewed': null},
+    {'id': 2, 'created': _ago(const Duration(hours: 2)), 'email': 'ayesha.s@gmail.com', 'name': 'Ayesha Siddika', 'phone': '01811000000', 'plan': 'মাসিক', 'amount': 99, 'method': 'নগদ', 'sender': '01987654321', 'trx': '7NG2KD81QZ', 'note': 'তাড়াতাড়ি চালু করবেন', 'status': 'pending', 'reason': '', 'reviewed_by': '', 'reviewed': null},
   ];
 
   final feedback = <Map<String, Object?>>[
@@ -311,8 +312,19 @@ class FakeDevice extends Device {
   @override
   Future<bool> canFingerprint() async => hasFingerprint;
   String? answer;
+  /// The first prompt never answers (as on some phones when it was asked
+  /// too early); stop() ends it the way the phone does — no reply.
+  bool hangFirst = false;
+  int asked = 0, stopped = 0;
   @override
-  Future<String?> verify(String reason) async => answer;
+  Future<String?> verify(String reason) {
+    asked++;
+    if (hangFirst && asked == 1) return Completer<String?>().future;
+    return Future.value(answer);
+  }
+
+  @override
+  Future<void> stop() async => stopped++;
   @override
   Future<String?> pushToken() async => null;
 }
@@ -323,6 +335,14 @@ Future<void> loadFonts() async {
     hind.addFont(rootBundle.load('assets/fonts/HindSiliguri-$w.ttf'));
   }
   await hind.load();
+  final noto = FontLoader('Noto');
+  for (final w in ['Regular', 'Medium', 'SemiBold', 'Bold']) {
+    noto.addFont(rootBundle.load('assets/fonts/NotoSansBengali-$w.ttf'));
+  }
+  await noto.load();
+  // The icons, so the pictures show them (not boxes).
+  final f = File('/opt/fl/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+  if (f.existsSync()) await (FontLoader('MaterialIcons')..addFont(Future.value(ByteData.sublistView(f.readAsBytesSync())))).load();
 }
 
 Future<void> settle(WidgetTester t) async {
@@ -392,7 +412,11 @@ void main() {
     expect(find.text('দিনে গড় ২০ মিনিট · ১৪ দিনে ৯ দিন'), findsOneWidget);
     await t.tapAt(const Offset(20, 40));
     await settle(t);
-    await t.tap(find.text('নোটিফিকেশন').last);
+    await t.tap(find.text('আরও').last);
+    await t.pumpAndSettle();
+    expect(find.text('আয়-ব্যয়ের হিসাব'), findsOneWidget);
+    await shot(t, 'more');
+    await t.tap(find.byKey(const Key('more-notices')));
     await settle(t);
     expect(find.text('আজকের কাজের লিস্ট করেছেন?'), findsOneWidget);
     await shot(t, 'notices');
@@ -524,7 +548,9 @@ void main() {
 
   testWidgets('AI ও বোঝা: cost in taka, sources, review, a model to 10%, settings and the self-test', (t) async {
     final server = await open(t);
-    await t.tap(find.text('AI').last);
+    await t.tap(find.text('আরও').last);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('more-ai')));
     await settle(t);
     expect(find.text('৳১.৯৫'), findsOneWidget); // today: $0.016 × 122
     expect(find.textContaining('AI প্রশ্ন ৪৪'), findsOneWidget, reason: 'the same as the site\'s AI খরচ page');
@@ -615,7 +641,9 @@ void main() {
 
   testWidgets('নোটিফিকেশন নিয়ন্ত্রণ (owner, 28 Oct): grouped; a kind off at once; another\'s time, words and members; the weekly one moved to Sunday; back to the app\'s own', (t) async {
     final server = await open(t);
-    await t.tap(find.text('নোটিফিকেশন').last);
+    await t.tap(find.text('আরও').last);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('more-notices')));
     await settle(t);
     await t.tap(find.byKey(const Key('notice-log')));
     await settle(t);
@@ -753,6 +781,28 @@ void main() {
     device.answer = null;
     await t.tap(find.byKey(const Key('unlock')));
     await settle(t);
+    expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsOneWidget);
+  });
+
+  testWidgets('a fingerprint prompt that never answered: the button still opens (owner, 16 Nov)', (t) async {
+    final server = FakeServer();
+    final store = MemorySession()..value = 'c' * 64;
+    store.flags['fingerprint'] = true;
+    final device = FakeDevice()..hangFirst = true;
+    await t.pumpWidget(AdminApp(api: Api(client: server.client, store: store, base: 'https://x'), device: device));
+    await settle(t);
+    await t.pump(const Duration(milliseconds: 500));
+    await settle(t);
+    expect(device.asked, 1);
+    expect(find.byKey(const Key('unlock')), findsOneWidget);
+    await t.tap(find.byKey(const Key('unlock')));
+    await t.pump(const Duration(milliseconds: 400));
+    await settle(t);
+    expect(device.stopped, 1);
+    expect(device.asked, 2);
+    expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsOneWidget);
+    // The hung one's 40 s wait ends without locking the app again.
+    await t.pump(const Duration(seconds: 41));
     expect(find.text('২টা পেমেন্ট দেখার অপেক্ষায়'), findsOneWidget);
   });
 

@@ -91,7 +91,7 @@ void main() {
     await t.tap(find.byKey(const Key('cash-kind-expense')));
     await settle(t);
     expect(total(), contains('খরচ ৳৯,০০০'));
-    expect(total(), contains('৪টা লেনদেন'));
+    expect(total(), contains('৪টি লেনদেন'));
     expect(find.text('বেতন'), findsNothing);
     await menu();
     await t.tap(find.byKey(const Key('cash-cat')));
@@ -99,7 +99,7 @@ void main() {
     await t.tap(find.byKey(const Key('cash-cat-বাজার')));
     await settle(t);
     expect(total(), contains('খরচ ৳৮০০'));
-    expect(total(), contains('২টা লেনদেন'));
+    expect(total(), contains('২টি লেনদেন'));
     // Clear the খাত, then only income.
     await show(find.byKey(const Key('cash-cat-on')));
     await t.tap(find.byKey(const Key('cash-cat-on')));

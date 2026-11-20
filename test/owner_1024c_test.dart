@@ -73,7 +73,7 @@ void main() {
     await t.tap(find.textContaining('বারবার').first);
     await settle(t);
     final tabs = t.getRect(find.byWidgetPredicate((w) => w is SegTabs));
-    final card = t.getRect(find.ancestor(of: find.text('বিদ্যুৎ বিল'), matching: find.byType(Panel)).first);
+    final card = t.getRect(find.ancestor(of: find.text('বিদ্যুৎ বিল'), matching: find.byType(RepeatCard)).first);
     expect(card.top - tabs.bottom, greaterThanOrEqualTo(12));
     expect(rig.brain.data.reminders, hasLength(1));
   });
@@ -154,7 +154,8 @@ void main() {
         await settle(t);
         final phase = skyLight(at, sun.sunrise, sun.sunset).phase;
         expect(find.byKey(Key('home-hero-$phase')), findsOneWidget, reason: name);
-        expect(find.byKey(const Key('home-slot')), findsOneWidget);
+        // No prayer on Home (owner, 19 Nov): it is on the মুসলিম টাইম page.
+        expect(find.byKey(const Key('home-slot')), findsNothing);
         expect(find.descendant(of: find.byKey(const Key('home-temp')), matching: find.textContaining('ঢাকা')), findsOneWidget);
         expect(find.text('৩১°'), findsOneWidget);
         expect(find.textContaining('সূর্যোদয়'), findsOneWidget);

@@ -33,7 +33,7 @@ void main() {
         ]);
         d.projects.add(Project(id: 'p1', name: 'বাড়ি মেরামত', inMain: true, mainAsked: true, budget: 50000));
         d.cash.addAll([
-          CashEntry(kind: CashKind.income, amount: 50000, category: 'টাকা এলো', date: today.subtract(const Duration(days: 9)), projectId: 'p1'),
+          CashEntry(kind: CashKind.income, amount: 50000, category: 'টাকা এল', date: today.subtract(const Duration(days: 9)), projectId: 'p1'),
           CashEntry(kind: CashKind.expense, amount: 32400, category: 'মাল কেনা', date: today.subtract(const Duration(days: 1)), projectId: 'p1'),
         ]);
         rig.brain.data = d;

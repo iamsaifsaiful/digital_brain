@@ -14,7 +14,7 @@ const apiBase = String.fromEnvironment('API_BASE', defaultValue: 'https://getmya
 
 /// This app's version, sent with every call: an older one than the server
 /// works with is told to update (keep equal to pubspec.yaml; a test checks).
-const adminAppVersion = '1.0.0';
+const adminAppVersion = '1.0.1';
 
 class ApiError implements Exception {
   const ApiError(this.message, {this.signedOut = false, this.code = '', this.url = ''});
@@ -131,6 +131,13 @@ class Device {
   }
 
   Future<bool> fingerprint(String reason) async => await verify(reason) == null;
+
+  /// Clears a prompt that is still open (or hung).
+  Future<void> stop() async {
+    try {
+      await _auth.stopAuthentication();
+    } catch (_) {}
+  }
 
   Future<String?> pushToken() async {
     try {

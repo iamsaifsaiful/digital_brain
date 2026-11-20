@@ -9,7 +9,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, '..', 'test', 'ui', 'shots', 'site')
 for n in ['home', 'report', 'chat']:
-    for look in ['light', 'dark']:
+    for look in ['light', 'dark', 'light_en', 'dark_en']:
         im = Image.open(os.path.join(SRC, f'{n}_{look}.png')).convert('RGB')
         im.resize((585, 1266), Image.LANCZOS).save(os.path.join(HERE, 'img', f'{n}_{look}.png'), optimize=True)
         print(n, look)

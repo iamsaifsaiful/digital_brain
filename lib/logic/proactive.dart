@@ -242,14 +242,14 @@ String morningText(AppData d, DateTime day) {
   final rem2 = rem.where((r) => !d.specialDays.any((s) => s.reminderId == r.id)).toList();
   if (rem2.isNotEmpty) {
     final first = rem2.take(3).map((r) => '${bnTime(r.hour, r.minute)} ${r.title}').join(', ');
-    parts.add(rem2.length > 3 ? trf('{0}টা রিমাইন্ডার: {1}…', [bnDigits(rem2.length), first]) : trf('রিমাইন্ডার: {0}।', [first]));
+    parts.add(rem2.length > 3 ? trf('{0}টি রিমাইন্ডার: {1}…', [bnDigits(rem2.length), first]) : trf('রিমাইন্ডার: {0}।', [first]));
   }
   final tasks = tasksLeft(d, dd);
   final anyDay = d.tasks.where((t) => !t.done && t.due == null).length;
   if (tasks.isNotEmpty) {
-    parts.add(trf('{0}টা কাজ: {1}{2}', [bnDigits(tasks.length), tasks.take(3).map((t) => t.title).join(', '), tasks.length > 3 ? '…' : '।']));
+    parts.add(trf('{0}টি কাজ: {1}{2}', [bnDigits(tasks.length), tasks.take(3).map((t) => t.title).join(', '), tasks.length > 3 ? '…' : '।']));
   } else if (anyDay > 0) {
-    parts.add(trf('তালিকায় {0}টা কাজ আছে।', [bnDigits(anyDay)]));
+    parts.add(trf('তালিকায় {0}টি কাজ আছে।', [bnDigits(anyDay)]));
   }
   for (final m in d.medicines) {
     final left = m.daysLeft;
@@ -415,7 +415,7 @@ List<PlannedNotice> _summaries(AppData d, DateTime now, AssistantPrefs p) {
       out.add(PlannedNotice(
         id: stableId('$nightTag:${dayKey(day)}'),
         at: at,
-        title: trf('আজকের {0}টা কাজ বাকি আছে', [bnDigits(left.length)]),
+        title: trf('আজকের {0}টি কাজ বাকি আছে', [bnDigits(left.length)]),
         body: trf('{0}। চাইলে কালকের তালিকায় সরিয়ে রাখি।', [left.take(3).map((t) => t.title).join(', ')]),
         reminderId: nightTag,
         gentle: true,
@@ -566,8 +566,8 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     final parts = <String>[
       if (spent > 0) trf('খরচ {0}', [taka(spent)]),
       if (health.hasIncome && health.wants > 0) trf('শখের খরচ আয়ের {0}%', [bnDigits(health.pct(health.wants))]),
-      if (done > 0) trf('{0}টা কাজ শেষ', [bnDigits(done)]),
-      if (open > 0) trf('{0}টা বাকি', [bnDigits(open)]),
+      if (done > 0) trf('{0}টি কাজ শেষ', [bnDigits(done)]),
+      if (open > 0) trf('{0}টি বাকি', [bnDigits(open)]),
     ];
     if (parts.isNotEmpty) add(nudgeWeek, dayKey(at), at, tr('গত সপ্তাহের হিসাব'), '${parts.join(' · ')}। ${tr('নতুন সপ্তাহ ভালো কাটুক!')}');
   }
@@ -599,7 +599,7 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
         final at = nextWeekday(wd, 11 * 60);
         final n = at.difference(DateTime(2026)).inDays ~/ 3;
         final step = tr(bmiSteps[n % bmiSteps.length]);
-        final who = m.isMe ? tr('আজ নিজের জন্য ছোট একটা ধাপ') : trf('{0}-এর জন্য ছোট একটা ধাপ', [m.relation.isNotEmpty ? m.relation : m.name]);
+        final who = m.isMe ? tr('আজ নিজের জন্য ছোট একটি ধাপ') : trf('{0}-এর জন্য ছোট একটি ধাপ', [m.relation.isNotEmpty ? m.relation : m.name]);
         add('$nudgeBmi${m.id}', dayKey(at), at, who, step);
       }
     }
@@ -634,7 +634,7 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
       final s = h.streak(now);
       // Asked "করেছেন কি?" at its own time already: no second note.
       if (s < 2 || h.doneOn(today) || h.askAt != null) continue;
-      add(nudgeHabit, '${h.id}:${dayKey(today)}', _at(today, 20 * 60), trf('{1}: টানা {0} দিন, দারুণ!', [bnDigits(s), h.name]),
+      add(nudgeHabit, '${h.id}:${dayKey(today)}', _at(today, 20 * 60), trf('{1}: টানা {0} দিন — ধারাবাহিকতা বজায় আছে।', [bnDigits(s), h.name]),
           tr('আজকেরটাও হয়ে গেলে টিক দিন, এভাবেই চলুক।'));
     }
   }
@@ -644,7 +644,7 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
     final at = _at(dayOnly(last).add(const Duration(days: 3)), 10 * 60 + 30);
     final open = d.tasks.where((t) => !t.done).length;
     add(nudgeBack, dayKey(at), at, tr('অনেক দিন কথা হয়নি, কেমন আছেন?'),
-        open > 0 ? trf('তালিকায় {0}টা কাজ বাকি আছে। নতুন কিছু মনে রাখার থাকলে বলবেন।', [bnDigits(open)]) : tr('নতুন কিছু মনে রাখার থাকলে শুধু বলবেন, আমি রেখে দেব।'));
+        open > 0 ? trf('তালিকায় {0}টি কাজ বাকি আছে। নতুন কিছু মনে রাখার থাকলে বলবেন।', [bnDigits(open)]) : tr('নতুন কিছু মনে রাখার থাকলে শুধু বলবেন, আমি রেখে দেব।'));
   }
 
   // Asked for by the user: prayer times and Ramadan (sehri, iftar), for the next two days.
@@ -685,7 +685,7 @@ List<PlannedNotice> _extras(AppData d, DateTime now, AssistantPrefs p) {
         if (holidayOn(day) == null && !isWeekend(day)) continue;
         final names = fixes.take(3).map((t) => t.title).join(', ');
         add(nudgeFix, dayKey(day), _at(day, 10 * 60), tr('ছুটির দিনে ঘরের কিছু কাজ সেরে নেবেন?'),
-            trf('{0} — {1}টা ঠিক করা বাকি। একটা-দুটো সেরে ফেললেও স্বস্তি লাগবে।', [fixes.length > 3 ? '$names…' : names, bnDigits(fixes.length)]));
+            trf('{0} — {1}টি ঠিক করা বাকি। একটা-দুটো সেরে ফেললেও স্বস্তি লাগবে।', [fixes.length > 3 ? '$names…' : names, bnDigits(fixes.length)]));
       }
     }
   }
@@ -738,7 +738,7 @@ List<PlannedNotice> passwordNudges(AppData d, DateTime now) {
       PlannedNotice(
         id: stableId('$nudgePass:${dayKey(day)}'),
         at: _at(day, 12 * 60),
-        title: byDay[day] == 1 ? tr('একটা পাসওয়ার্ড ছয় মাসের পুরোনো') : trf('{0}টা পাসওয়ার্ড ছয় মাসের পুরোনো', [bnDigits(byDay[day]!)]),
+        title: byDay[day] == 1 ? tr('একটি পাসওয়ার্ড ছয় মাসের পুরোনো') : trf('{0}টি পাসওয়ার্ড ছয় মাসের পুরোনো', [bnDigits(byDay[day]!)]),
         body: tr('ছুটির দিনে একটু সময় করে বদলে নিলে অ্যাকাউন্ট নিরাপদ থাকে। কোনগুলো, ভল্টে দেখে নিন।'),
         reminderId: nudgePass,
         gentle: true,
@@ -826,7 +826,7 @@ List<PlannedNotice> _plans(AppData d, DateTime now, AssistantPrefs p) {
     add('week', dayKey(day), _at(day, 9 * 60 + 30), tr('নতুন সপ্তাহ শুরু হলো'),
         week.isEmpty
             ? tr('এ সপ্তাহে কী কী কাজ করতে চান? বলে রাখুন, তালিকা করে দেব।')
-            : trf('এ সপ্তাহে {0}টা কাজ রাখা আছে। আর কিছু থাকলে বলুন।', [bnDigits(week.length)]));
+            : trf('এ সপ্তাহে {0}টি কাজ রাখা আছে। আর কিছু থাকলে বলুন।', [bnDigits(week.length)]));
     break;
   }
 
@@ -855,7 +855,7 @@ List<PlannedNotice> _plans(AppData d, DateTime now, AssistantPrefs p) {
       final firstText = f.$1 >= 24 * 60
           ? trf('প্রথমটা: {0}। আর কিছু থাকলে বলে রাখুন।', [f.$2])
           : trf('প্রথমটা {0}-এ: {1}। আর কিছু থাকলে বলে রাখুন।', [bnTime(f.$1 ~/ 60, f.$1 % 60), f.$2]);
-      add('night', dayKey(day), at, trf('কাল {0}টা কাজ আছে', [bnDigits(items.length)]), firstText);
+      add('night', dayKey(day), at, trf('কাল {0}টি কাজ আছে', [bnDigits(items.length)]), firstText);
     } else if (items.isEmpty) {
       add('night', dayKey(day), at, tr('কালকের জন্য কিছু মনে রাখার আছে?'), tr('বলে রাখুন, সময়মতো মনে করিয়ে দেব।'));
     }

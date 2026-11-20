@@ -10,16 +10,19 @@ export '../logic/holidays_abroad.dart' show AbroadHoliday;
 abstract class WeatherSource {
   Future<Weather?> now(double lat, double lon, String place, DateTime at);
 
+  /// Now, the next hours and seven days (the weather page); null offline.
+  Future<Forecast?> forecast(double lat, double lon, String place, DateTime at) async => null;
+
   /// Places in the world whose name starts like [q] (owner, 29 Oct: search
   /// in the place picker). Only the typed name is sent; [] offline.
-  Future<List<PlaceHit>> search(String q, {String lang = 'bn'}) async => const [];
+  Future<List<PlaceHit>> search(String q, {String lang = 'bn', String country = ''}) async => const [];
 
   /// Minutes from UTC of the clock at ([lat], [lon]) today; null offline.
   Future<int?> offsetAt(double lat, double lon) async => null;
 
   /// A country's public holidays in [year] ([cc]: two letters), from
-  /// Nager.Date (free, no key; only the country code is sent). Null offline
-  /// or for a country it does not know.
+  /// Nager.Date (free, no key; only the country code is sent). Null offline;
+  /// empty for a country it has no list for.
   Future<List<AbroadHoliday>?> holidays(String cc, int year) async => null;
 }
 
@@ -59,10 +62,31 @@ class OpenMeteo implements WeatherSource {
   }
 
   @override
-  Future<List<PlaceHit>> search(String q, {String lang = 'bn'}) async {
+  Future<Forecast?> forecast(double lat, double lon, String place, DateTime at) async {
+    try {
+      final u = Uri.https('api.open-meteo.com', '/v1/forecast', {
+        'latitude': '$lat',
+        'longitude': '$lon',
+        'current': 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m',
+        'hourly': 'temperature_2m,weather_code,is_day',
+        'daily': 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
+        'timezone': 'auto',
+        'forecast_days': '7',
+      });
+      final r = await _http.get(u).timeout(const Duration(seconds: 15));
+      if (r.statusCode != 200) return null;
+      return Forecast.fromOpenMeteo(jsonDecode(r.body) as Map<String, dynamic>, place, at);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<PlaceHit>> search(String q, {String lang = 'bn', String country = ''}) async {
     if (q.trim().length < 2) return const [];
     try {
-      final u = Uri.https('geocoding-api.open-meteo.com', '/v1/search', {'name': q.trim(), 'count': '12', 'language': lang, 'format': 'json'});
+      final u = Uri.https('geocoding-api.open-meteo.com', '/v1/search',
+          {'name': q.trim(), 'count': '12', 'language': lang, 'format': 'json', if (country.isNotEmpty) 'countryCode': country});
       final r = await _http.get(u).timeout(const Duration(seconds: 10));
       if (r.statusCode != 200) return const [];
       final j = jsonDecode(r.body);
@@ -83,7 +107,10 @@ class OpenMeteo implements WeatherSource {
     if (!RegExp(r'^[A-Z]{2}$').hasMatch(cc)) return null;
     try {
       final r = await _http.get(Uri.https('date.nager.at', '/api/v3/PublicHolidays/$year/$cc')).timeout(const Duration(seconds: 15));
-      if (r.statusCode != 200 || r.body.trim().isEmpty) return null;
+      // No list kept there for this country: an empty list (not "offline"),
+      // so the phone works out the main days itself.
+      if (r.statusCode == 404 || r.statusCode == 204 || (r.statusCode == 200 && r.body.trim().isEmpty)) return const [];
+      if (r.statusCode != 200) return null;
       final j = jsonDecode(r.body);
       if (j is! List) return null;
       final seen = <String>{};
@@ -123,7 +150,8 @@ class FakeWeather implements WeatherSource {
   int? offset;
 
   @override
-  Future<List<PlaceHit>> search(String q, {String lang = 'bn'}) async => [for (final h in hits) if (h.name.toLowerCase().startsWith(q.trim().toLowerCase())) h];
+  Future<List<PlaceHit>> search(String q, {String lang = 'bn', String country = ''}) async =>
+      [for (final h in hits) if (h.name.toLowerCase().startsWith(q.trim().toLowerCase()) && (country.isEmpty || h.countryCode.toUpperCase() == country)) h];
 
   @override
   Future<int?> offsetAt(double lat, double lon) async => offset;
@@ -143,4 +171,10 @@ class FakeWeather implements WeatherSource {
     asked++;
     return answer;
   }
+
+  /// The weather page's answer, by place name (null: none).
+  Map<String, Forecast> casts = {};
+
+  @override
+  Future<Forecast?> forecast(double lat, double lon, String place, DateTime at) async => casts[place];
 }

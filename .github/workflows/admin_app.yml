@@ -45,10 +45,20 @@ jobs:
           set -o pipefail
           flutter test 2>&1 | tee test.log || { bash ../tool/annotate_failures.sh test.log "Tests failed"; exit 1; }
 
-      - name: Test
+      # The main app's permanent key, so a new admin APK installs over the
+      # old one (before 16 Nov every build had a throwaway key).
+      - name: Release signing key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
-          set -o pipefail
-          flutter test 2>&1 | tee test.log || { bash ../tool/annotate_failures.sh test.log "Tests failed"; exit 1; }
+          if [ -n "$KS" ] && [ -n "$KS_PW" ]; then
+            echo "$KS" | base64 -d > android/app/release.jks
+            printf 'storeFile=release.jks\nstorePassword=%s\nkeyAlias=myassistant\nkeyPassword=%s\n' "$KS_PW" "$KS_PW" > android/key.properties
+            echo "Signing with the permanent release key."
+          else
+            echo "::warning::No release key secret: the APK gets a throwaway key and cannot update an older install."
+          fi
 
       - name: Build APK
         run: |
@@ -63,4 +73,4 @@ jobs:
           cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk ma-admin-armv7.apk
           VERSION=$(grep '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           gh release create "admin-${VERSION}-build.${{ github.run_number }}" ma-admin-arm64.apk ma-admin-armv7.apk --prerelease --target "$GITHUB_SHA" \
-            --title "My Assistant Admin $VERSION (build ${{ github.run_number }})" --notes "অ্যাডমিন অ্যাপ — শুধু অ্যাডমিনদের জন্য।"
+            --title "এডমিন MA $VERSION (build ${{ github.run_number }})" --notes "এডমিন MA — শুধু অ্যাডমিনদের জন্য।"

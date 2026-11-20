@@ -268,7 +268,7 @@ extension _TodoChat on ChatController {
       _say(out, trf('“{0}” — এবারেরটা শেষ করেছি। আবার {1}।', [t.title, sayWhen(now!.due!, _now, withTime: false)]), links: links);
     } else {
       final left = brain.data.tasks.where((x) => !x.done).length;
-      _say(out, trf('“{0}” কাজটা শেষ করেছি।{1}', [t.title, left > 0 ? trf(' আর {0}টা কাজ বাকি।', [bnDigits(left)]) : tr(' সব কাজ শেষ!')]), links: links);
+      _say(out, trf('“{0}” কাজটা শেষ করেছি।{1}', [t.title, left > 0 ? trf(' আর {0}টি কাজ বাকি।', [bnDigits(left)]) : tr(' সব কাজ শেষ।')]), links: links);
     }
     _history.add(AiTurn.app('[কাজ শেষ হিসেবে টিক দেওয়া হলো]'));
     return true;
@@ -283,7 +283,7 @@ extension _TodoChat on ChatController {
     for (final t in tasks) {
       await brain.setTaskDone(t, true);
     }
-    _say(out, trf('{0} {1}টা কাজ শেষ হিসেবে টিক দিলাম — {2}।', [today ? tr('আজকের') : tr('তালিকার'), bnDigits(tasks.length), nameList([for (final t in tasks) t.title], unit: 'টা')]),
+    _say(out, trf('{0} {1}টি কাজ শেষ হিসেবে টিক দিলাম — {2}।', [today ? tr('আজকের') : tr('তালিকার'), bnDigits(tasks.length), nameList([for (final t in tasks) t.title], unit: 'টা')]),
         links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
     return true;
   }
@@ -477,7 +477,7 @@ extension _TodoChat on ChatController {
     final old = rid == null ? null : brain.data.reminders.where((x) => x.id == rid).firstOrNull;
     // A new reminder past the free limit: the to-do stays; said plainly.
     if (old == null && !brain.canAddReminder) {
-      _say(out, trf('“{0}” কাজটি তালিকায় আছে, তবে রিমাইন্ডার চালু হয়নি — ফ্রিতে একসাথে {1}টা রিমাইন্ডার রাখা যায়। পুরোনো কোনোটা বন্ধ করুন, বা প্রিমিয়াম নিন।', [t.title, bnDigits(freeReminders)]),
+      _say(out, trf('“{0}” কাজটি তালিকায় আছে, তবে রিমাইন্ডার চালু হয়নি — ফ্রি সংস্করণে একসাথে {1}টি রিমাইন্ডার রাখা যায়। পুরোনো কোনোটা বন্ধ করুন, বা প্রিমিয়াম নিন।', [t.title, bnDigits(freeReminders)]),
           links: [ChatLink(LinkKind.reminders, tr('রিমাইন্ডার দেখুন')), ChatLink(LinkKind.page, tr('প্রিমিয়াম দেখুন'), page: 'pro')]);
       return;
     }
@@ -742,7 +742,7 @@ extension _TodoChat on ChatController {
       made.add(n);
     }
     _batchTasks = ([for (final x in made) x.id], '', _turn);
-    _say(out, trf('ঠিক আছে — একটার বদলে {0}টা আলাদা কাজ রাখলাম{1}।', [bnDigits(made.length), task.due == null ? '' : ' — ${taskWhen(made.first, _now) ?? ''}']), facts: [for (final x in made) x.title], links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
+    _say(out, trf('ঠিক আছে — একটার বদলে {0}টি আলাদা কাজ রাখলাম{1}।', [bnDigits(made.length), task.due == null ? '' : ' — ${taskWhen(made.first, _now) ?? ''}']), facts: [for (final x in made) x.title], links: [ChatLink(LinkKind.tasks, tr('কাজের তালিকা'))]);
     _offerUndo(snap);
     return true;
   }

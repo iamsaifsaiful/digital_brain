@@ -859,7 +859,7 @@ void main() {
     final q = Parser(ledger: const [], now: now).parse('আজ কোন রিমাইন্ডার আছে?');
     expect(q, isA<ReminderQuery>());
     final a = reminderAnswer(d, q as ReminderQuery, now);
-    expect(a, contains('১টা রিমাইন্ডার'));
+    expect(a, contains('১টি রিমাইন্ডার'));
     expect(a, contains('বাজার'));
     expect(a, isNot(contains('মিটিং')));
     expect(reminderAnswer(AppData(), q, now), contains('আজ কোনো রিমাইন্ডার নেই'));
@@ -1103,7 +1103,7 @@ void main() {
       expect(morning.first.body, contains('সুমি'));
       final night = n.firstWhere((x) => x.reminderId == nightTag);
       expect(night.at, DateTime(2026, 10, 13, 21, 0));
-      expect(night.title, contains('১টা কাজ'));
+      expect(night.title, contains('১টি কাজ'));
       final due = n.firstWhere((x) => x.reminderId.startsWith(nudgeDue));
       expect(due.at, DateTime(2026, 10, 31, 10, 0)); // 60 days after the last entry
       expect(n.firstWhere((x) => x.reminderId.startsWith(nudgeBill)).at, DateTime(2026, 10, 18, 10, 0));
@@ -1312,7 +1312,7 @@ void main() {
       final c = Parser(ledger: const [], now: now).parse('বিয়ের ছবিগুলো দেখাও') as SearchQuery;
       final docs = [for (final h in searchAll(d, c.terms)) if (h is DocHit) h.doc.id];
       expect(docs, containsAll(['w', 'h']));
-      expect(answerText(d, c, now), contains('২টা মিলেছে'));
+      expect(answerText(d, c, now), contains('২টি মিলেছে'));
       expect(searchAll(d, ['ফেনী']).whereType<DocHit>().single.doc.id, 'w');
       expect(searchAll(d, ['2025']).whereType<DocHit>().single.doc.id, 'w');
       expect(Doc.fromJson(d.docs[1].toJson()).people, 'ভাইয়া, ভাবি');
@@ -1531,7 +1531,7 @@ void main() {
       expect(all, isNot(contains('gopon123')));
       expect(all, isNot(contains('4321')));
       expect(all, contains('মিরপুর ১০'));
-      expect(all, contains('১টা নোট এই PDF-এ রাখা হয়নি'));
+      expect(all, contains('১টি নোট এই PDF-এ রাখা হয়নি'));
       expect(all, contains('গ্যাস বিল দেওয়া'));
     });
 
@@ -1584,7 +1584,7 @@ void main() {
         for (final (h, t) in [(9, 'ব্যাংকে যাওয়া'), (12, 'মিটিং'), (17, 'ডাক্তার')]) Reminder(title: t, date: DateTime(2026, 10, 15), hour: h),
       ]);
       final night = assistantNotices(d, wed, only).firstWhere((x) => x.reminderId == '${nudgePlan}night');
-      expect(night.title, 'কাল ৩টা কাজ আছে');
+      expect(night.title, 'কাল ৩টি কাজ আছে');
       expect(night.body, contains('ব্যাংকে যাওয়া'));
     });
 

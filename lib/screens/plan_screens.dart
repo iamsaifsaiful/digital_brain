@@ -5,6 +5,7 @@ import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 
 import '../logic/bn.dart';
+import '../logic/calendar_bd.dart' show holidayOn, isWeekend;
 import '../logic/when.dart';
 import '../logic/day_plan.dart';
 export '../logic/day_plan.dart';
@@ -14,6 +15,7 @@ import '../ui/early_picker.dart';
 import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../ui/kit.dart' show Hairline;
 import 'alarm_screens.dart';
 import 'new_item_screen.dart';
 import '../logic/lang.dart';
@@ -97,9 +99,12 @@ class WhenLine extends StatelessWidget {
 /// A task or a reminder: the title, its time under it, the actions on the
 /// right (owner, 3 Nov).
 class PlanRow extends StatelessWidget {
-  const PlanRow({super.key, required this.item, this.withDay = false, this.trailing, this.next = false, this.sub});
+  const PlanRow({super.key, required this.item, this.withDay = false, this.trailing, this.next = false, this.sub, this.dense = false});
   final PlanItem item;
   final bool withDay;
+
+  /// Inside a day card (owner, 13 Nov): the card gives the left margin.
+  final bool dense;
 
   /// A repeating reminder's own row (দিনলিপি › নিয়মিত, owner 28 Oct): how
   /// often, and the day and time it rings next.
@@ -121,11 +126,11 @@ class PlanRow extends StatelessWidget {
     return InkWell(
       onTap: () => t != null ? editTask(context, t) : Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+        padding: EdgeInsets.fromLTRB(dense ? 0 : 14, dense ? 0 : 4, 4, dense ? 0 : 4),
         child: Row(children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7),
+              padding: EdgeInsets.symmetric(vertical: dense ? 5 : 7),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(item.title,
                     style: body(14, color: (t?.done ?? false) || passed ? C.muted : C.ink).copyWith(decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted),
@@ -137,7 +142,7 @@ class PlanRow extends StatelessWidget {
           ),
           if (trailing != null) trailing! else if (t != null && !t.done) TaskAlarmButton(t),
           if (t != null) DoneCircle(done: t.done, onTap: () => brain.setTaskDone(t, !t.done)),
-          if (t == null && trailing == null) const SizedBox(width: 10),
+          if (t == null && trailing == null) SizedBox(width: dense ? 0 : 10),
         ]),
       ),
     );
@@ -169,10 +174,129 @@ class TaskAlarmButton extends StatelessWidget {
   }
 }
 
+/// Tap a row of Home's "আজকের কাজ" (owner, 20 Nov: "যে কাজে ক্লিক করলে
+/// সেটা ওপেন হবে, ইউজার চাইলে ইডিট করতে পারবে"): the whole thing in a sheet —
+/// full title, day, time, repeat, list, note — and "এডিট করুন" beside it.
+Future<void> openPlanItem(BuildContext context, PlanItem item) => showAppSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ItemSheet(item: item, host: context),
+    );
+
+class _ItemSheet extends StatelessWidget {
+  const _ItemSheet({required this.item, required this.host});
+  final PlanItem item;
+
+  /// The page under the sheet: the edit form opens from it once the sheet is gone.
+  final BuildContext host;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    // The latest copy: a tick or an edit made from this sheet shows at once.
+    final t = item.task == null ? null : brain.data.tasks.where((x) => x.id == item.task!.id).firstOrNull;
+    final r = item.reminder == null ? null : brain.data.reminders.where((x) => x.id == item.reminder!.id).firstOrNull;
+    if (t == null && r == null) return const SizedBox(height: 120);
+    final ring = t?.reminderId == null ? item.ring : brain.data.reminders.where((x) => x.id == t!.reminderId).firstOrNull;
+    final timed = r ?? ring;
+    final passed = r != null && r.repeat == Repeat.none && !r.notifyAt(now).isAfter(now);
+    final done = t?.done ?? passed;
+
+    String day() {
+      if (t != null) {
+        if (t.due == null) return tr('যেকোনো দিন');
+        if (t.span != TaskSpan.day) return taskWhenText(t.copyWith(urgent: false, note: ''), now) ?? tr('যেকোনো দিন');
+        final d = t.due!;
+        final near = dayOnly(d).difference(dayOnly(now)).inDays;
+        return near >= -1 && near <= 1 ? '${relativeDay(d, now)}, ${fullDate(d)}' : fullDate(d);
+      }
+      final at = r!.notifyAt(now);
+      final near = dayOnly(at).difference(dayOnly(now)).inDays;
+      return near >= -1 && near <= 1 ? '${relativeDay(at, now)}, ${fullDate(at)}' : fullDate(at);
+    }
+
+    String? time() {
+      if (timed == null || timed.repeat.isInterval) return null;
+      final at = timed.notifyAt(now);
+      return bnTime(at.hour, at.minute);
+    }
+
+    final repeat = t?.repeat != null ? repeatLabel(t!.repeat!) : (timed != null && timed.repeat != Repeat.none ? repeatText(timed) : null);
+    final note = (t?.note ?? r?.note ?? '').trim();
+
+    Widget row(IconData icon, String label, String value, {Color? color}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(icon, size: 19, color: color ?? C.muted),
+            const SizedBox(width: 12),
+            SizedBox(width: 72, child: Text(label, style: body(13, color: C.muted, height: 1.45))),
+            Expanded(child: Text(value, style: body(14.5, color: color ?? C.ink, height: 1.4))),
+          ]),
+        );
+
+    Future<void> edit() async {
+      Navigator.of(context).pop();
+      if (!host.mounted) return;
+      if (t != null) {
+        await editTask(host, t);
+      } else {
+        await Navigator.of(host).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r)));
+      }
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 4, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(t != null ? Icons.check_circle_outline_rounded : Icons.notifications_active_outlined, size: 16, color: C.green),
+          const SizedBox(width: 6),
+          Text(t != null ? tr('কাজ') : tr('রিমাইন্ডার'), style: body(12.5, weight: FontWeight.w600, color: C.green)),
+          if (t?.urgent ?? false) ...[const SizedBox(width: 8), Pill(tr('জরুরি'), fg: C.warn, bg: C.warnBg)],
+          const Spacer(),
+          if (done) Text(t != null ? tr('হয়ে গেছে') : tr('বেজেছে'), style: body(12.5, weight: FontWeight.w600, color: C.muted)),
+        ]),
+        const SizedBox(height: 8),
+        SelectableText(item.title,
+            style: display(21).copyWith(color: done ? C.muted : C.ink, decoration: t?.done ?? false ? TextDecoration.lineThrough : null, decorationColor: C.muted)),
+        const SizedBox(height: 10),
+        const Hairline(),
+        const SizedBox(height: 4),
+        row(Icons.event_outlined, tr('তারিখ'), day()),
+        if (time() != null) row(Icons.alarm_rounded, tr('সময়'), time()!, color: passed ? C.muted : C.green),
+        if (repeat != null) row(Icons.repeat_rounded, tr('বারবার'), repeat),
+        if (t != null && t.list.isNotEmpty) row(Icons.list_alt_rounded, tr('তালিকা'), t.list),
+        if (note.isNotEmpty) row(Icons.notes_rounded, tr('নোট'), note),
+        if (t != null && t.done && t.doneAt != null) row(Icons.task_alt_rounded, tr('শেষ করেছেন'), '${relativeDay(t.doneAt!, now)}, ${bnTime(t.doneAt!.hour, t.doneAt!.minute)}'),
+        const SizedBox(height: 14),
+        Row(children: [
+          Expanded(child: SecondaryButton(label: tr('এডিট করুন'), icon: Icons.edit_outlined, onPressed: edit)),
+          if (t != null) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: PrimaryButton(
+                label: t.done ? tr('আবার খুলুন') : tr('হয়ে গেছে'),
+                icon: t.done ? Icons.undo_rounded : Icons.check_rounded,
+                height: 48,
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await brain.setTaskDone(t, !t.done);
+                },
+              ),
+            ),
+          ],
+        ]),
+      ]),
+    );
+  }
+}
+
 /// Change or delete a task.
 Future<void> editTask(BuildContext context, Task t) async {
   final brain = BrainScope.read(context);
   final c = TextEditingController(text: t.title);
+  final n = TextEditingController(text: t.note);
   var due = t.due;
   final r = await showDialog<String>(
     context: context,
@@ -181,6 +305,8 @@ Future<void> editTask(BuildContext context, Task t) async {
         title: Text(tr('কাজ'), style: display(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(textCapitalization: TextCapitalization.sentences, controller: c, minLines: 1, maxLines: 3, decoration: InputDecoration(labelText: tr('কী করতে হবে'))),
+          const SizedBox(height: 10),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: n, minLines: 1, maxLines: 4, decoration: InputDecoration(labelText: tr('নোট (চাইলে)'))),
           const SizedBox(height: 10),
           Row(children: [
             Expanded(child: Text(due == null ? tr('যেকোনো দিন') : fullDate(due!), style: body(15))),
@@ -207,7 +333,7 @@ Future<void> editTask(BuildContext context, Task t) async {
     await brain.deleteTask(t.id);
     if (context.mounted) toast(context, tr('কাজটা মুছে দিলাম'));
   } else if (r == 'save' && c.text.trim().isNotEmpty) {
-    await brain.saveTask(t.copyWith(title: c.text.trim(), due: due, clearDue: due == null));
+    await brain.saveTask(t.copyWith(title: c.text.trim(), note: n.text.trim(), due: due, clearDue: due == null));
   }
 }
 
@@ -478,11 +604,16 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
     final now = brain.services.now();
     final plan = planOf(brain.data, now);
     final openCount = plan.overdue.length + plan.today.length + plan.ahead.length;
+    final days = <DateTime, List<PlanItem>>{dayOnly(now): plan.today};
+    for (final i in plan.ahead) {
+      days.putIfAbsent(dayOnly(i.sort), () => []).add(i);
+    }
+    final byDay = days.entries.where((e) => e.value.isNotEmpty).toList();
 
     Widget section(String title, List<PlanItem> items, {Color? color, bool withDay = false}) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(padding: const EdgeInsets.fromLTRB(2, 14, 2, 6), child: Text(title, style: body(14, weight: FontWeight.w600, color: color ?? C.muted2))),
+            SectionTitle(title),
             Panel(
               borderColor: color == C.orange ? C.orangeTint : C.line,
               child: Rows(children: [for (final i in items) PlanRow(item: i, withDay: withDay)]),
@@ -494,15 +625,30 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
           _ListTab.open => [
               if (openCount == 0) EmptyState(icon: Icons.check_circle_outline_rounded, title: tr('কিছু বাকি নেই'), text: tr('নতুন কাজ বা রিমাইন্ডার নিচের বোতাম চেপে, বা মাইকে বলে রাখুন।')),
               if (plan.overdue.isNotEmpty) section(tr('দেরি হয়ে গেছে'), plan.overdue, color: C.orange, withDay: true),
-              if (plan.today.isNotEmpty) section(tr('আজ'), plan.today),
-              if (plan.ahead.isNotEmpty) section(tr('সামনে'), plan.ahead, withDay: true),
+              // One card a day, the date on its left (owner, 13 Nov: "রিমাইন্ডার
+              // মেনুর ইউআই ফিক্স কর" — as দিনলিপি and হিসাব).
+              if (plan.today.isNotEmpty || plan.ahead.isNotEmpty) ...[
+                SectionTitle(tr('সামনে কী আছে')),
+                for (final e in byDay)
+                  Padding(padding: const EdgeInsets.only(bottom: 8), child: PlanDayCard(day: e.key, items: e.value, now: now)),
+              ],
               const BillList(),
             ],
           _ListTab.repeating => [
               if (plan.repeating.isEmpty)
                 EmptyState(icon: Icons.repeat_rounded, title: tr('বারবার বাজে এমন কিছু নেই'), text: tr('“প্রতিদিন রাত ১০টায় ওষুধ” বা “প্রতি ৩০ মিনিটে পানি” — এমন রিমাইন্ডার এখানে থাকবে।'))
               else
-                Panel(child: Rows(children: [for (final r in plan.repeating) PlanRow(item: PlanItem.reminder(r, r.notifyAt(now)), withDay: true)])),
+                // One card a kind — প্রতিদিন, প্রতি সপ্তাহে, প্রতি মাসে… — the time
+                // on the left, as the day cards (owner, 13 Nov: "বারবার সেকশনের
+                // ইউআই সুন্দর কর। অন্যান্য গুলোর ধারা রক্ষা কর").
+                for (final g in [
+                  ('interval', tr('কিছুক্ষণ পরপর'), Icons.timelapse_rounded, plan.repeating.where((r) => r.repeat.isInterval).toList()),
+                  for (final k in [Repeat.daily, Repeat.weekly, Repeat.monthly, Repeat.yearly]) (k.name, tr(k.label), k == Repeat.daily ? Icons.today_rounded : (k == Repeat.weekly ? Icons.date_range_rounded : Icons.event_repeat_rounded), plan.repeating.where((r) => r.repeat == k).toList()),
+                ])
+                  if (g.$4.isNotEmpty) ...[
+                    SectionTitle(trf('{0} · {1}', [g.$2, bnDigits(g.$4.length)])),
+                    RepeatCard(key: Key('repeat-${g.$1}'), reminders: g.$4, now: now),
+                  ],
             ],
           _ListTab.done => [
               if (plan.finished.isEmpty)
@@ -540,6 +686,124 @@ class _AllTasksScreenState extends State<AllTasksScreen> {
         ]),
       ),
     );
+  }
+}
+
+/// A day of কাজ ও রিমাইন্ডার as a card (owner, 13 Nov): the date on the
+/// left as in দিনলিপি and হিসাব, every to-do and reminder of the day on the
+/// right with its own actions.
+class PlanDayCard extends StatelessWidget {
+  const PlanDayCard({super.key, required this.day, required this.items, required this.now});
+  final DateTime day;
+  final List<PlanItem> items;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = dayOnly(day) == dayOnly(now);
+    final hol = holidayOn(day);
+    final red = hol != null || isWeekend(day);
+    final near = dayOnly(day).difference(dayOnly(now)).inDays;
+    return Container(
+      key: Key('plan-day-${day.year}-${day.month}-${day.day}'),
+      padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: today ? C.green : C.border, width: today ? 2 : 1)),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SizedBox(
+          width: 54,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Column(children: [
+              if (near == 0 || near == 1)
+                Text(near == 0 ? tr('আজ') : tr('কাল'), style: body(11, weight: FontWeight.w600, color: today ? C.green : C.muted, height: 1.2))
+              else if (day.month != now.month || day.year != now.year)
+                Text(monthShort(day.month), style: body(11, weight: FontWeight.w600, color: C.muted, height: 1.2)),
+              Text(bnDigits(day.day), style: body(20, weight: FontWeight.w700, color: today ? C.green : (red ? C.rose : C.ink), height: 1.2)),
+              Text(weekdayShort(day), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: red ? C.rose : C.muted, height: 1.2)),
+            ]),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var k = 0; k < items.length; k++) ...[
+              if (k > 0) Divider(height: 1, color: C.line),
+              PlanRow(item: items[k], dense: true),
+            ],
+            if (hol != null) Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(hol.label, style: body(12, color: C.rose))),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Repeating reminders of one kind (বারবার, owner 13 Nov): each with its
+/// time on the left, what and when it rings next, and an on/off switch.
+class RepeatCard extends StatelessWidget {
+  const RepeatCard({super.key, required this.reminders, required this.now});
+  final List<Reminder> reminders;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: C.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        for (final (k, r) in reminders.indexed) ...[
+          if (k > 0) Divider(height: 1, color: C.line, indent: 64, endIndent: 8),
+          InkWell(
+            key: Key('repeat-row-${r.id}'),
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => NewItemScreen(reminder: r))),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(children: [
+                SizedBox(width: 54, child: _clock(r)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(r.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600, color: r.enabled ? C.ink : C.muted)),
+                    Text(r.enabled ? trf('{0} · পরের বার {1}', [repeatText(r), _nextDay(r)]) : trf('{0} · বন্ধ', [repeatText(r)]),
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: r.enabled ? C.green : C.muted)),
+                  ]),
+                ),
+                Switch(value: r.enabled, onChanged: (v) => brain.saveReminder(r.copyWith(enabled: v))),
+              ]),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  /// "৯:০০ / রাত" — or, for every few minutes, how often.
+  Widget _clock(Reminder r) {
+    final c = r.enabled ? C.green : C.muted;
+    if (r.repeat.isInterval) {
+      final m = r.repeat.minutes;
+      return Column(children: [
+        Text(bnDigits(m >= 60 ? m ~/ 60 : m), style: body(18, weight: FontWeight.w700, color: c, height: 1.2)),
+        Text(m >= 60 ? tr('ঘণ্টা পরপর') : tr('মিনিট পরপর'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(10.5, color: C.muted, height: 1.2)),
+      ]);
+    }
+    final w = bnTime(r.hour, r.minute).split(' ');
+    var top = isEn ? w.first : w.last.replaceAll('টা', '');
+    if (!isEn && !top.contains(':')) top = '$top:০০';
+    final bottom = isEn ? (w.length > 1 ? w.last : '') : (w.length > 1 ? w.first : '');
+    return Column(children: [
+      Text(top, maxLines: 1, style: body(16, weight: FontWeight.w700, color: c, height: 1.2)),
+      if (bottom.isNotEmpty) Text(bottom, maxLines: 1, style: body(11, color: C.muted, height: 1.2)),
+    ]);
+  }
+
+  String _nextDay(Reminder r) {
+    final at = r.notifyAt(now);
+    final near = dayOnly(at).difference(dayOnly(now)).inDays;
+    if (r.repeat.isInterval) return bnTime(at.hour, at.minute);
+    return near == 0 ? tr('আজ') : (near == 1 ? tr('কাল') : '${weekdayShort(at)}, ${shortDate(at)}');
   }
 }
 
@@ -717,5 +981,5 @@ Future<void> showBillPresets(BuildContext context) async {
     if (DateTime(date.year, date.month, date.day, 10).isBefore(now)) date = DateTime(now.year, now.month + 1, e.value);
     await brain.saveReminder(Reminder(title: tr(e.key), date: date, hour: 10, repeat: Repeat.monthly));
   }
-  if (context.mounted) toast(context, trf('{0}টা বিলের রিমাইন্ডার রাখা হলো', [bnDigits(chosen.length)]));
+  if (context.mounted) toast(context, trf('{0}টি বিলের রিমাইন্ডার রাখা হলো', [bnDigits(chosen.length)]));
 }

@@ -50,7 +50,7 @@ void main() {
     expect(b.orderOf('home_tools'), isEmpty);
   });
 
-  testWidgets('documents: drag a folder before ব্যাংক কার্ড; kept; a tap still opens', (t) async {
+  testWidgets('documents: drag the last folder before the first; kept; a tap still opens', (t) async {
     final rig = await start(t);
     final b = rig.brain;
     await settle(t);
@@ -59,12 +59,13 @@ void main() {
     final folders = allDocFolders(b.data);
     final last = folders.last;
     await t.ensureVisible(find.byKey(Key('doc-folder-$last')));
-    await drag(t, find.byKey(Key('doc-folder-$last')), find.byKey(const Key('doc-cards')));
+    // ব্যাংক কার্ড moved to আমার ফাইল (owner, 20 Nov), so the first folder is a paper folder now.
+    await drag(t, find.byKey(Key('doc-folder-$last')), find.byKey(Key('doc-folder-${folders.first}')));
     expect(b.orderOf('doc_folders').first, last);
-    expect(b.orderOf('doc_folders')[1], '__cards');
-    await t.tap(find.byKey(const Key('doc-cards')));
+    expect(b.orderOf('doc_folders')[1], folders.first);
+    await t.tap(find.byKey(Key('doc-folder-${folders.first}')));
     await settle(t);
-    expect(find.byType(DocsScreen), findsNothing, reason: 'the cards page is open on top');
+    expect(find.byType(DocsScreen, skipOffstage: false), findsNWidgets(2), reason: 'the folder is open on top');
   });
 
   testWidgets('অন্যান্য হিসাব: drag the older হিসাব above the newer; kept', (t) async {

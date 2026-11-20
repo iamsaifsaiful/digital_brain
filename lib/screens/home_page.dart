@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/world_calendars.dart';
+import '../logic/countries.dart';
+import '../logic/holiday_mix.dart';
 import '../logic/cash.dart';
 import '../logic/lang.dart';
 import '../logic/ledger.dart' show totals;
@@ -14,6 +17,7 @@ import '../logic/phrases.dart' show possessive;
 import '../logic/sky_light.dart';
 import '../logic/spend_health.dart';
 import '../models/models.dart';
+import 'new_item_screen.dart';
 import '../state/brain.dart';
 import '../logic/home_scene.dart';
 import '../ui/scene_layers.dart';
@@ -22,11 +26,12 @@ import '../ui/kit.dart';
 import '../ui/pro_gate.dart';
 import '../ui/motion.dart';
 import '../ui/theme.dart';
+import '../ui/widgets.dart' show showAppSheet;
 import 'alarm_list_screen.dart';
 import 'app_places.dart' show openPlace;
 import 'calendar_screen.dart';
 import 'calls_screen.dart';
-import 'compass_screen.dart';
+import 'ibadah_screen.dart';
 import 'docs_screen.dart';
 import 'easy_home.dart';
 import 'family_screen.dart';
@@ -42,6 +47,8 @@ import 'requests_screen.dart';
 import 'settings_parts.dart';
 import 'spend_health_screen.dart';
 import 'vault_screen.dart';
+import 'weather_screen.dart';
+import '../logic/weather.dart' show deg, degN;
 import 'zakat_screen.dart';
 import '../logic/pro.dart' show medicalOff;
 
@@ -51,7 +58,7 @@ String helloFor(DateTime now) {
   if (h >= 11 && h < 15) return tr('শুভ দুপুর');
   if (h >= 15 && h < 18) return tr('শুভ বিকেল');
   if (h >= 18 && h < 22) return tr('শুভ সন্ধ্যা');
-  return tr('শুভ রাত');
+  return tr('শুভ রাত্রি');
 }
 
 /// হোম (the approved design of 24 Oct, docs/design/2026-10-24-home-final):
@@ -106,7 +113,7 @@ class HomePage extends StatelessWidget {
           ),
           const HomeHolidays(),
           const SizedBox(height: 20),
-          const _Tools(),
+          const ToolsCard(),
           const SizedBox(height: 16),
           // Free Play app only: a quiet ad card under the quote.
           const AdSlot(padding: EdgeInsets.only(top: 12)),
@@ -377,8 +384,11 @@ class _HomeHeroState extends State<HomeHero> {
             _greeting(context, brain, now, hj),
             const SizedBox(height: 10),
             _weather(brain, sun, now),
-            const SizedBox(height: 14),
-            _prayer(context, facts.first),
+            // Prayer, sehri, iftar only when pinned from মুসলিম টাইম (owner, 19 Nov).
+            if (pinnedTimes(brain, now, sun).isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _pinned(context, pinnedTimes(brain, now, sun)),
+            ],
             const Spacer(),
             _sunRow(facts.last),
           ]),
@@ -389,7 +399,7 @@ class _HomeHeroState extends State<HomeHero> {
 
   /// "শুভ বিকেল, সাইফুল", today in three calendars, the bell and the photo.
   Widget _greeting(BuildContext context, Brain brain, DateTime now, HijriDate hj) {
-    final bd = banglaDate(now);
+    final extra = [for (final id in brain.calendars) calDate(id, now, hijriShift: brain.hijriShift)?.text].whereType<String>().toList();
     final first = brain.userName.trim().isEmpty ? '' : brain.userName.trim().split(' ').first;
     final seen = DateTime.tryParse(brain.text('notices_seen'));
     final unread = brain.noticeHistory.any((e) => !e.at.isAfter(now) && (seen == null || e.at.isAfter(seen)));
@@ -405,8 +415,11 @@ class _HomeHeroState extends State<HomeHero> {
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: display(25, weight: 600, height: 1.3, color: _white).copyWith(shadows: _shade)),
             const SizedBox(height: 2),
             Text('${weekdayName(now)}, ${bnDigits(now.day)} ${monthName(now.month)}', style: body(13.5, color: _soft).copyWith(shadows: _shade)),
-            const SizedBox(height: 2),
-            Text('${bd.text}  •  ${hj.dayMonth} ${bnDigits(hj.year)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: _soft).copyWith(shadows: _shade)),
+            // The calendars the user chose beside the English date (owner, 19 Nov).
+            if (extra.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(extra.join('  •  '), key: const Key('home-extra-dates'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: _soft).copyWith(shadows: _shade)),
+            ],
           ]),
         ),
       ),
@@ -476,11 +489,11 @@ class _HomeHeroState extends State<HomeHero> {
       ]);
     }
     final sky = day && w.code <= 1 ? tr('রোদ') : w.sky;
-    return Tooltip(
+    // Owner, 19 Nov: a tap opens the weather page, as the date opens the calendar.
+    return InkWell(
       key: const Key('home-temp'),
-      message: w.said(),
-      triggerMode: TooltipTriggerMode.tap,
-      showDuration: const Duration(seconds: 5),
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WeatherScreen())),
       child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
         Text(w.short, style: display(62, weight: 400, height: 1.05, color: _white).copyWith(shadows: _shade)),
         const SizedBox(width: 14),
@@ -491,9 +504,9 @@ class _HomeHeroState extends State<HomeHero> {
             Text.rich(
               TextSpan(children: [
                 WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_upward_rounded, size: 13, color: _soft, shadows: _shade)),
-                TextSpan(text: '${bnDigits(w.max.round())}°  '),
+                TextSpan(text: '${deg(w.max)}  '),
                 WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.arrow_downward_rounded, size: 13, color: _soft, shadows: _shade)),
-                TextSpan(text: '${bnDigits(w.min.round())}° · ${trf('অনুভূত {0}°', [bnDigits(w.feels.round())])}'),
+                TextSpan(text: '${deg(w.min)} · ${trf('অনুভূত {0}°', [degN(w.feels)])}'),
               ]),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -505,33 +518,26 @@ class _HomeHeroState extends State<HomeHero> {
     );
   }
 
-  /// The next prayer (iftar / end of sehri in Ramadan) in a glass pill.
-  Widget _prayer(BuildContext context, SlotFact f) {
-    final icon = f.kind == 'prayer' ? Icons.mosque_outlined : Icons.nightlight_outlined;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: const Key('home-slot'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+  /// The times pinned from মুসলিম টাইম, each in a glass pill; a tap opens the page.
+  Widget _pinned(BuildContext context, List<(IconData, String)> items) {
+    Widget pill((IconData, String) x) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.16),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.white.withValues(alpha: 0.45)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 20, color: _white),
-            const SizedBox(width: 8),
-            if (f.ramadanDay != null) ...[
-              Text(trf('রমজান {0}', [bnDigits(f.ramadanDay!)]), style: body(12, weight: FontWeight.w600, color: _soft)),
-              Text('  ·  ', style: body(12, color: _soft)),
-            ],
-            Text('${f.label} ${f.time}', style: body(15, weight: FontWeight.w600, color: _white)),
+            Icon(x.$1, size: 18, color: _white),
+            const SizedBox(width: 6),
+            Text(x.$2, style: body(14, weight: FontWeight.w600, color: _white)),
           ]),
-        ),
-      ),
+        );
+    return GestureDetector(
+      key: const Key('home-slot'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const IbadahScreen())),
+      child: Wrap(spacing: 8, runSpacing: 8, children: [for (final x in items) pill(x)]),
     );
   }
 
@@ -664,7 +670,10 @@ class _MoneyCard extends StatelessWidget {
   }
 }
 
-/// সামনের ছুটি: the holiday going on now or the next two (always on the home).
+/// সামনের ছুটি: the lists the member keeps (owner, 19 Nov) in one, by date —
+/// the profile's country, Bangladesh, any other country and the
+/// international days. A chip hides or shows each; the button at the end
+/// of the chips picks the lists. Always on the home.
 class HomeHolidays extends StatelessWidget {
   const HomeHolidays();
 
@@ -673,71 +682,82 @@ class HomeHolidays extends StatelessWidget {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final today = dayOnly(now);
-    // Abroad: that country's holidays (owner, 29 Oct), not Bangladesh's.
-    if (placeNamed(brain.district).abroad) {
-      final hs = brain.holidaysAbroad(now);
-      if (hs.isEmpty) return const SizedBox.shrink();
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        SectionHeading(trf('সামনের ছুটি · {0}', [brain.placeLabel])),
-        AppCard(
-          key: const Key('home-holidays-abroad'),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          child: Column(children: [
-            for (final (i, h) in hs.indexed) ...[
-              if (i > 0) const Hairline(),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Builder(builder: (context) {
-                  final days = h.date.difference(today).inDays;
-                  return Row(children: [
-                    _DateBox(day: h.date.day, month: monthShort(h.date.month)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(days <= 0 ? trf('আজ ছুটি — {0}', [h.name]) : h.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
-                        Text(h.local.isNotEmpty && h.local != h.name ? '${weekdayName(h.date)} · ${h.local}' : weekdayName(h.date),
-                            maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
-                      ]),
-                    ),
-                    const SizedBox(width: 8),
-                    Counter(days > 0 ? trf('{0} দিন পর', [bnDigits(days)]) : tr('আজ')),
-                  ]);
-                }),
-              ),
-            ],
-          ]),
-        ),
-      ]);
-    }
-    final runs = upcomingHolidays(now, count: 2);
-    if (runs.isEmpty) return const SizedBox.shrink();
+    final off = brain.holOff;
+    final tokens = [...brain.holCountriesShown, if (brain.holLists.contains(holIntl)) holIntl];
+    final rows = brain.homeHolidays(now);
     void cal() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()));
+    String label(String t) => t == holIntl ? tr('আন্তর্জাতিক') : countryName(t, short: true);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SectionHeading(tr('সামনের ছুটি'), link: tr('ক্যালেন্ডার'), onLink: cal),
       AppCard(
         key: const Key('home-holidays'),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        child: Column(children: [
-          for (final (i, h) in runs.indexed) ...[
+        padding: EdgeInsets.zero,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 10, 6),
+            child: Row(children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: [
+                    for (final t in tokens)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: _HolChip(key: Key('hol-chip-$t'), label: label(t), on: !off.contains(t), onTap: () => brain.toggleHolOff(t)),
+                      ),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Tooltip(
+                message: tr('কোন কোন দেশের ছুটি দেখাবে'),
+                child: InkWell(
+                  key: const Key('hol-lists'),
+                  customBorder: const CircleBorder(),
+                  onTap: () => showHolidayLists(context),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: C.border)),
+                    child: Icon(Icons.tune_rounded, size: 17, color: C.muted2),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 14),
+              child: Text(
+                  tokens.every(off.contains) ? tr('সব তালিকা লুকানো — ওপরের চিপে চাপ দিয়ে দেখান।') : tr('এই দেশের ছুটির তালিকা এখনো আনা যায়নি — ইন্টারনেট চালু থাকলে নিজে আসবে।'),
+                  style: body(12.5, color: C.muted)),
+            ),
+          for (final (i, h) in rows.indexed) ...[
             if (i > 0) const Hairline(),
             InkWell(
               onTap: cal,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                 child: Builder(builder: (context) {
-                  final days = DateTime(h.start.year, h.start.month, h.start.day).difference(today).inDays;
+                  final days = h.start.difference(today).inDays;
+                  final whose = [for (final f in h.from) label(f)].join(' · ');
+                  final sub = [weekdayName(h.start), if (h.days > 1) trf('টানা {0} দিন', [bnDigits(h.days)]), whose].join(' · ');
                   return Row(children: [
-                    _DateBox(day: h.start.day, month: monthShort(h.start.month)),
+                    _DateBox(day: h.start.day, month: monthShort(h.start.month), outline: !h.official),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(days <= 0 ? trf('আজ ছুটি — {0}', [h.label]) : h.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
-                        Text(h.days > 1 ? '${weekdayName(h.start)} · ${holidayRange(h)}, ${trf('টানা {0} দিন', [bnDigits(h.days)])}' : weekdayName(h.start),
-                            maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
+                        Text(days <= 0 && h.official ? trf('আজ ছুটি — {0}', [abroadName(h.name)]) : abroadName(h.name), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w500)),
+                        const SizedBox(height: 1),
+                        Row(children: [
+                          Icon(h.official ? Icons.outlined_flag_rounded : Icons.public_rounded, size: 13, color: C.muted),
+                          const SizedBox(width: 4),
+                          Expanded(child: Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted))),
+                        ]),
                       ]),
                     ),
                     const SizedBox(width: 8),
-                    Counter(days > 0 ? trf('{0} দিন পর', [bnDigits(days)]) : tr('চলছে')),
+                    Counter(days > 1 ? trf('{0} দিন পর', [bnDigits(days)]) : (days == 1 ? tr('কাল') : (days == 0 ? tr('আজ') : tr('চলছে')))),
                   ]);
                 }),
               ),
@@ -749,16 +769,288 @@ class HomeHolidays extends StatelessWidget {
   }
 }
 
+/// A list's chip: ticked and tinted when shown, a plain outline when hidden.
+class _HolChip extends StatelessWidget {
+  const _HolChip({super.key, required this.label, required this.on, required this.onTap});
+  final String label;
+  final bool on;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: on ? C.greenTint : Colors.transparent,
+        shape: StadiumBorder(side: BorderSide(color: on ? C.green.withValues(alpha: 0.35) : C.border)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (on) ...[Icon(Icons.check_rounded, size: 14, color: C.green), const SizedBox(width: 4)],
+              Text(label, style: body(12.5, weight: on ? FontWeight.w600 : FontWeight.w400, color: on ? C.green : C.muted2, height: 1.2)),
+            ]),
+          ),
+        ),
+      );
+}
+
+/// কোন কোন দেশের ছুটি দেখাবে: tick the lists, add any country in the UN's
+/// list by search or from the list by continent, then ঠিক আছে.
+Future<void> showHolidayLists(BuildContext context) => showAppSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: C.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => _HolidayListsSheet(brain: BrainScope.of(context)),
+    );
+
+class _HolidayListsSheet extends StatefulWidget {
+  const _HolidayListsSheet({required this.brain});
+  final Brain brain;
+
+  @override
+  State<_HolidayListsSheet> createState() => _HolidayListsSheetState();
+}
+
+class _HolidayListsSheetState extends State<_HolidayListsSheet> {
+  late final List<String> _picked = [...widget.brain.holLists];
+  late final List<String> _rows;
+  final _q = TextEditingController();
+
+  String get _here => placeNamed(widget.brain.district).country;
+
+  @override
+  void initState() {
+    super.initState();
+    // Every list once: the profile's country, then the others, then INTL.
+    _rows = [holAuto, for (final t in _picked) if (t != holAuto && t != holIntl && t != _here) t, if (_here != 'BD' && !_picked.contains('BD')) 'BD', holIntl];
+  }
+
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
+  }
+
+  /// The countries ticked now ('@' as the profile's country), each once.
+  Set<String> get _countries => {for (final t in _picked) if (t != holIntl) t == holAuto ? _here : t};
+
+  /// Already [holMaxCountries] countries: another one is not taken.
+  bool _takes(String t) => t == holIntl || _countries.contains(t == holAuto ? _here : t) || _countries.length < holMaxCountries;
+
+  /// Said when one more country was tried while full.
+  bool _warn = false;
+
+  void _toggle(String t) => setState(() {
+        if (_picked.remove(t)) {
+          _warn = false;
+        } else if (_takes(t)) {
+          _picked.add(t);
+        } else {
+          _warn = true;
+        }
+      });
+
+  void _add(String cc) => setState(() {
+        if (!_takes(cc)) {
+          _warn = true;
+          return;
+        }
+        if (cc == _here) {
+          if (!_picked.contains(holAuto)) _picked.add(holAuto);
+        } else {
+          if (!_rows.contains(cc)) _rows.insert(_rows.length - 1, cc);
+          if (!_picked.contains(cc)) _picked.add(cc);
+        }
+        _q.clear();
+      });
+
+  Widget _row(String t) {
+    final (IconData icon, String title, String sub) = switch (t) {
+      holAuto => (Icons.location_on_outlined, countryName(_here), trf('প্রোফাইলের লোকেশন · {0}', [widget.brain.placeLabel])),
+      holIntl => (Icons.public_rounded, tr('আন্তর্জাতিক দিবস'), tr('জাতিসংঘের তালিকা থেকে')),
+      'BD' => (Icons.outlined_flag_rounded, countryName('BD'), tr('নিজের দেশ')),
+      _ => (Icons.outlined_flag_rounded, countryName(t), widget.brain.holMainOnly(t) ? tr('প্রধান ছুটিগুলো · জাতীয় ও ধর্মীয় দিবস') : ''),
+    };
+    final on = _picked.contains(t);
+    return InkWell(
+      key: Key('hol-row-$t'),
+      onTap: () => _toggle(t),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: C.border)),
+            child: Icon(icon, size: 18, color: C.green),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: body(15, weight: FontWeight.w600)),
+              if (sub.isNotEmpty) Text(sub, style: body(12, color: C.muted)),
+            ]),
+          ),
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: on ? C.green : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: on ? C.green : C.inputBorder, width: 1.6),
+            ),
+            child: on ? const Icon(Icons.check_rounded, size: 16, color: Colors.white) : null,
+          ),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _q.text.trim();
+    // Every country in the UN's list (owner, 20 Nov), by continent; a search
+    // narrows it. The ones already above are ticked.
+    final hits = q.isEmpty ? const <Country>[] : findCountries(q);
+    Widget country(Country c) {
+      final have = _rows.contains(c.code) || c.code == _here;
+      final full = !have && !_takes(c.code);
+      return InkWell(
+        key: Key('hol-add-${c.code}'),
+        onTap: have ? null : () => _add(c.code),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(c.label, style: body(15, weight: FontWeight.w500, color: have ? C.muted : C.ink)),
+                Text(c.observer ? '${c.capitalLabel} · ${tr('জাতিসংঘের পর্যবেক্ষক')}' : c.capitalLabel, style: body(11.5, color: C.muted)),
+              ]),
+            ),
+            if (have) Icon(Icons.check_rounded, size: 20, color: C.green) else Icon(Icons.add_circle_outline_rounded, size: 21, color: full ? C.muted.withValues(alpha: 0.45) : C.green),
+          ]),
+        ),
+      );
+    }
+
+    Widget box(List<Widget> rows) => Container(
+          decoration: BoxDecoration(border: Border.all(color: C.border), borderRadius: BorderRadius.circular(14)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: [for (final (i, r) in rows.indexed) ...[if (i > 0) const Hairline(), r]]),
+        );
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+        // The list scrolls; ঠিক আছে stays at the foot (the list is long).
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      Flexible(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            Text(tr('কোন কোন দেশের ছুটি দেখাবে'), style: display(19, weight: 700)),
+            const SizedBox(height: 3),
+            Text(trf('একসাথে সর্বোচ্চ {0}টি দেশ · এখন {1}টি', [bnDigits(holMaxCountries), bnDigits(_countries.length)]), style: body(13, color: C.muted)),
+            if (_warn)
+              Container(
+                key: const Key('hol-full'),
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+                decoration: BoxDecoration(color: C.warnBg, border: Border.all(color: C.warnBorder), borderRadius: BorderRadius.circular(12)),
+                child: Row(children: [
+                  Icon(Icons.info_outline_rounded, size: 18, color: C.warn),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(trf('{0}টি দেশ হয়ে গেছে। নতুন দেশ নিতে আগে একটির টিক তুলে দিন।', [bnDigits(holMaxCountries)]), style: body(13, color: C.ink))),
+                ]),
+              ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(border: Border.all(color: C.border), borderRadius: BorderRadius.circular(14)),
+              clipBehavior: Clip.antiAlias,
+              child: Column(children: [
+                for (final (i, t) in _rows.indexed) ...[if (i > 0) const Hairline(), _row(t)],
+              ]),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('hol-search'),
+              controller: _q,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() {}),
+              style: body(15),
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: Icon(Icons.search_rounded, color: C.muted, size: 20),
+                hintText: tr('দেশের নাম লিখুন — বাংলায় বা ইংরেজিতে'),
+                hintStyle: body(14, color: C.muted),
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.inputBorder)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.green, width: 1.6)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (q.isNotEmpty)
+              hits.isEmpty
+                  ? Padding(padding: const EdgeInsets.all(14), child: Text(tr('এই নামে কোনো দেশ পাইনি।'), style: body(13, color: C.muted)))
+                  : box([for (final c in hits) country(c)])
+            else ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 6, 2, 2),
+                child: Text(tr('জাতিসংঘের সব দেশ'), style: body(13.5, weight: FontWeight.w700)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 0, 2, 4),
+                child: Text(tr('১৯৩টি সদস্য দেশ ও ২টি পর্যবেক্ষক · মহাদেশ অনুযায়ী'), style: body(12, color: C.muted)),
+              ),
+              for (final k in continents.keys) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+                  child: Row(children: [
+                    Expanded(child: Text(continentLabel(k), style: body(12.5, weight: FontWeight.w600, color: C.muted))),
+                    Text(bnDigits(countriesIn(k).length), style: body(12, color: C.muted)),
+                  ]),
+                ),
+                box([for (final c in countriesIn(k)) country(c)]),
+              ],
+            ],
+          ]),
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+        decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.line2))),
+        child: FilledButton(
+              key: const Key('hol-done'),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: C.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+              onPressed: () {
+                final keep = [for (final t in _rows) if (_picked.contains(t)) t];
+                widget.brain.setHolLists(keep);
+                Navigator.of(context).pop();
+              },
+              child: Text(tr('ঠিক আছে'), style: body(16, weight: FontWeight.w600, color: Colors.white)),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
 class _DateBox extends StatelessWidget {
-  const _DateBox({required this.day, required this.month});
+  const _DateBox({required this.day, required this.month, this.outline = false});
   final int day;
   final String month;
+
+  /// An international day: an outline, not filled (not a day off).
+  final bool outline;
 
   @override
   Widget build(BuildContext context) => Container(
         width: 44,
         height: 46,
-        decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: outline ? Colors.transparent : C.surface2, borderRadius: BorderRadius.circular(12), border: outline ? Border.all(color: C.border) : null),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Text(bnDigits(day), style: body(17, weight: FontWeight.w700, height: 1.15)),
           Text(month, maxLines: 1, overflow: TextOverflow.clip, style: body(10.5, color: C.muted, height: 1.2)),
@@ -768,15 +1060,11 @@ class _DateBox extends StatelessWidget {
 
 /// সব সুবিধা: every tool, always open (owner, 24 Oct night). Held and
 /// dragged, the tiles go in the member's own order (owner, 29 Oct).
-class _Tools extends StatelessWidget {
-  const _Tools();
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
+/// Every tool of সব সুবিধা: (key kept with the order, label, icon, open).
+List<(String, String, IconData, VoidCallback)> appTools(BuildContext context) {
     void push(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     // (key kept with the order, label, icon, open)
-    final all = <(String, String, IconData, VoidCallback)>[
+    return <(String, String, IconData, VoidCallback)>[
       ('tasks', tr('কাজের তালিকা'), Icons.checklist_rounded, () => goToTab(context, ShellTab.diary)),
       ('reminders', trm('রিমাইন্ডার'), Icons.notifications_none_rounded, () => push(const AllTasksScreen())),
       ('money', trm('হিসাব'), Icons.account_balance_wallet_outlined, () => goToTab(context, ShellTab.money)),
@@ -786,18 +1074,33 @@ class _Tools extends StatelessWidget {
       ('health', tr('স্বাস্থ্য'), Icons.monitor_heart_outlined, () => push(const HealthScreen())),
       ('alarms', trm('অ্যালার্ম'), Icons.alarm_rounded, () => push(const AlarmsScreen())),
       ('vault', trm('পাসওয়ার্ড'), Icons.lock_outline_rounded, () => push(const VaultPage())),
-      ('calendar', tr('ক্যালেন্ডার'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
-      ('compass', tr('কম্পাস'), Icons.explore_outlined, () => push(const CompassScreen())),
+      ('calendar', tr('ঋতুপঞ্জি'), Icons.calendar_month_outlined, () => push(const CalendarScreen())),
+      ('compass', tr('মুসলিম টাইম'), Icons.mosque_outlined, () => push(const IbadahScreen())),
       ('zakat', tr('যাকাত'), Icons.volunteer_activism_outlined, () => push(const ZakatScreen())),
       ('family', tr('পরিবার'), Icons.family_restroom_rounded, () => push(const FamilyScreen())),
       if (!medicalOff) ('medicines', trm('ওষুধ'), Icons.medication_outlined, () => push(const MedicinesScreen())),
+      // The Play app has no medicine pages, but a medicine reminder (owner, 13 Nov).
+      if (medicalOff) ('med_reminder', tr('ওষুধের রিমাইন্ডার'), Icons.medication_outlined, () => push(const NewItemScreen(category: ItemCategory.reminder, medicine: true))),
       ('blood', trm('রক্তদান'), Icons.bloodtype_outlined, () => push(const RequestsScreen())),
       ('pro', tr('প্রিমিয়াম'), Icons.workspace_premium_outlined, () => push(const ProScreen())),
     ];
+}
+
+/// সব সুবিধা: on home all of them; on আরও (owner, 17 Nov) those the bottom
+/// bar does not already have, first on the page so nothing is hidden.
+class ToolsCard extends StatelessWidget {
+  const ToolsCard({super.key, this.skip = const {}, this.cardKey = const Key('home-tools')});
+  final Set<String> skip;
+  final Key cardKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final all = appTools(context);
     final saved = brain.orderOf('home_tools');
-    final tools = inOrder(all, (x) => x.$1, saved);
+    final tools = [for (final x in inOrder(all, (x) => x.$1, saved)) if (!skip.contains(x.$1)) x];
     return AppCard(
-      key: const Key('home-tools'),
+      key: cardKey,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(children: [
         SizedBox(
@@ -805,7 +1108,7 @@ class _Tools extends StatelessWidget {
           child: Row(children: [
             Text(tr('সব সুবিধা'), style: body(14, weight: FontWeight.w600)),
             const SizedBox(width: 6),
-            Text(trf('{0}টা', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
+            Text(trf('{0}টি', [bnDigits(tools.length)]), style: body(12, color: C.muted)),
             const Spacer(),
             if (saved.isNotEmpty)
               TextButton(
@@ -824,7 +1127,12 @@ class _Tools extends StatelessWidget {
             items: tools,
             keyOf: (x) => x.$1,
             tile: (x) => ToolTile(key: Key('tool-${x.$1}'), icon: x.$3, label: x.$2, onTap: x.$4),
-            onReorder: (keys) => brain.setOrder('home_tools', keys),
+            // On আরও some are left out: they keep their places, the rest fill the others.
+            onReorder: (keys) {
+              final full = [for (final x in inOrder(all, (x) => x.$1, saved)) x.$1];
+              final it = keys.iterator;
+              brain.setOrder('home_tools', [for (final k in full) skip.contains(k) ? k : (it.moveNext() ? it.current : k)]);
+            },
           ),
         ),
       ]),

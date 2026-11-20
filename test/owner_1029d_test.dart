@@ -79,7 +79,7 @@ void main() {
       await t.enterText(find.byKey(const Key('place-search')), 'Buch');
       await t.pump(const Duration(milliseconds: 600));
       await settle(t);
-      expect(find.text('Romania'), findsNothing);
+      expect(find.byKey(const Key('place-country-RO')), findsOneWidget, reason: 'its capital: the country is offered too (20 Nov)');
       expect(find.text('Bucharest, Romania'), findsOneWidget);
       await t.tap(find.byKey(const Key('place-hit-0')));
       await settle(t);
@@ -109,9 +109,8 @@ void main() {
       await b.refreshHolidaysAbroad();
       await settle(t);
       expect(b.holidaysAbroad(b.services.now()).map((h) => h.name), ["Saint Andrew's Day", 'National Day']);
-      await t.scrollUntilVisible(find.byKey(const Key('home-holidays-abroad')), 300, scrollable: find.byType(Scrollable).first);
+      await t.scrollUntilVisible(find.byKey(const Key('home-holidays')), 300, scrollable: find.byType(Scrollable).first);
       expect(find.text("Saint Andrew's Day"), findsOneWidget);
-      expect(find.byKey(const Key('home-holidays')), findsNothing);
       // Kept: not asked again.
       final asked = w.holidayAsks;
       await b.refreshHolidaysAbroad();
@@ -119,18 +118,23 @@ void main() {
     });
   });
 
-  testWidgets('medicine form: whose, name, food, times a day, then the times by part of day', (t) async {
+  testWidgets('medicine form: whose, name, times a day and the times by part of day, then food', (t) async {
     final rig = await start(t);
     editMedicine(t.element(find.byTooltip('বলুন').first), null);
     await settle(t);
     double y(String text) => t.getTopLeft(find.text(text).first).dy;
     expect(y('কার জন্য'), lessThan(y('ওষুধের নাম')));
-    expect(y('ওষুধের নাম'), lessThan(y('খাবারের আগে না পরে')));
-    expect(y('খাবারের আগে না পরে'), lessThan(y('দিনে কয়বার')));
-    for (final part in ['সকাল', 'দুপুর', 'বিকাল', 'রাত', 'অন্য সময়']) {
-      expect(find.text(part, skipOffstage: false), findsOneWidget, reason: part);
-    }
+    // Owner, 17 Nov: the times before food, then special instructions.
+    expect(y('ওষুধের নাম'), lessThan(y('দিনে কয়বার')));
+    expect(y('দিনে কয়বার'), lessThan(y('খাবারের আগে না পরে')));
+    // Owner, 18 Nov: only the chosen times, as a short list, and one more if wanted.
+    expect(find.byKey(Key('med-time-${9 * 60}'), skipOffstage: false), findsOneWidget);
+    expect(find.byKey(const Key('med-time-other'), skipOffstage: false), findsOneWidget);
     await t.enterText(find.byKey(const Key('med-name')), 'সেকলো');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle(t);
+    await t.dragUntilVisible(find.byKey(const Key('med-meal-before')), find.byType(SingleChildScrollView).last, const Offset(0, -150));
+    await settle(t);
     await t.tap(find.byKey(const Key('med-meal-before')));
     await t.pump();
     await t.ensureVisible(find.text('রাখুন'));
@@ -154,7 +158,7 @@ void main() {
     await settle(t);
     int rows() => find.byWidgetPredicate((w) => w is Text && RegExp(r'^কাজ \d$').hasMatch(w.data ?? ''), skipOffstage: false).evaluate().length;
     final folded = rows();
-    expect(find.text('আরও ৩টা দেখুন', skipOffstage: false), findsOneWidget);
+    expect(find.text('আরও ৩টি দেখুন', skipOffstage: false), findsOneWidget);
     await t.tap(more);
     await settle(t);
     expect(rows(), folded + 3);

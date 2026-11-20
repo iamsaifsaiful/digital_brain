@@ -267,7 +267,7 @@ class CashNowScreen extends StatelessWidget {
                         style: body(12.5, color: C.muted, height: 1.5)),
                     if (lines.isNotEmpty) ...[
                       const SizedBox(height: 14),
-                      SectionTitle(trf('এর পরের লেনদেন · {0}টা', [bnDigits(lines.length)])),
+                      SectionTitle(trf('এর পরের লেনদেন · {0}টি', [bnDigits(lines.length)])),
                       Panel(child: Rows(children: [for (final e in lines) cashRow(context, e)])),
                     ],
                   ]),
@@ -615,7 +615,7 @@ class _CashViewState extends State<CashView> {
             [
               if (shownSums.income > 0) trf('আয় {0}', [taka(shownSums.income)]),
               if (shownSums.expense > 0) trf('খরচ {0}', [taka(shownSums.expense)]),
-              trf('{0}টা লেনদেন', [bnDigits(entries.length)]),
+              trf('{0}টি লেনদেন', [bnDigits(entries.length)]),
             ].join(' · '),
             style: body(13.5, weight: FontWeight.w600, color: C.muted2),
           ),
@@ -808,7 +808,7 @@ class _DayCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                if (more > 0) Text(trf('আরও {0}টা', [bnDigits(more)]), style: body(12, color: C.muted)),
+                if (more > 0) Text(trf('আরও {0}টি', [bnDigits(more)]), style: body(12, color: C.muted)),
               ]),
             ),
             if (!whole) ...[
@@ -889,7 +889,7 @@ Widget cashPickBar(BuildContext context, Picks picks, Iterable<String> shown) {
       }),
       PickAction(Icons.delete_outline_rounded, tr('মুছুন'), danger: true, () async {
         final messenger = ScaffoldMessenger.of(context);
-        if (!await confirmDialog(context, title: trf('{0}টা হিসাব মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “রিসাইকেল বিন”-এ থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
+        if (!await confirmDialog(context, title: trf('{0}টি হিসাব মুছবেন?', [bnDigits(picked.length)]), text: tr('৩০ দিন “রিসাইকেল বিন”-এ থাকবে।'), yes: tr('মুছুন'), danger: true)) return;
         for (final e in picked) {
           await brain.deleteCash(e.id);
         }
@@ -1137,7 +1137,7 @@ class ProjectsView extends StatelessWidget {
         EmptyState(
           icon: Icons.work_outline_rounded,
           title: tr('অন্যান্য কোনো হিসাব নেই'),
-          text: tr('বাড়ি বানানো, দোকান, অফিসের কাজ, কোনো অর্ডার — প্রতিটার আলাদা আয়-ব্যয় আর বকেয়া রাখুন। কত এলো, কত গেল, কে কত বাকি দেখবেন।'),
+          text: tr('বাড়ি নির্মাণ, দোকান, অফিসের কাজ, কোনো অর্ডার — প্রতিটার আলাদা আয়-ব্যয় আর বকেয়া রাখুন। কত এল, কত গেল, কে কত বাকি দেখবেন।'),
         )
       else ...[
         if (open.isNotEmpty) ...[
@@ -1231,7 +1231,7 @@ class ProjectCover extends StatelessWidget {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: display(16.5, weight: 700)),
                     Text(
-                        last == null ? tr('এখনো কোনো লেনদেন নেই') : trf('{0}টা লেনদেন · শেষ {1}', [bnDigits(entries.length), relativeDay(last, brain.services.now())]),
+                        last == null ? tr('এখনো কোনো লেনদেন নেই') : trf('{0}টি লেনদেন · শেষ {1}', [bnDigits(entries.length), relativeDay(last, brain.services.now())]),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: body(12, color: C.muted)),
@@ -1483,7 +1483,6 @@ class _CashFormScreenState extends State<CashFormScreen> {
 
   /// All the খাত, not only the first eight; or a new one typed.
   bool _allCats = false;
-  bool _typeCat = false;
 
   @override
   void dispose() {
@@ -1529,6 +1528,40 @@ class _CashFormScreenState extends State<CashFormScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  /// "+ নতুন খাত" (owner, 18 Nov): a box on top of the form, not a field
+  /// that opens further down where it was missed.
+  Future<void> _newCategory() async {
+    final known = _category.text.trim();
+    final c = TextEditingController(text: known);
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        void ok() => Navigator.pop(ctx, c.text.trim());
+        return AlertDialog(
+          key: const Key('cash-cat-dialog'),
+          title: Text(tr('নতুন খাত'), style: display(20)),
+          content: TextField(
+            key: const Key('cash-cat-field'),
+            autofocus: true,
+            controller: c,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => ok(),
+            decoration: InputDecoration(labelText: tr('খাতের নাম'), hintText: tr('যেমন: বাজার, ভাড়া, বেতন')),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('বাতিল'))),
+            FilledButton(key: const Key('cash-cat-ok'), onPressed: ok, child: Text(tr('রাখুন'))),
+          ],
+        );
+      },
+    );
+    // The box's field is still on screen while the dialog fades out, so the
+    // controller is left to the garbage collector.
+    if (v == null || v.isEmpty || !mounted) return;
+    setState(() => _category.text = v);
+  }
+
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
@@ -1543,7 +1576,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
               SegTabs<CashKind>(
-                items: [(CashKind.expense, tr('খরচ')), (CashKind.income, _projectId == null ? tr('আয়') : tr('টাকা এলো'))],
+                items: [(CashKind.expense, tr('খরচ')), (CashKind.income, _projectId == null ? tr('আয়') : tr('টাকা এল'))],
                 value: _kind,
                 onChanged: (v) => setState(() => _kind = v),
               ),
@@ -1588,7 +1621,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
                     Expanded(child: Text(tr('খাত'), style: body(14, weight: FontWeight.w700))),
                     TextButton(
                       key: const Key('cash-cat-new'),
-                      onPressed: () => setState(() => _typeCat = !_typeCat),
+                      onPressed: _newCategory,
                       child: Text(tr('+ নতুন খাত')),
                     ),
                   ]),
@@ -1602,10 +1635,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
                         InkWell(
                           key: Key('cash-pick-$c'),
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () => setState(() {
-                            _category.text = c;
-                            _typeCat = false;
-                          }),
+                          onTap: () => setState(() => _category.text = c),
                           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                             CatIcon(c, size: 44, filled: _category.text.trim() == c),
                             const SizedBox(height: 5),
@@ -1630,10 +1660,20 @@ class _CashFormScreenState extends State<CashFormScreen> {
                         ),
                     ],
                   ),
-                  if (_typeCat || (_category.text.trim().isNotEmpty && !cats.take(_allCats ? 16 : 8).contains(_category.text.trim())))
+                  // A খাত of the user's own: shown picked, a tap changes it in the box.
+                  if (_category.text.trim().isNotEmpty && !cats.take(_allCats ? 16 : 8).contains(_category.text.trim()))
                     Padding(
                       padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
-                      child: TextField(textCapitalization: TextCapitalization.sentences, controller: _category, onChanged: (_) => setState(() {}), decoration: InputDecoration(labelText: tr('খাত (যেমন: বাজার, ভাড়া, বেতন)'))),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: InputChip(
+                          key: const Key('cash-cat-own'),
+                          selected: true,
+                          showCheckmark: true,
+                          label: Text(_category.text.trim(), style: body(14, weight: FontWeight.w600)),
+                          onPressed: _newCategory,
+                        ),
+                      ),
                     ),
                 ]),
               ),
@@ -1653,7 +1693,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
               ),
               if (brain.data.accounts.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Text(_kind == CashKind.income ? tr('কোথায় এলো') : tr('কোথা থেকে গেল'), style: body(14, color: C.muted)),
+                Text(_kind == CashKind.income ? tr('কোথায় এল') : tr('কোথা থেকে গেল'), style: body(14, color: C.muted)),
                 const SizedBox(height: 6),
                 Wrap(spacing: 6, runSpacing: 6, children: [
                   for (final a in brain.data.accounts) ChoiceChip(label: Text(accountLabel(a), style: body(13)), selected: _accountId == a.id, onSelected: (_) => setState(() => _accountId = a.id)),

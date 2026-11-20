@@ -72,6 +72,7 @@ jobs:
         with:
           name: digital-brain-android
           path: build/app/outputs/flutter-apk/*release.apk
+          retention-days: 2
 
       # Every build on main becomes a release, so the newest APK is always at
       # https://github.com/iamsaifsaiful/digital_brain/releases/latest/download/digital-brain.apk

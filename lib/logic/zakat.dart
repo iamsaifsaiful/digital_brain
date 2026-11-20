@@ -120,12 +120,12 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
       final moves = d.transfers.where((t) => t.to == a.id || t.from == a.id).toList();
       final n = entries.length + moves.length;
       add('account:${a.id}', a.kind == AccountKind.bank ? ZakatGroup.bank : ZakatGroup.cash, a.name, bal,
-          n > 0 ? trf('অ্যাকাউন্টের ব্যালেন্স: শুরু {0} + {1}টা লেনদেন', [_tk(a.opening), bnDigits(n)]) : trf('অ্যাকাউন্টের ব্যালেন্স: শুরু {0}', [_tk(a.opening)]), at: _latest([for (final e in entries) e.date, for (final t in moves) t.date]));
+          n > 0 ? trf('অ্যাকাউন্টের ব্যালেন্স: শুরু {0} + {1}টি লেনদেন', [_tk(a.opening), bnDigits(n)]) : trf('অ্যাকাউন্টের ব্যালেন্স: শুরু {0}', [_tk(a.opening)]), at: _latest([for (final e in entries) e.date, for (final t in moves) t.date]));
     }
     if (d.accounts.isEmpty) {
       final own = d.cash.where((e) => e.projectId == null).toList();
       final bal = own.fold<int>(0, (s, e) => s + (e.kind == CashKind.income ? e.amount : -e.amount));
-      add('cash:estimate', ZakatGroup.cash, tr('আয়-ব্যয়ের ব্যালেন্স'), bal, trf('আয় থেকে খরচ বাদ ({0}টা হিসাব) — আনুমানিক; অ্যাকাউন্ট যোগ করলে ঠিক হিসাব', [bnDigits(own.length)]), at: _latest([for (final e in own) e.date]));
+      add('cash:estimate', ZakatGroup.cash, tr('আয়-ব্যয়ের ব্যালেন্স'), bal, trf('আয় থেকে খরচ বাদ ({0}টি হিসাব) — আনুমানিক; অ্যাকাউন্ট যোগ করলে ঠিক হিসাব', [bnDigits(own.length)]), at: _latest([for (final e in own) e.date]));
     }
   }
   for (final g in d.goals) {
@@ -133,7 +133,7 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
   }
   for (final i in d.installments.where((i) => i.kind == InstallmentKind.dps)) {
     final last = i.paid.isEmpty ? null : DateTime.tryParse('${(i.paid.toList()..sort()).last}-01');
-    add('dps:${i.id}', ZakatGroup.dps, i.name, i.paidTotal, trf('{0}টা কিস্তি × {1}', [bnDigits(i.paidCount), _tk(i.amount)]), at: last);
+    add('dps:${i.id}', ZakatGroup.dps, i.name, i.paidTotal, trf('{0}টি কিস্তি × {1}', [bnDigits(i.paidCount), _tk(i.amount)]), at: last);
   }
   // A হিসাব kept apart from the main money (owner, 28 Oct): its বকেয়া is not the member's own wealth or debt.
   final apart = {for (final p in d.projects) if (!p.inMain) p.id};
@@ -142,9 +142,9 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
   for (final p in balances(ledger)) {
     final due = dueKeys.contains(p.key) ? ' · ${tr('বকেয়া')}' : '';
     if (p.balance > 0) {
-      add('person:${p.key}', ZakatGroup.receivable, '${p.name}$due', p.balance, trf('ধার দিয়েছেন {0}, ফেরত পেয়েছেন {1} ({2}টা হিসাব)', [_tk(p.lentTotal), _tk(p.receivedTotal), bnDigits(p.count)]), at: p.last);
+      add('person:${p.key}', ZakatGroup.receivable, '${p.name}$due', p.balance, trf('ধার দিয়েছেন {0}, ফেরত পেয়েছেন {1} ({2}টি হিসাব)', [_tk(p.lentTotal), _tk(p.receivedTotal), bnDigits(p.count)]), at: p.last);
     } else if (p.balance < 0) {
-      add('owe:${p.key}', ZakatGroup.payable, '${p.name}$due', -p.balance, trf('ধার নিয়েছেন {0}, শোধ করেছেন {1} ({2}টা হিসাব)', [_tk(p.borrowedTotal), _tk(p.repaidTotal), bnDigits(p.count)]), at: p.last, debt: true);
+      add('owe:${p.key}', ZakatGroup.payable, '${p.name}$due', -p.balance, trf('ধার নিয়েছেন {0}, শোধ করেছেন {1} ({2}টি হিসাব)', [_tk(p.borrowedTotal), _tk(p.repaidTotal), bnDigits(p.count)]), at: p.last, debt: true);
     }
   }
   // A হিসাব kept apart from the main money (a committee's, a mosque's, or
@@ -175,7 +175,7 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
   }
   for (final i in d.installments.where((i) => i.kind == InstallmentKind.loan)) {
     final n = i.left < 12 ? i.left : 12;
-    add('loan:${i.id}', ZakatGroup.loan, i.name, n * i.amount, trf('{0}টা কিস্তি × {1}', [bnDigits(n), _tk(i.amount)]), debt: true);
+    add('loan:${i.id}', ZakatGroup.loan, i.name, n * i.amount, trf('{0}টি কিস্তি × {1}', [bnDigits(n), _tk(i.amount)]), debt: true);
   }
   String vori(double v) => v == v.roundToDouble() ? '${v.round()}' : '$v';
   // Each kind of gold on its own line, at its own price (owner, 29 Oct).
@@ -194,7 +194,7 @@ List<ZakatLine> zakatLines(AppData d, DateTime now, ZakatSaved z) {
     final value = stocked.fold<int>(0, (s, p) => s + (p.stock * (p.sell > 0 ? p.sell : p.buy)).round());
     final units = stocked.fold<double>(0, (s, p) => s + p.stock);
     add('shop:stock', ZakatGroup.business, '${tr('দোকানের স্টক')} · ${tr('ব্যবসা থেকে')}', value,
-        trf('{0}টা পণ্য, মোট {1} একক — বিক্রয়মূল্যে; ব্যবসায়ী মোডের স্টক থেকে', [bnDigits(stocked.length), bnDigits(qtyText(units))]));
+        trf('{0}টি পণ্য, মোট {1} একক — বিক্রয়মূল্যে; ব্যবসায়ী মোডের স্টক থেকে', [bnDigits(stocked.length), bnDigits(qtyText(units))]));
   }
   // The business's own cash (sales and collections in, costs out).
   final bizNet = bizCashBalance(d.cash);

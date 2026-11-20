@@ -1,7 +1,6 @@
-/// "দিনে কয়বার" and "কখন খাবেন" for a medicine (owner, 25 Oct): how many
-/// times a day is a choice that stays selected, and picking it changes the
-/// times shown; each time is a chip that changes colour when chosen — no
-/// crosses to remove.
+/// "দিনে কয়বার" and "কখন খাবেন" for a medicine (owner, 25 Oct; 18 Nov):
+/// how many times a day is a choice that stays selected and sets the times;
+/// the times are a short list, a tap changes one — no crosses.
 library;
 
 import 'package:flutter/material.dart';
@@ -20,35 +19,23 @@ const medicinePresets = <int, List<int>>{
   4: [8 * 60, 13 * 60, 18 * 60, 22 * 60],
 };
 
-/// The times offered, by part of the day (owner, 29 Oct: সকাল, দুপুর,
-/// বিকাল and রাত each its own row; any other time in its own section).
-const _parts = <(String, List<int>)>[
-  ('সকাল', [6 * 60, 7 * 60, 8 * 60, 9 * 60, 10 * 60]),
-  ('দুপুর', [12 * 60, 13 * 60, 14 * 60]),
-  ('বিকাল', [15 * 60, 16 * 60, 17 * 60, 18 * 60]),
-  ('রাত', [20 * 60, 21 * 60, 22 * 60, 23 * 60]),
-];
-
-/// A part's name in the app's language (written out so the English list has them).
-String _partName(String p) => switch (p) { 'সকাল' => tr('সকাল'), 'দুপুর' => tr('দুপুর'), 'বিকাল' => tr('বিকাল'), _ => tr('রাত') };
-
 class MedicineTimesPicker extends StatelessWidget {
   const MedicineTimesPicker({super.key, required this.times, required this.onChanged});
   final List<int> times;
   final ValueChanged<List<int>> onChanged;
 
-  void _toggle(int m) {
-    final next = [...times];
-    next.contains(m) ? next.remove(m) : next.add(m);
-    next.sort();
-    onChanged(next);
+  /// Owner, 18 Nov: the times as a short list — one row per dose, a tap
+  /// changes that time — instead of seventeen chips ("সময়গুলো হিবিজিবি").
+  Future<void> _change(BuildContext context, int i) async {
+    final m = await askTime(context, times[i]);
+    if (m == null || m == times[i]) return;
+    final next = [...times]..[i] = m;
+    onChanged(next.toSet().toList()..sort());
   }
 
   @override
   Widget build(BuildContext context) {
     final perDay = times.length;
-    final offered = {for (final (_, ts) in _parts) ...ts};
-    final own = [for (final t in times) if (!offered.contains(t)) t]..sort();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Text(tr('দিনে কয়বার'), style: body(13.5, weight: FontWeight.w600, color: C.muted2)),
       const SizedBox(height: 8),
@@ -68,33 +55,64 @@ class MedicineTimesPicker extends StatelessWidget {
       const SizedBox(height: 16),
       Row(children: [
         Expanded(child: Text(tr('কখন খাবেন'), style: body(13.5, weight: FontWeight.w600, color: C.muted2))),
-        Text(perDay == 0 ? tr('একটা সময় বেছে নিন') : trf('{0}টা সময় বাছা', [bnDigits(perDay)]), style: body(12.5, color: perDay == 0 ? C.red : C.muted)),
+        Text(tr('বদলাতে সময়ে চাপুন'), style: body(12, color: C.muted)),
       ]),
-      for (final (part, ts) in _parts) ...[
-        const SizedBox(height: 10),
-        Text(_partName(part), style: body(12.5, color: C.muted)),
-        const SizedBox(height: 6),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          for (final m in ts) _TimeChip(key: Key('med-time-$m'), label: minutesText(m), selected: times.contains(m), onTap: () => _toggle(m)),
+      const SizedBox(height: 8),
+      Container(
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.line)),
+        child: Column(children: [
+          for (final (i, m) in times.indexed) ...[
+            if (i > 0) Divider(height: 1, color: C.line),
+            _TimeRow(key: Key('med-time-$m'), minutes: m, onTap: () => _change(context, i)),
+          ],
+          if (times.isNotEmpty) Divider(height: 1, color: C.line),
+          InkWell(
+            key: const Key('med-time-other'),
+            onTap: () async {
+              final m = await askTime(context, 13 * 60);
+              if (m != null && !times.contains(m)) onChanged([...times, m]..sort());
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Row(children: [
+                Icon(Icons.add_rounded, size: 20, color: C.green),
+                const SizedBox(width: 10),
+                Text(tr('আরেকটা সময়'), style: body(14.5, weight: FontWeight.w600, color: C.green)),
+              ]),
+            ),
+          ),
         ]),
-      ],
-      const SizedBox(height: 14),
-      Text(tr('অন্য সময়'), style: body(12.5, color: C.muted)),
-      const SizedBox(height: 6),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        for (final m in own) _TimeChip(key: Key('med-time-$m'), label: minutesText(m), selected: true, onTap: () => _toggle(m)),
-        _TimeChip(
-          key: const Key('med-time-other'),
-          label: tr('সময় যোগ করুন'),
-          selected: false,
-          icon: Icons.add_rounded,
-          onTap: () async {
-            final m = await askTime(context, 13 * 60);
-            if (m != null && !times.contains(m)) onChanged([...times, m]..sort());
-          },
-        ),
-      ]),
+      ),
     ]);
+  }
+}
+
+/// One dose time: the part of the day's icon, the time, and a pencil.
+class _TimeRow extends StatelessWidget {
+  const _TimeRow({super.key, required this.minutes, required this.onTap});
+  final int minutes;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final h = minutes ~/ 60;
+    final icon = h < 12 ? Icons.wb_sunny_outlined : (h < 18 ? Icons.wb_twilight_outlined : Icons.nightlight_outlined);
+    return Semantics(
+      selected: true,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          child: Row(children: [
+            Container(width: 34, height: 34, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 19, color: C.green)),
+            const SizedBox(width: 12),
+            Expanded(child: Text(minutesText(minutes), style: body(16, weight: FontWeight.w700))),
+            Icon(Icons.edit_outlined, size: 19, color: C.muted),
+          ]),
+        ),
+      ),
+    );
   }
 }
 
@@ -111,17 +129,24 @@ class MealPicker extends StatelessWidget {
       ]);
 }
 
-/// "কার জন্য": the user and each family member, one tap to choose.
+/// "কার জন্য": the user and each family member, one tap to choose. [phones]:
+/// those linked in পরিবার, whose own phone it can go to (a phone mark).
 class MedicinePersonPicker extends StatelessWidget {
-  const MedicinePersonPicker({super.key, required this.people, required this.selected, required this.onChanged});
+  const MedicinePersonPicker({super.key, required this.people, required this.selected, required this.onChanged, this.phones = const {}});
   final List<(String, String)> people;
   final String selected;
   final ValueChanged<String> onChanged;
+  final Set<String> phones;
 
   @override
   Widget build(BuildContext context) => Wrap(spacing: 8, runSpacing: 8, children: [
         for (final (id, name) in people)
-          _TimeChip(key: Key('med-who-$id'), label: name, selected: id == selected, icon: id == selected ? null : Icons.person_outline_rounded, onTap: () => onChanged(id)),
+          _TimeChip(
+              key: Key('med-who-$id'),
+              label: name,
+              selected: id == selected,
+              icon: phones.contains(id) ? Icons.phone_android_rounded : (id == selected ? null : Icons.person_outline_rounded),
+              onTap: () => onChanged(id)),
       ]);
 }
 
@@ -174,7 +199,7 @@ class _TimeChip extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(999), border: Border.all(color: selected ? C.green : C.line)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (icon != null) ...[Icon(icon, size: 18, color: C.muted2), const SizedBox(width: 4)],
+                if (icon != null) ...[Icon(icon, size: 18, color: selected ? C.onAccent : C.muted2), const SizedBox(width: 4)],
                 Text(label, style: body(14.5, weight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? C.onAccent : C.ink)),
               ]),
             ),

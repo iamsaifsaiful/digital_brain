@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.0.10
+ * Version: 1.0.12
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.0.10';
+const MA_ACC_VERSION = '1.0.12';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -310,6 +310,13 @@ add_action('admin_post_ma_acc_settings', function () {
     ma_acc_guard('ma_acc_settings', 'manage_options');
     update_option(MA_ACC_OPTION_CLIENTS, sanitize_text_field(wp_unslash($_POST['client_ids'] ?? '')));
     ma_acc_back('সেটিংস রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
+});
+
+add_action('admin_post_ma_support_wa', function () {
+    ma_acc_guard('ma_support_wa', 'manage_options');
+    $n = preg_replace('/[^0-9+]/', '', sanitize_text_field(wp_unslash($_POST['support_whatsapp'] ?? '')));
+    update_option('ma_support_whatsapp', substr($n, 0, 16));
+    ma_acc_back($n === '' ? 'হোয়াটসঅ্যাপ বোতাম বন্ধ করা হলো।' : 'সাপোর্ট হোয়াটসঅ্যাপ নম্বর রাখা হয়েছে।', 'ok', ['tab' => 'settings']);
 });
 
 add_action('admin_post_ma_acc_add', function () {

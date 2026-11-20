@@ -1,17 +1,25 @@
 // Choosing the place (owner, 29 Oct): follow the phone, or search — the 64
 // districts and the cities abroad the app knows find themselves as typed;
 // anything else in the world is asked from the weather service by name.
+// Owner, 19 Nov (design 1 of three): a sheet from below — search on top,
+// "where I am now", the places picked before, then the districts by division.
+// Owner, 20 Nov: every country in the UN's list, by continent; a country
+// opens to its capital, the cities the app knows there, and a search for
+// any other town in it (the same sheet adds a place to the weather page).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/countries.dart';
 import '../logic/lang.dart';
 import '../logic/strings_en.dart' show enStrings;
 import '../logic/world_places.dart';
 import '../services/weather.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
+import '../ui/widgets.dart' show showAppSheet;
 
 /// What was picked: '*' to follow the phone, or a [Place].
 sealed class PlacePick {}
@@ -33,23 +41,100 @@ List<Place> knownMatches(String q) {
   return [...bdPlaces.where(hit), ...worldPlaces.where(hit)];
 }
 
+/// A country's capital as a place (its clock from the list; the weather
+/// service's when online, see [_PlaceSheetState]).
+Place capitalPlace(Country c, {int? tz}) => Place(c.capitalBn, c.lat, c.lon, tz: tz ?? c.tz, region: regionAt(c.lat, c.lon), cc: c.code);
+
+/// The places the app knows in country [c] (the capital first): the
+/// districts for Bangladesh, else the capital and the big cities.
+List<Place> placesIn(Country c) {
+  if (c.code == 'BD') return [...bdPlaces];
+  final cap = capitalPlace(c);
+  return [cap, for (final p in worldPlaces) if (p.cc == c.code && p.name != cap.name && kmBetween(p.lat, p.lon, cap.lat, cap.lon) >= 15) p];
+}
+
 /// A place's name in English (the app's own list), else itself.
 String enName(String bn) => enStrings[bn] ?? bn;
 
-Future<PlacePick?> pickPlace(BuildContext context) => showDialog<PlacePick>(context: context, builder: (_) => const _PlaceDialog());
+/// The eight divisions and their districts (the names as in [bdPlaces]).
+const bdDivisions = <String, List<String>>{
+  'ঢাকা': ['ঢাকা', 'গাজীপুর', 'নারায়ণগঞ্জ', 'নরসিংদী', 'টাঙ্গাইল', 'কিশোরগঞ্জ', 'মানিকগঞ্জ', 'মুন্সীগঞ্জ', 'ফরিদপুর', 'গোপালগঞ্জ', 'মাদারীপুর', 'রাজবাড়ী', 'শরীয়তপুর'],
+  'চট্টগ্রাম': ['চট্টগ্রাম', 'কুমিল্লা', 'কক্সবাজার', 'নোয়াখালী', 'ফেনী', 'ব্রাহ্মণবাড়িয়া', 'চাঁদপুর', 'লক্ষ্মীপুর', 'রাঙ্গামাটি', 'খাগড়াছড়ি', 'বান্দরবান'],
+  'রাজশাহী': ['রাজশাহী', 'বগুড়া', 'পাবনা', 'সিরাজগঞ্জ', 'নাটোর', 'নওগাঁ', 'চাঁপাইনবাবগঞ্জ', 'জয়পুরহাট'],
+  'খুলনা': ['খুলনা', 'যশোর', 'কুষ্টিয়া', 'সাতক্ষীরা', 'বাগেরহাট', 'ঝিনাইদহ', 'মাগুরা', 'নড়াইল', 'চুয়াডাঙ্গা', 'মেহেরপুর'],
+  'বরিশাল': ['বরিশাল', 'পটুয়াখালী', 'ভোলা', 'পিরোজপুর', 'ঝালকাঠি', 'বরগুনা'],
+  'সিলেট': ['সিলেট', 'মৌলভীবাজার', 'হবিগঞ্জ', 'সুনামগঞ্জ'],
+  'রংপুর': ['রংপুর', 'দিনাজপুর', 'কুড়িগ্রাম', 'গাইবান্ধা', 'নীলফামারী', 'লালমনিরহাট', 'ঠাকুরগাঁও', 'পঞ্চগড়'],
+  'ময়মনসিংহ': ['ময়মনসিংহ', 'জামালপুর', 'শেরপুর', 'নেত্রকোনা'],
+};
 
-class _PlaceDialog extends StatefulWidget {
-  const _PlaceDialog();
-  @override
-  State<_PlaceDialog> createState() => _PlaceDialogState();
+/// The division a district is in ('' when not a district).
+String divisionOf(String district) {
+  for (final e in bdDivisions.entries) {
+    if (e.value.contains(district)) return e.key;
+  }
+  return '';
 }
 
-class _PlaceDialogState extends State<_PlaceDialog> {
+/// "ঢাকা বিভাগ" / "Dhaka Division".
+String divisionLabel(String div) => trf('{0} বিভাগ', [tr(div)]);
+
+/// The places picked before, newest first (their keys).
+List<String> recentPlaces(Brain brain) => [for (final k in brain.text('place_recent').split('\n')) if (k.isNotEmpty) k];
+
+/// [adding]: a place for the weather page (owner, 19 Nov) — no "follow the
+/// phone" and nothing marked as chosen.
+Future<PlacePick?> pickPlace(BuildContext context, {bool adding = false}) async {
+  final brain = BrainScope.read(context);
+  final got = await showAppSheet<PlacePick>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    useSafeArea: true,
+    backgroundColor: C.surface,
+    builder: (_) => _PlaceSheet(adding: adding),
+  );
+  if (got is PickedPlace) {
+    final k = got.place.key;
+    await brain.setPref('place_recent', [k, ...recentPlaces(brain).where((e) => e != k)].take(5).join('\n'));
+  }
+  return got;
+}
+
+class _PlaceSheet extends StatefulWidget {
+  const _PlaceSheet({this.adding = false});
+  final bool adding;
+  @override
+  State<_PlaceSheet> createState() => _PlaceSheetState();
+}
+
+class _PlaceSheetState extends State<_PlaceSheet> {
   final _q = TextEditingController();
   Timer? _wait;
   List<PlaceHit> _hits = const [];
   bool _searching = false;
   int _asked = 0;
+
+  /// The country opened from the list (its cities shown), or null.
+  Country? _in;
+
+  void _open(Country? c) {
+    _wait?.cancel();
+    _q.clear();
+    setState(() {
+      _in = c;
+      _hits = const [];
+      _searching = false;
+      _asked++;
+    });
+  }
+
+  /// The capital: the clock there asked from the weather service when online.
+  Future<void> _pickCapital(Country c) async {
+    final brain = BrainScope.read(context);
+    final tz = await brain.services.weather.offsetAt(c.lat, c.lon);
+    if (mounted) Navigator.pop(context, PickedPlace(capitalPlace(c, tz: tz)));
+  }
 
   @override
   void dispose() {
@@ -69,10 +154,11 @@ class _PlaceDialogState extends State<_PlaceDialog> {
       final n = ++_asked;
       setState(() => _searching = true);
       final brain = BrainScope.read(context);
-      final got = await brain.services.weather.search(v, lang: brain.english ? 'en' : 'bn');
+      final within = _in;
+      final got = await brain.services.weather.search(v, lang: brain.english ? 'en' : 'bn', country: within?.code ?? '');
       if (!mounted || n != _asked) return;
       // Not the ones already listed from the app's own list.
-      final known = knownMatches(v);
+      final known = within == null ? knownMatches(v) : _knownIn(within, v);
       setState(() {
         _searching = false;
         _hits = [for (final h in got) if (!known.any((p) => kmBetween(p.lat, p.lon, h.lat, h.lon) < 15)) h];
@@ -86,33 +172,164 @@ class _PlaceDialogState extends State<_PlaceDialog> {
     if (mounted) Navigator.pop(context, PickedPlace(p));
   }
 
+  /// The places the app knows in [c] that match [q].
+  List<Place> _knownIn(Country c, String q) {
+    final f = _fold(q);
+    return [for (final p in placesIn(c)) if (f.isEmpty || _fold(p.name).contains(f) || _fold(enName(p.name)).contains(f)) p];
+  }
+
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
+    final adding = widget.adding;
     final now = placeNamed(brain.district);
+    bool chosen(Place p) => !adding && !brain.autoPlace && p.name == now.name;
     final q = _q.text;
     final known = knownMatches(q);
     final bd = known.where((p) => !p.abroad).toList(), world = known.where((p) => p.abroad).toList();
-    Widget row(Place p) {
-      final on = !brain.autoPlace && p.name == now.name;
+    void pick(Place p) => Navigator.pop(context, PickedPlace(p));
+
+    Widget cap(String t, {String? end}) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+          child: Row(children: [
+            Expanded(child: Text(t, style: body(12.5, weight: FontWeight.w600, color: C.muted))),
+            if (end != null) Text(end, style: body(12, color: C.muted)),
+          ]),
+        );
+
+    // One place in the list: its name, where it is (when searching), and
+    // the English name on the right in Bangla.
+    Widget row(Place p, {bool where = false}) {
+      final on = chosen(p);
+      final div = p.abroad ? '' : divisionOf(p.name);
+      final en = brain.english ? '' : enName(p.name);
       return InkWell(
         key: Key('place-${p.name}'),
-        onTap: () => Navigator.pop(context, PickedPlace(p)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 11),
-          child: Text(p.label, style: body(16, weight: on ? FontWeight.w700 : FontWeight.w400, color: on ? C.green : C.ink)),
+        onTap: () => pick(p),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(20, where ? 9 : 12, 20, where ? 9 : 12),
+          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+          child: Row(children: [
+            if (where) ...[Icon(p.abroad ? Icons.public_outlined : Icons.place_outlined, size: 20, color: C.muted), const SizedBox(width: 12)],
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.label, style: body(15.5, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? C.green : C.ink)),
+                if (where && div.isNotEmpty) Text(divisionLabel(div), style: body(12, color: C.muted)),
+              ]),
+            ),
+            if (en.isNotEmpty && en != p.name) Text(en, style: body(12.5, color: on ? C.green : C.muted)),
+            if (on) ...[const SizedBox(width: 8), Icon(Icons.check_rounded, size: 20, color: C.green)],
+          ]),
         ),
       );
     }
 
-    Widget head(String t) => Padding(padding: const EdgeInsets.fromLTRB(24, 14, 24, 4), child: Text(t, style: body(13, weight: FontWeight.w600, color: C.muted)));
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-      child: Column(mainAxisSize: MainAxisSize.max, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Padding(padding: const EdgeInsets.fromLTRB(24, 20, 24, 8), child: Text(tr('আপনার জেলা/শহর'), style: body(18, weight: FontWeight.w600))),
+    // "Where I am now": follow the phone.
+    Widget here() {
+      final on = brain.autoPlace;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Material(
+          color: on ? C.greenTint : C.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: on ? C.green.withValues(alpha: 0.5) : C.line)),
+          child: InkWell(
+            key: const Key('place-auto'),
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => Navigator.pop(context, FollowPhone()),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 11, 14, 11),
+              child: Row(children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: on ? C.green.withValues(alpha: 0.5) : C.line)),
+                  child: Icon(Icons.my_location_outlined, size: 19, color: C.green),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(tr('এখন যেখানে আছি'), style: body(15, weight: FontWeight.w600, color: on ? C.green : C.ink)),
+                    Text(on ? trf('চালু আছে · এখন: {0}', [brain.placeLabel]) : tr('ফোনের লোকেশন থেকে · অন্য জেলায় গেলে নিজে বদলাবে'), style: body(12.5, color: C.muted)),
+                  ]),
+                ),
+                if (on) Icon(Icons.check_rounded, size: 20, color: C.green),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // The places picked before (the chosen one first), as chips.
+    Widget recent() {
+      final keys = [if (!adding) now.key, ...recentPlaces(brain)];
+      final seen = <String>{};
+      final places = [for (final k in keys) if (seen.add(placeNamed(k).label)) placeNamed(k)].take(5).toList();
+      if (places.length < (adding ? 1 : 2)) return const SizedBox.shrink();
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        cap(tr('আগে বাছাই করা')),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextField(textCapitalization: TextCapitalization.sentences, 
+          child: Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final p in places)
+              Material(
+                color: chosen(p) ? C.greenTint : C.surface,
+                shape: StadiumBorder(side: BorderSide(color: chosen(p) ? C.green.withValues(alpha: 0.6) : C.line)),
+                child: InkWell(
+                  key: Key('place-recent-${p.name}'),
+                  customBorder: const StadiumBorder(),
+                  onTap: () => pick(p),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(11, 6, 14, 6),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(chosen(p) ? Icons.check_rounded : Icons.history_rounded, size: 16, color: chosen(p) ? C.green : C.muted),
+                      const SizedBox(width: 5),
+                      Text(p.label, style: body(14, weight: chosen(p) ? FontWeight.w600 : FontWeight.w400, color: chosen(p) ? C.green : C.ink)),
+                    ]),
+                  ),
+                ),
+              ),
+          ]),
+        ),
+      ]);
+    }
+
+    // A country in the list: its name, its capital, and an arrow.
+    Widget countryRow(Country c) => InkWell(
+          key: Key('place-country-${c.code}'),
+          onTap: () => _open(c),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 10, 14, 10),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(c.label, style: body(15.5, weight: FontWeight.w500)),
+                  Text(c.code == 'BD' ? trf('{0}টি জেলা', [bnDigits(bdPlaces.length)]) : c.capitalLabel, style: body(12, color: C.muted)),
+                ]),
+              ),
+              if (!brain.english) Text(c.en, style: body(12.5, color: C.muted)),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, size: 20, color: C.muted),
+            ]),
+          ),
+        );
+
+    final c = _in;
+    if (c != null) return _countryView(c, row, cap);
+
+    final byName = {for (final p in bdPlaces) p.name: p};
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.88,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Text(adding ? tr('লোকেশন যোগ করুন') : tr('লোকেশন বাছুন'), style: display(20, weight: 700)),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            textCapitalization: TextCapitalization.sentences,
             key: const Key('place-search'),
             controller: _q,
             onChanged: _changed,
@@ -133,45 +350,168 @@ class _PlaceDialogState extends State<_PlaceDialog> {
           ),
         ),
         Expanded(
-          child: ListView(padding: const EdgeInsets.only(top: 4, bottom: 8), children: [
+          child: ListView(padding: const EdgeInsets.only(bottom: 16), children: [
             if (q.isEmpty) ...[
-              InkWell(
-                key: const Key('place-auto'),
-                onTap: () => Navigator.pop(context, FollowPhone()),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+              if (!adding) here(),
+              recent(),
+              cap(tr('সব জেলা · বিভাগ অনুযায়ী')),
+              for (final e in bdDivisions.entries) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
                   child: Row(children: [
-                    Icon(Icons.my_location_rounded, size: 20, color: brain.autoPlace ? C.green : C.muted2),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(tr('ফোনের লোকেশন অনুযায়ী'), style: body(16, weight: brain.autoPlace ? FontWeight.w700 : FontWeight.w500, color: brain.autoPlace ? C.green : C.ink)),
-                        Text(tr('অন্য জেলা বা দেশে গেলে নিজে বদলাবে — লোকেশন ফোনেই থাকে, কোথাও যায় না'), style: body(12.5, color: C.muted)),
-                      ]),
-                    ),
+                    Expanded(child: Text(divisionLabel(e.key), style: body(12, weight: FontWeight.w600, color: C.muted2))),
+                    Text(bnDigits(e.value.length), style: body(12, color: C.muted)),
                   ]),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 6),
-                child: Text(tr('হাতে বেছে নিলেও অন্য জায়গায় গেলে আবার ফোনের লোকেশন ধরবে।'), style: body(12, color: C.muted)),
-              ),
-              const Divider(),
+                for (final n in e.value)
+                  if (byName[n] != null) row(byName[n]!),
+              ],
+              cap(tr('সব দেশ · মহাদেশ অনুযায়ী'), end: tr('জাতিসংঘের তালিকা')),
+              for (final k in continents.keys) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                  child: Row(children: [
+                    Expanded(child: Text(continentLabel(k), style: body(12, weight: FontWeight.w600, color: C.muted2))),
+                    Text(bnDigits(countriesIn(k).length), style: body(12, color: C.muted)),
+                  ]),
+                ),
+                for (final x in countriesIn(k)) countryRow(x),
+              ],
+            ] else ...[
+              if (findCountries(q).isNotEmpty) ...[cap(tr('দেশ')), for (final x in findCountries(q).take(6)) countryRow(x)],
+              if (bd.isNotEmpty) ...[cap(tr('বাংলাদেশ')), for (final p in bd) row(p, where: true)],
+              if (world.isNotEmpty) ...[cap(tr('দেশের বাইরে')), for (final p in world) row(p, where: true)],
+              if (_hits.isNotEmpty) ...[
+                cap(tr('আরও জায়গা')),
+                for (final (i, h) in _hits.indexed)
+                  InkWell(
+                    key: Key('place-hit-$i'),
+                    onTap: () => _pickHit(h),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(20, 9, 20, 9),
+                      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+                      child: Row(children: [
+                        Icon(Icons.public_outlined, size: 20, color: C.muted),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(h.name, style: body(15.5, weight: FontWeight.w500)),
+                            if (h.area.isNotEmpty || h.country.isNotEmpty)
+                              Text([if (h.area.isNotEmpty) h.area, if (h.country.isNotEmpty) h.country].join(', '), style: body(12, color: C.muted)),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                  ),
+              ],
+              if (_searching) const Padding(padding: EdgeInsets.all(16), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)))),
+              if (q.trim().length >= 2 && !_searching && known.isEmpty && _hits.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(tr('এই নামে কিছু পাইনি। বানানটা দেখে নিন, বা ইন্টারনেট চালু করে আবার লিখুন।'), style: body(14, color: C.muted)),
+                ),
+              if (q.trim().length < 2)
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Text(tr('বাংলা বা ইংরেজি, যেভাবে খুশি লিখুন'), textAlign: TextAlign.center, style: body(13, color: C.muted)),
+                ),
             ],
-            if (bd.isNotEmpty) ...[if (q.isNotEmpty) head(tr('বাংলাদেশ')), for (final p in bd) row(p)],
-            if (world.isNotEmpty) ...[head(tr('দেশের বাইরে')), for (final p in world) row(p)],
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  /// One country opened: its capital, the cities the app knows there, and
+  /// a search for any other town in it.
+  Widget _countryView(Country c, Widget Function(Place, {bool where}) row, Widget Function(String, {String? end}) cap) {
+    final q = _q.text;
+    final known = _knownIn(c, q);
+    final capital = c.code == 'BD' ? null : capitalPlace(c);
+    Widget capitalRow() => InkWell(
+          key: const Key('place-capital'),
+          onTap: () => _pickCapital(c),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+            child: Row(children: [
+              Icon(Icons.account_balance_outlined, size: 20, color: C.green),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(c.capitalLabel, style: body(15.5, weight: FontWeight.w600)),
+                  Text(tr('রাজধানী'), style: body(12, color: C.muted)),
+                ]),
+              ),
+              if (!isEn && c.capitalEn != c.capitalBn) Text(c.capitalEn, style: body(12.5, color: C.muted)),
+            ]),
+          ),
+        );
+    final others = [for (final p in known) if (capital == null || p.name != capital.name) p];
+    final showCapital = capital != null && known.any((p) => p.name == capital.name);
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.88,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 0, 20, 10),
+          child: Row(children: [
+            IconButton(key: const Key('place-back'), tooltip: tr('ফিরে যান'), icon: const Icon(Icons.arrow_back_rounded), onPressed: () => _open(null)),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(c.label, style: display(20, weight: 700)),
+                Text(c.observer ? '${continentLabel(c.continent)} · ${tr('জাতিসংঘের পর্যবেক্ষক')}' : continentLabel(c.continent), style: body(12.5, color: C.muted)),
+              ]),
+            ),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            textCapitalization: TextCapitalization.sentences,
+            key: const Key('place-search'),
+            controller: _q,
+            onChanged: _changed,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: trf('{0}-এর যেকোনো শহর লিখুন', [c.label]),
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: q.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: tr('মুছুন'),
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () {
+                        _q.clear();
+                        _changed('');
+                      }),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView(padding: const EdgeInsets.only(bottom: 16), children: [
+            if (showCapital) capitalRow(),
+            if (others.isNotEmpty) ...[
+              cap(c.code == 'BD' ? tr('সব জেলা') : tr('আরও শহর')),
+              for (final p in others) row(p, where: c.code == 'BD' && q.isNotEmpty),
+            ],
             if (_hits.isNotEmpty) ...[
-              head(tr('আরও জায়গা')),
+              cap(tr('খুঁজে পাওয়া জায়গা')),
               for (final (i, h) in _hits.indexed)
                 InkWell(
                   key: Key('place-hit-$i'),
                   onTap: () => _pickHit(h),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 9),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(h.name, style: body(16)),
-                      if (h.area.isNotEmpty || h.country.isNotEmpty)
-                        Text([if (h.area.isNotEmpty) h.area, if (h.country.isNotEmpty) h.country].join(', '), style: body(12.5, color: C.muted)),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 9, 20, 9),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+                    child: Row(children: [
+                      Icon(Icons.place_outlined, size: 20, color: C.muted),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(h.name, style: body(15.5, weight: FontWeight.w500)),
+                          if (h.area.isNotEmpty) Text(h.area, style: body(12, color: C.muted)),
+                        ]),
+                      ),
                     ]),
                   ),
                 ),
@@ -182,11 +522,12 @@ class _PlaceDialogState extends State<_PlaceDialog> {
                 padding: const EdgeInsets.all(24),
                 child: Text(tr('এই নামে কিছু পাইনি। বানানটা দেখে নিন, বা ইন্টারনেট চালু করে আবার লিখুন।'), style: body(14, color: C.muted)),
               ),
+            if (q.isEmpty && c.code != 'BD')
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Text(tr('অন্য শহর বা এলাকা? ওপরে নাম লিখুন — বাংলা বা ইংরেজিতে।'), textAlign: TextAlign.center, style: body(13, color: C.muted)),
+              ),
           ]),
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Padding(padding: const EdgeInsets.fromLTRB(8, 0, 8, 8), child: TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('বাতিল')))),
         ),
       ]),
     );

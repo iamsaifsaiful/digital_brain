@@ -11,7 +11,7 @@ import 'app_test.dart' show settle, start, tell;
 void main() {
   test('free: one হিসাব — the first one opened that is still open', () async {
     expect(freeProjects, 1);
-    expect(proInfo[ProFeature.projects]!.free, '১টা আলাদা হিসাব');
+    expect(proInfo[ProFeature.projects]!.free, '১টি আলাদা হিসাব');
   });
 
   testWidgets('free: by voice the first হিসাব opens and takes the money; a second is not opened', (t) async {

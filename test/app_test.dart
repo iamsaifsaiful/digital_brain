@@ -38,6 +38,7 @@ import 'package:digital_brain/screens/onboarding_screen.dart';
 import 'package:digital_brain/screens/search_screen.dart';
 import 'package:digital_brain/screens/special_days_screen.dart';
 import 'package:digital_brain/screens/store_more_screens.dart';
+import 'package:digital_brain/logic/lang.dart' show tr, englishFirst;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,6 +62,8 @@ class Rig {
   factory Rig.sharing(Rig other, {required MemoryKeyVault keys}) => Rig(keys: keys, blob: other.blob);
 
   Rig({AppData? data, MemoryKeyVault? keys, MemoryBlobStore? blob, AccountServer? server, GoogleAccount? google}) {
+    // The tests read the app in Bangla (a new phone starts in English).
+    englishFirst = false;
     // The seven-day trial (owner, 28 Oct) long over, so the Premium tests see
     // the free app; a test of the trial passes its own empty [keys].
     final vault = keys ?? (MemoryKeyVault()..values['trial_start'] = '2000-01-01T00:00:00.000');
@@ -153,7 +156,7 @@ Future<void> openMenu(WidgetTester t, String item) async {
   } else if (item == 'আমি' || item == 'সেটিংস') {
     await t.tap(find.byTooltip('প্রোফাইল'));
   } else {
-    await t.tap(find.text('আমার তথ্য').last);
+    await t.tap(find.text('আমার ফাইল').last);
     await settle(t);
     await t.tap(find.text(item).last);
   }
@@ -173,13 +176,13 @@ Future<void> tell(WidgetTester t, Rig rig, String s, {List<String> alternatives 
 }
 
 Future<void> openTyping(WidgetTester t) async {
-  if (find.text('আগের কথা').evaluate().isEmpty) {
+  if (find.text(tr('আগের কথা')).evaluate().isEmpty) {
     if (find.byKey(const ValueKey('box')).evaluate().isEmpty) {
       Navigator.of(t.element(find.byType(Scaffold).last)).popUntil((r) => r.isFirst);
       await settle(t);
     }
-    if (find.text('হোম').evaluate().isNotEmpty) {
-      await t.tap(find.text('হোম').last);
+    if (find.text(tr('হোম')).evaluate().isNotEmpty) {
+      await t.tap(find.text(tr('হোম')).last);
       await settle(t);
     }
     // The one-tap row shows once the box at the bottom is touched (approved design, 24 Oct).
@@ -190,10 +193,10 @@ Future<void> openTyping(WidgetTester t) async {
     await t.tap(find.descendant(of: find.byKey(const ValueKey('box')), matching: find.byType(TextField)));
     await settle(t);
   }
-  await t.tap(find.text('আগের কথা'));
+  await t.tap(find.text(tr('আগের কথা')));
   await settle(t);
-  if (find.byTooltip('লিখে বলুন').evaluate().isNotEmpty) {
-    await t.tap(find.byTooltip('লিখে বলুন'));
+  if (find.byTooltip(tr('লিখে বলুন')).evaluate().isNotEmpty) {
+    await t.tap(find.byTooltip(tr('লিখে বলুন')));
     await settle(t);
   }
 }
@@ -578,7 +581,7 @@ void main() {
     await tell(t, rig, 'এবিসির পাসওয়ার্ড দেখাও');
     await settle(t);
     expect(find.text('ABC ওয়েবসাইট'), findsOneWidget);
-    expect(rig.voice.spoken.last, contains('তথ্য পেয়েছি'));
+    expect(rig.voice.spoken.last, contains('তথ্য পাওয়া গেছে'));
     expect(rig.voice.spoken.join(' '), isNot(contains('Kp7')));
     expect(find.textContaining('Kp7'), findsNothing);
   });
@@ -617,7 +620,7 @@ void main() {
     await openChat(t);
     await tell(t, rig, 'সজীবকে ৫০০ টাকা ধার দিলাম আর রহিমের কাছ থেকে ২০০ টাকা ধার নিলাম');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
+    expect(rig.voice.spoken.last, contains('২টি জিনিস পেলাম'));
     expect(find.textContaining('সজীবকে ৫০০ টাকা ধার দিলেন'), findsOneWidget);
     await tell(t, rig, 'হ্যাঁ');
     await settle(t);
@@ -725,7 +728,7 @@ void main() {
     expect(rig.brain.data.tasks, hasLength(1), reason: 'a "yes" after it adds nothing');
     await tell(t, rig, 'আজ আমার কী কী আছে?');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('কাজ বাকি ১টা'));
+    expect(rig.voice.spoken.last, contains('কাজ বাকি ১টি'));
     await tell(t, rig, 'ব্যাংকের কাজ হয়ে গেছে');
     await settle(t);
     expect(rig.brain.data.tasks.single.done, isTrue);
@@ -918,7 +921,7 @@ void main() {
     for (final p in ['পাঁচশ টাকা ধার', 'সাতশ টাকা খরচ']) {
       expect(sent.single.text, contains(p), reason: p);
     }
-    expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
+    expect(rig.voice.spoken.last, contains('২টি জিনিস পেলাম'));
     expect(rig.voice.spoken, isNot(contains('আর কিছু বলতে চান?')));
     expect(rig.brain.data.ledger, isEmpty, reason: 'one confirmation first');
   });
@@ -1225,11 +1228,11 @@ void main() {
     final rig = await start(t, data: AppData(reminders: [Reminder(id: 'r1', title: 'ওষুধ খাওয়া', date: DateTime(2026, 10, 9), hour: 16)]));
     rig.notifier.tapped.value = const NoticeTap(NoticeInfo('r1', 'ওষুধ খাওয়া', '', false));
     await settle(t);
-    expect(find.text('হয়ে গেছে, বন্ধ করো'), findsOneWidget);
+    expect(find.text('হয়ে গেছে, বন্ধ করুন'), findsOneWidget);
     await t.tap(find.text('১০ মিনিট'));
     await settle(t);
     expect(rig.notifier.rung, ['ওষুধ খাওয়া']);
-    expect(find.text('হয়ে গেছে, বন্ধ করো'), findsNothing);
+    expect(find.text('হয়ে গেছে, বন্ধ করুন'), findsNothing);
   });
 
   testWidgets('"আর বাজাবে না" on the notification stops a repeating reminder for good; an alarm switched off goes quiet', (t) async {
@@ -1313,7 +1316,7 @@ void main() {
     expect(rig.brain.data.tasks, isEmpty);
     await tell(t, rig, 'শেষ');
     await settle(t);
-    expect(rig.voice.spoken.last, contains('৩টা কাজ পেলাম'));
+    expect(rig.voice.spoken.last, contains('৩টি কাজ পেলাম'));
     await tell(t, rig, 'হ্যাঁ');
     await settle(t);
     expect(rig.brain.data.tasks, hasLength(3));
@@ -1330,7 +1333,7 @@ void main() {
     await tell(t, rig, 'করিমকে ২০০ টাকা ধার দিলাম');
     await settle(t);
     expect(rig.voice.spoken.length, before + 1);
-    expect(rig.voice.spoken.last, contains('২টা জিনিস পেলাম'));
+    expect(rig.voice.spoken.last, contains('২টি জিনিস পেলাম'));
   });
 
   testWidgets('ringtones can be heard before choosing', (t) async {
@@ -1426,8 +1429,8 @@ void main() {
   testWidgets('home shows both dates, sun times and the next holiday; the calendar opens', (t) async {
     await start(t);
     expect(find.textContaining('২৪ আশ্বিন ১৪৩৩'), findsOneWidget);
-    // Sunrise and sunset take turns with the next prayer in the slot (approved design).
-    expect(find.byKey(const Key('home-slot')), findsOneWidget);
+    // No prayer on Home any more (owner, 19 Nov): it is on the মুসলিম টাইম page.
+    expect(find.byKey(const Key('home-slot')), findsNothing);
     expect(find.textContaining('দুর্গাপূজা'), findsOneWidget);
     await t.scrollUntilVisible(find.text('ক্যালেন্ডার').first, 300, scrollable: find.byType(Scrollable).first);
     await t.ensureVisible(find.text('ক্যালেন্ডার').first);
@@ -1523,7 +1526,7 @@ void main() {
   testWidgets('a document photo is kept encrypted in a folder', (t) async {
     final rig = await start(t);
     rig.files.photo = PickedDoc(Uint8List.fromList(List.generate(3000, (i) => i % 251)), 'nid.jpg', 'image/jpeg');
-    await t.tap(find.text('আমার তথ্য').last);
+    await t.tap(find.text('আমার ফাইল').last);
     await settle(t);
     await t.tap(find.text('ডকুমেন্টস'));
     await settle(t);
@@ -1547,13 +1550,13 @@ void main() {
     final rig = await start(t);
     PickedDoc photo(String n) => PickedDoc(Uint8List.fromList(List.generate(500, (i) => i % 251)), n, 'image/jpeg');
     rig.files.photos = [photo('1.jpg'), photo('2.jpg'), photo('3.jpg')];
-    await t.tap(find.text('আমার তথ্য').last);
+    await t.tap(find.text('আমার ফাইল').last);
     await settle(t);
     await t.tap(find.text('ডকুমেন্টস'));
     await settle(t);
     await t.tap(find.text('গ্যালারি'));
     await settle(t);
-    await t.tap(find.text('সবগুলো এক সাথে, একটা গ্রুপে'));
+    await t.tap(find.text('সবগুলো এক সাথে, একটি গ্রুপে'));
     await settle(t);
     await t.enterText(find.widgetWithText(TextField, 'নাম'), 'ভাইয়ের বিয়ে');
     await t.enterText(find.widgetWithText(TextField, 'কী আছে (বিবরণ)'), 'গায়ে হলুদ আর বিয়ের দিনের ছবি');
@@ -1656,7 +1659,7 @@ void main() {
   testWidgets('v2.9: settings switch the app to English and to dark, and back', (t) async {
     final rig = await start(t);
     await openMenu(t, 'সেটিংস');
-    expect(find.byKey(const Key('more-zakat')), findsOneWidget);
+    expect(find.byKey(const Key('tool-zakat')), findsOneWidget);
     // আরও › চেহারা ও ভাষা (owner, 3 Nov: each setting on its own page).
     // Drag and settle a step at a time (scrollUntilVisible loses the list mid-way).
     for (var i = 0; i < 12 && find.byKey(const Key('more-set-look')).evaluate().isEmpty; i++) {
@@ -1756,7 +1759,7 @@ void main() {
 /// (Other boxes, like search, still send from the keyboard.)
 Future<void> sendTyped(WidgetTester t) async {
   await t.pump();
-  final button = find.byTooltip('পাঠান');
+  final button = find.byTooltip(tr('পাঠান'));
   if (button.evaluate().isNotEmpty) {
     // Pressed as a finger would (a passing snack bar may cover it on screen).
     t.widget<InkWell>(find.descendant(of: button.first, matching: find.byType(InkWell)).first).onTap!();

@@ -49,7 +49,7 @@ function ma_pro_page($atts = []) {
     ?>
     <div class="ma-pro">
         <style>
-        .ma-pro{--g:#0E7A5F;--gd:#0A5C47;--gt:#E7F4EF;--ink:#111827;--mut:#6B7280;--line:#E5E7EB;--amber:#B45309;font-family:"Hind Siliguri",system-ui,sans-serif;color:var(--ink);max-width:960px;margin:0 auto}
+        .ma-pro{--g:#0E7A5F;--gd:#0A5C47;--gt:#E7F4EF;--ink:#111827;--mut:#6B7280;--line:#E5E7EB;--amber:#B45309;font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;color:var(--ink);max-width:960px;margin:0 auto}
         .ma-pro *{box-sizing:border-box}
         .ma-pro-hero{background:linear-gradient(135deg,#0E7A5F,#0F766E);color:#fff;border-radius:28px;padding:40px 28px;text-align:center;position:relative;overflow:hidden}
         .ma-pro-hero::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.08)}

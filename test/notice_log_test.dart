@@ -60,24 +60,24 @@ void main() {
     expect(NoticeEvent.fromJson(e.toJson())!.key, e.key);
   });
 
-  testWidgets('নোটিফিকেশন page: what is coming, then what came', (t) async {
+  testWidgets('নোটিফিকেশন page: what came first, then what is coming (owner, 18 Nov)', (t) async {
     final rig = await start(t);
     final b = rig.brain;
     await b.saveReminder(Reminder(id: 'r1', title: 'ওষুধ খাওয়া', date: DateTime(2026, 10, 9), hour: 16, repeat: Repeat.daily));
     expect(b.noticePlan.where((e) => e.tag == 'r1'), isNotEmpty);
     await t.pumpWidget(BrainScope(brain: b, child: const MaterialApp(home: NoticeScreen())));
     await settle(t);
-    expect(find.text('ওষুধ খাওয়া'), findsWidgets);
+    expect(find.text('এখনো কোনো নোটিফিকেশন আসেনি'), findsOneWidget);
     expect(find.textContaining('আসছে'), findsOneWidget);
+    // The tabs swipe: the next one is what is coming.
+    await t.fling(find.byType(PageView), const Offset(-500, 0), 2000);
+    await settle(t);
+    expect(find.text('ওষুধ খাওয়া'), findsWidgets);
     // A tap shows the whole message in a box.
     await t.tap(find.text('ওষুধ খাওয়া').first);
     await settle(t);
     expect(find.byKey(const Key('notice-box')), findsOneWidget);
     await t.tap(find.text('ঠিক আছে'));
     await settle(t);
-    // The tabs swipe.
-    await t.fling(find.byType(PageView), const Offset(-500, 0), 2000);
-    await settle(t);
-    expect(find.text('এখনো কোনো নোটিফিকেশন আসেনি'), findsOneWidget);
   });
 }

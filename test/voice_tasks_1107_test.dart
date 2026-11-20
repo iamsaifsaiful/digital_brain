@@ -34,7 +34,7 @@ void main() {
     expect((r.hour, r.minute), (9, 30));
     expect(task('সকাল ১০ টায় পড়ানো').reminderId, r.id);
     final a = await say('আমার আজ কাজের তালিকা কি?');
-    expect(a, startsWith('আজ ২টা'));
+    expect(a, startsWith('আজ ২টি'));
     expect(a, contains('সকাল ১০ টায় পড়ানো — রিমাইন্ডার সকাল ৯:৩০-এ'));
     expect(a, isNot(contains('(')));
   });

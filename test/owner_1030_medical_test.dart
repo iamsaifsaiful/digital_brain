@@ -22,14 +22,14 @@ void main() {
     expect(familyPerms, contains('medicine'));
   });
 
-  test('the Play app: no medicine or emergency page, no medicine sending in Family', () {
+  test('the Play app: no medicine or emergency page (family medicine reminders stay — owner, 19 Nov)', () {
     medicalOffForTests = true;
     expect(appPlaces.map((p) => p.id), isNot(contains('medicines')));
     expect(appPlaces.map((p) => p.id), isNot(contains('emergency')));
     expect(placePage('medicines'), isNull);
     expect(placePage('emergency'), isNull);
     expect(placePage('health'), isNotNull);
-    expect(familyPerms, isNot(contains('medicine')));
+    expect(familyPerms, contains('medicine'), reason: 'they arrive as plain reminders');
     final health = appPlaces.firstWhere((p) => p.id == 'health');
     expect(health.what, isNot(contains('প্রেশার')));
     expect(appMapForAi(), isNot(contains('ওষুধ')));

@@ -122,7 +122,7 @@ void main() {
     await f.step(find.text('সামনের ছুটি'), press: false, below: 140);
     await f.step(find.byKey(const Key('home-tools')), press: false);
     await f.step(find.byTooltip('বলুন'), press: false);
-    await f.step(find.text('আমার তথ্য').last, press: false);
+    await f.step(find.text('আমার ফাইল').last, press: false);
     debugDisableShadows = true;
   });
 
@@ -131,7 +131,7 @@ void main() {
     final f = Flow(t, 'more');
     await f.step(find.text('আরও').last);
     // In আরও's order (owner, 2 Nov; settings as rows, 3 Nov): look, reminders, assistant, keeping data safe, then help.
-    for (final x in ['রক্তের গ্রুপ', 'চেহারা ও ভাষা', 'রিমাইন্ডার ও নোটিফিকেশন', 'সহকারী ও কণ্ঠ', 'তথ্য নিরাপদ রাখা', 'কী কী করা যায়']) {
+    for (final x in ['সাইফুল ইসলাম', 'চেহারা ও ভাষা', 'রিমাইন্ডার ও নোটিফিকেশন', 'সহকারী ও কণ্ঠ', 'ব্যাকআপ', 'কী কী করা যায়']) {
       // Help is last in আরও now: scroll to each before its step.
       await t.scrollUntilVisible(find.text(x, skipOffstage: false), 200, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
       await f.step(find.text(x, skipOffstage: false), press: false, below: 40);
@@ -237,9 +237,9 @@ void main() {
   testWidgets('tutorial: emergency', (t) async {
     await rig0(t);
     final f = Flow(t, 'emergency');
-    await f.step(find.text('আমার তথ্য').last);
+    await f.step(find.text('আমার ফাইল').last);
     await f.step(find.text('জরুরি কার্ড'));
-    await f.step(find.text('এখনই বানাই'));
+    await f.step(find.text('এখনই তৈরি করুন'));
     final name = field('নাম');
     await f.step(name, type: 'সাইফুল ইসলাম', field: name);
     await f.step(find.text('B+'));

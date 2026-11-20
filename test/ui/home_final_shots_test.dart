@@ -80,7 +80,7 @@ void main() {
   });
 
   for (final look in [Look.light, Look.dark]) {
-    for (final (name, tab) in [('1-home', null), ('2-diary', 'দিনলিপি'), ('3-money', 'হিসাব'), ('4-store', 'আমার তথ্য')]) {
+    for (final (name, tab) in [('1-home', null), ('2-diary', 'দিনলিপি'), ('3-money', 'হিসাব'), ('4-store', 'আমার ফাইল')]) {
       testWidgets('final ui ${look.name}: $name', (t) async {
         if (shots) await icons();
         if (shots) debugDisableShadows = false;

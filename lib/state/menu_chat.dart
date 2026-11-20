@@ -87,7 +87,7 @@ extension _MenuChat on ChatController {
           return;
         }
         final lines = [for (final a in d.accounts) '${accountLabel(a)}: ${bnNumber(accountBalance(d, a))} ${tr('টাকা')}'];
-        _say(out, trf('সব অ্যাকাউন্ট মিলিয়ে {0} টাকা ({1}টা অ্যাকাউন্ট)।', [bnNumber(totalBalance(d)), bnDigits(d.accounts.length)]), facts: lines, links: _pageLink('accounts'));
+        _say(out, trf('সব অ্যাকাউন্ট মিলিয়ে {0} টাকা ({1}টি অ্যাকাউন্ট)।', [bnNumber(totalBalance(d)), bnDigits(d.accounts.length)]), facts: lines, links: _pageLink('accounts'));
       case ('accounts', 'transfer'):
         final from = _account(c.target), to = _account(c.target2);
         if (from == null || to == null) {
@@ -137,7 +137,7 @@ extension _MenuChat on ChatController {
         }
         // A balance stated as it stands: the starting figure moves, never income.
         _clarifyOptions = [
-          (tr('হ্যাঁ, ঠিক করো'), MenuAction(c.transcript, domain: 'accounts', op: 'set_balance_yes', target: a.id, amount: c.amount)),
+          (tr('হ্যাঁ, ঠিক করুন'), MenuAction(c.transcript, domain: 'accounts', op: 'set_balance_yes', target: a.id, amount: c.amount)),
           (tr('না'), SmallTalk(c.transcript, kind: Talk.cancelled)),
         ];
         _ask(out, trf('হিসাবে {0}-এ {1} টাকা আছে। এখন {2} টাকা ধরে ঠিক করে দিই? (আয় বা খরচ হিসেবে লেখা হবে না)', [accountLabel(a), bnNumber(now), bnNumber(c.amount)]), ChatWait.clarify,
@@ -207,7 +207,7 @@ extension _MenuChat on ChatController {
         final lines = [
           for (final g in goals) trf('{0}: জমা {1}, লক্ষ্য {2}, বাকি {3} টাকা', [g.name, bnNumber(g.saved), bnNumber(g.target), bnNumber((g.target - g.saved).clamp(0, 1 << 40))]),
         ];
-        _say(out, goals.length == 1 ? '${lines.single}।' : trf('{0}টা লক্ষ্য:', [bnDigits(goals.length)]), facts: goals.length == 1 ? const [] : lines, links: _pageLink('savings'));
+        _say(out, goals.length == 1 ? '${lines.single}।' : trf('{0}টি লক্ষ্য:', [bnDigits(goals.length)]), facts: goals.length == 1 ? const [] : lines, links: _pageLink('savings'));
 
       // ── Instalments ──
       case ('installment', 'paid' || 'unpay' || 'not_paid'):
@@ -246,33 +246,33 @@ extension _MenuChat on ChatController {
           return;
         }
         _rememberSet('medicines', '', [for (final m in d.medicines) m.id], source: c.transcript);
-        _say(out, trf('{0}টা ওষুধ:', [bnDigits(d.medicines.length)]), facts: [for (final m in d.medicines) '${m.name} — ${m.times.map((t) => bnTime(t ~/ 60, t % 60)).join(', ')}'], links: _pageLink('medicines'));
+        _say(out, trf('{0}টি ওষুধ:', [bnDigits(d.medicines.length)]), facts: [for (final m in d.medicines) '${m.name} — ${m.times.map((t) => bnTime(t ~/ 60, t % 60)).join(', ')}'], links: _pageLink('medicines'));
       case ('habit', 'list'):
         if (d.habits.isEmpty) {
           _say(out, tr('কোনো অভ্যাস রাখা নেই।'), links: _pageLink('habits'));
           return;
         }
         _rememberSet('habits', tr('আজকের'), [for (final h in d.habits) h.id], source: c.transcript);
-        _say(out, trf('{0}টা অভ্যাস:', [bnDigits(d.habits.length)]), facts: [for (final h in d.habits) '${h.name} — ${h.doneOn(_now) ? tr('আজ হয়েছে') : tr('আজ বাকি')}'], links: _pageLink('habits'));
+        _say(out, trf('{0}টি অভ্যাস:', [bnDigits(d.habits.length)]), facts: [for (final h in d.habits) '${h.name} — ${h.doneOn(_now) ? tr('আজ হয়েছে') : tr('আজ বাকি')}'], links: _pageLink('habits'));
       case ('project', 'csv'):
         // One account's entries (or the general ones), the kind asked only.
         final p = c.target.isEmpty ? null : projectByName(d, c.target);
         if (c.target.isNotEmpty && p == null) {
-          _say(out, trf('‘{0}’ নামে কোনো হিসাব নেই — কোনো ফাইল বানাইনি।', [c.target]));
+          _say(out, trf('‘{0}’ নামে কোনো হিসাব নেই — কোনো ফাইল তৈরি হয়নি।', [c.target]));
           return;
         }
         final kind = c.text == 'expense' ? CashKind.expense : (c.text == 'income' ? CashKind.income : null);
         final es = [for (final e in d.cash) if (e.projectId == p?.id && (kind == null || e.kind == kind)) e];
         if (es.isEmpty) {
-          _say(out, tr('এই হিসাবে এমন কোনো লেনদেন নেই — কোনো ফাইল বানাইনি।'));
+          _say(out, tr('এই হিসাবে এমন কোনো লেনদেন নেই — কোনো ফাইল তৈরি হয়নি।'));
           return;
         }
         final total = es.fold<int>(0, (s, e) => s + (kind == null && e.kind == CashKind.income ? 0 : e.amount));
         final name = '${p?.name ?? tr('আয়-ব্যয়')}${kind == CashKind.expense ? '-খরচ' : (kind == CashKind.income ? '-আয়' : '')}.csv';
         await brain.services.files.shareFile(Uint8List.fromList(utf8.encode(cashCsv(es, kind: kind))), name, 'text/csv', name);
         _say(out, kind == null
-            ? trf('{0}টা লেনদেনের CSV বানিয়েছি — পাঠানোর জন্য খুলে দিলাম।', [bnDigits(es.length)])
-            : trf('{0}টা {1}, মোট {2} টাকা — CSV বানিয়ে পাঠানোর জন্য খুলে দিলাম।', [bnDigits(es.length), kind == CashKind.expense ? tr('খরচ') : tr('আয়'), bnNumber(total)]));
+            ? trf('{0}টি লেনদেনের CSV বানিয়েছি — পাঠানোর জন্য খুলে দিলাম।', [bnDigits(es.length)])
+            : trf('{0}টি {1}, মোট {2} টাকা — CSV বানিয়ে পাঠানোর জন্য খুলে দিলাম।', [bnDigits(es.length), kind == CashKind.expense ? tr('খরচ') : tr('আয়'), bnNumber(total)]));
       case ('notes', 'read'):
         // By its words (title first); none said — the newest. Read as data.
         final ws = words(normalize(c.text)).where((x) => x.runes.length > 1).toList();
@@ -299,7 +299,7 @@ extension _MenuChat on ChatController {
           return;
         }
         _rememberSet('notes', c.text.isEmpty ? '' : c.text, [for (final n in list) n.id], source: c.transcript);
-        _say(out, trf('{0}টা নোট:', [bnDigits(list.length)]), facts: [for (final n in list) noteLine(n)], links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
+        _say(out, trf('{0}টি নোট:', [bnDigits(list.length)]), facts: [for (final n in list) noteLine(n)], links: [ChatLink(LinkKind.notes, tr('নোট দেখুন'))]);
       case ('health', 'list'):
         final m = c.target.isEmpty ? null : memberCalled(d, c.target.replaceAll(RegExp(fold(r'(?:য়ের|ের|এর|র)$')), ''));
         if (c.target.isNotEmpty && m == null) {
@@ -314,7 +314,7 @@ extension _MenuChat on ChatController {
           return;
         }
         _rememberSet('health', m == null ? tr('আপনার') : possessive(m.relation.isNotEmpty ? m.relation : m.name), [for (final h in shown) h.id], matching: logs.length, shown: shown.length, source: c.transcript);
-        _say(out, trf('শেষ {0}টা মাপ:', [bnDigits(shown.length)]), facts: [for (final h in shown) '${isEn ? h.kind.en : h.kind.bn}: ${readingText(h)} (${sayWhen(h.at, _now)})'], links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))]);
+        _say(out, trf('শেষ {0}টি মাপ:', [bnDigits(shown.length)]), facts: [for (final h in shown) '${isEn ? h.kind.en : h.kind.bn}: ${readingText(h)} (${sayWhen(h.at, _now)})'], links: [ChatLink(LinkKind.health, tr('স্বাস্থ্য দেখুন'))]);
 
       // ── Medicines ──
       case ('medicine', _):
@@ -403,7 +403,7 @@ extension _MenuChat on ChatController {
         final left = balanceOf(brain.data.ledger, c.text.trim());
         _say(
             out,
-            trf('ঠিক আছে, “{0}”-এর নাম এখন “{1}” — {2}টা লেনদেন সহ।{3}{4}', [
+            trf('ঠিক আছে, “{0}”-এর নাম এখন “{1}” — {2}টি লেনদেন সহ।{3}{4}', [
               c.target,
               c.text.trim(),
               bnDigits(mine.length),
@@ -451,7 +451,7 @@ extension _MenuChat on ChatController {
           (trf('হ্যাঁ, {0}টাই বন্ধ', [bnDigits(on.length)]), MenuAction(c.transcript, domain: 'alarm', op: 'all_off_yes')),
           (tr('না'), SmallTalk(c.transcript, kind: Talk.cancelled)),
         ];
-        _ask(out, trf('{0}টা অ্যালার্ম চালু আছে — সবগুলো বন্ধ করব? (মুছব না, পরে আবার চালু করা যাবে)', [bnDigits(on.length)]), ChatWait.clarify,
+        _ask(out, trf('{0}টি অ্যালার্ম চালু আছে — সবগুলো বন্ধ করব? (মুছব না, পরে আবার চালু করা যাবে)', [bnDigits(on.length)]), ChatWait.clarify,
             choices: [for (final o in _clarifyOptions) ChatChoice(o.$1, o.$1)], facts: [for (final r in on) '${bnTime(r.hour, r.minute)} — ${r.title}']);
       case ('alarm', 'all_off_yes'):
         var n = 0;
@@ -460,7 +460,7 @@ extension _MenuChat on ChatController {
           n++;
         }
         _actions++;
-        _say(out, trf('{0}টা অ্যালার্ম বন্ধ করেছি — মুছিনি।', [bnDigits(n)]), links: _pageLink('alarms'));
+        _say(out, trf('{0}টি অ্যালার্ম বন্ধ করেছি — মুছিনি।', [bnDigits(n)]), links: _pageLink('alarms'));
         _offerUndo(snap);
 
       // ── Notes ──
@@ -498,7 +498,7 @@ extension _MenuChat on ChatController {
         final drive = brain.lastDrive;
         final local = DateTime.tryParse(brain.text('last_backup'));
         final last = [drive, local].whereType<DateTime>().fold<DateTime?>(null, (a, b) => a == null || b.isAfter(a) ? b : a);
-        _say(out, last == null ? tr('এই ফোনে কোনো ব্যাকআপের খবর নেই।') : trf('শেষ ব্যাকআপ: {0}{1}।', [sayWhen(last, _now), drive != null && drive == last ? tr(' (Google Drive-এ)') : '']), links: _pageLink('backup'));
+        _say(out, last == null ? tr('এই ফোনে কোনো ব্যাকআপ পাওয়া যায়নি।') : trf('শেষ ব্যাকআপ: {0}{1}।', [sayWhen(last, _now), drive != null && drive == last ? tr(' (Google Drive-এ)') : '']), links: _pageLink('backup'));
       case ('backup', 'status'):
         final drive = brain.lastDrive;
         final local = DateTime.tryParse(brain.text('last_backup'));
@@ -545,7 +545,7 @@ extension _MenuChat on ChatController {
           return;
         }
         if (!brain.canAddProject) {
-          _say(out, tr('ফ্রিতে ১টা আলাদা হিসাব খোলা যায়, সেটা খোলা আছে; আরও খুলতে প্রিমিয়াম লাগবে। নতুনটা খোলা হয়নি।'), links: _pageLink('pro'));
+          _say(out, tr('ফ্রি সংস্করণে ১টি আলাদা হিসাব খোলা যায়, সেটা খোলা আছে; আরও খুলতে প্রিমিয়াম লাগবে। নতুনটা খোলা হয়নি।'), links: _pageLink('pro'));
           return;
         }
         final made = Project(name: c.target.trim(), createdAt: _now);
@@ -595,7 +595,7 @@ extension _MenuChat on ChatController {
         _say(out, rows.isEmpty ? trf('{0}আজ দোকানের কোনো হিসাব লেখা নেই।', [shop == null ? '' : '${shop.name}: ']) : trf('{0}আজ বিক্রি (হাতে পাওয়া) {1} টাকা, খরচ {2} টাকা।', [shop == null ? '' : '${shop.name}: ', bnNumber(sales), bnNumber(spent)]),
             links: _pageLink('shop'));
       case ('shop', 'calc'):
-        _say(out, trf('{0}টা {1} × {2} টাকা = {3} টাকা। বিক্রি হিসেবে লিখতে চাইলে বলুন “দোকানে {3} টাকা বিক্রি হয়েছে”।', [bnDigits(c.amount), c.text, bnNumber(c.amount2), bnNumber(c.amount * c.amount2)]));
+        _say(out, trf('{0}টি {1} × {2} টাকা = {3} টাকা। বিক্রি হিসেবে লিখতে চাইলে বলুন “দোকানে {3} টাকা বিক্রি হয়েছে”।', [bnDigits(c.amount), c.text, bnNumber(c.amount2), bnNumber(c.amount * c.amount2)]));
       case ('shop', 'profit'):
         _say(out, tr('কেনা দাম (খরচ) জানা না থাকলে লাভ বলা যায় না। দোকানের খরচগুলো লিখে রাখলে বিক্রি থেকে খরচ বাদে কত থাকল বলতে পারব।'), links: _pageLink('shop'));
 
@@ -632,7 +632,7 @@ extension _MenuChat on ChatController {
         }
         final e = pair.$2;
         _clarifyOptions = [
-          (tr('হ্যাঁ, একটা মুছো'), MenuAction(c.transcript, domain: 'cash', op: 'delete_one', target: e.id)),
+          (tr('হ্যাঁ, একটি মুছো'), MenuAction(c.transcript, domain: 'cash', op: 'delete_one', target: e.id)),
           (tr('না'), SmallTalk(c.transcript, kind: Talk.cancelled)),
         ];
         _ask(out, trf('এই দুটো একই রকম: {0}, {1} টাকা ({2})। একটা মুছে দিই? (৩০ দিন “রিসাইকেল বিন” থেকে ফেরত আনা যাবে)', [e.category, bnNumber(e.amount), shortDate(e.date)]), ChatWait.clarify,
@@ -722,17 +722,17 @@ extension _MenuChat on ChatController {
         _say(out, tr('এটা গোপন তথ্য (পিন/পাসওয়ার্ড) — সাধারণ নোটে রাখি না, জোরেও বলি না। পাসওয়ার্ড ভল্টে নিজে টাইপ করে রাখুন; ভল্ট আঙুলের ছাপ বা PIN ছাড়া খোলে না।'), links: _pageLink('vault'));
       case ('app', 'summary'):
         final parts = [
-          if (d.tasks.any((t) => !t.done)) trf('বাকি কাজ {0}টা', [bnDigits(d.tasks.where((t) => !t.done).length)]),
-          if (d.reminders.any((r) => r.enabled)) trf('চালু রিমাইন্ডার {0}টা', [bnDigits(d.reminders.where((r) => r.enabled).length)]),
-          if (d.notes.isNotEmpty) trf('নোট {0}টা', [bnDigits(d.notes.length)]),
-          if (d.docs.isNotEmpty) trf('কাগজ {0}টা', [bnDigits(d.docs.length)]),
-          if (d.contacts.isNotEmpty) trf('নম্বর {0}টা', [bnDigits(d.contacts.length)]),
-          if (d.ledger.isNotEmpty) trf('লেনদেন {0}টা', [bnDigits(d.ledger.length)]),
-          if (d.cash.isNotEmpty) trf('আয়-খরচ {0}টা', [bnDigits(d.cash.length)]),
-          if (d.medicines.isNotEmpty) trf('ওষুধ {0}টা', [bnDigits(d.medicines.length)]),
-          if (d.habits.isNotEmpty) trf('অভ্যাস {0}টা', [bnDigits(d.habits.length)]),
-          if (d.specialDays.isNotEmpty) trf('বিশেষ দিন {0}টা', [bnDigits(d.specialDays.length)]),
-          if (d.vault.isNotEmpty) trf('ভল্টে {0}টা লগইন (দেখতে আঙুলের ছাপ লাগবে)', [bnDigits(d.vault.length)]),
+          if (d.tasks.any((t) => !t.done)) trf('বাকি কাজ {0}টি', [bnDigits(d.tasks.where((t) => !t.done).length)]),
+          if (d.reminders.any((r) => r.enabled)) trf('চালু রিমাইন্ডার {0}টি', [bnDigits(d.reminders.where((r) => r.enabled).length)]),
+          if (d.notes.isNotEmpty) trf('নোট {0}টি', [bnDigits(d.notes.length)]),
+          if (d.docs.isNotEmpty) trf('কাগজ {0}টি', [bnDigits(d.docs.length)]),
+          if (d.contacts.isNotEmpty) trf('নম্বর {0}টি', [bnDigits(d.contacts.length)]),
+          if (d.ledger.isNotEmpty) trf('লেনদেন {0}টি', [bnDigits(d.ledger.length)]),
+          if (d.cash.isNotEmpty) trf('আয়-খরচ {0}টি', [bnDigits(d.cash.length)]),
+          if (d.medicines.isNotEmpty) trf('ওষুধ {0}টি', [bnDigits(d.medicines.length)]),
+          if (d.habits.isNotEmpty) trf('অভ্যাস {0}টি', [bnDigits(d.habits.length)]),
+          if (d.specialDays.isNotEmpty) trf('বিশেষ দিন {0}টি', [bnDigits(d.specialDays.length)]),
+          if (d.vault.isNotEmpty) trf('ভল্টে {0}টি লগইন (দেখতে আঙুলের ছাপ লাগবে)', [bnDigits(d.vault.length)]),
         ];
         _say(out, parts.isEmpty ? tr('এখনো কিছু রাখা নেই।') : trf('রাখা আছে: {0}।', [parts.join(', ')]), links: _pageLink('store'));
       case ('app', 'why'):
@@ -805,7 +805,7 @@ extension _MenuChat on ChatController {
     switch (c.op) {
       case 'stock_query':
         final list = m == null ? meds : [m];
-        final lines = [for (final x in list) x.daysLeft == null ? trf('{0}: কতগুলো আছে লেখা নেই', [x.name]) : trf('{0}: {1}টা আছে — আরও {2} দিন চলবে', [x.name, bnDigits(x.stock), bnDigits(x.daysLeft!)])];
+        final lines = [for (final x in list) x.daysLeft == null ? trf('{0}: কতগুলো আছে লেখা নেই', [x.name]) : trf('{0}: {1}টি আছে — আরও {2} দিন চলবে', [x.name, bnDigits(x.stock), bnDigits(x.daysLeft!)])];
         _say(out, list.length == 1 ? '${lines.single}।' : tr('ওষুধের হিসাব:'), facts: list.length == 1 ? const [] : lines, links: link);
         return;
       case 'stock_add':
@@ -813,7 +813,7 @@ extension _MenuChat on ChatController {
         final added = c.amount;
         await brain.saveMedicine(m.copyWith(stock: m.stock + added));
         _actions++;
-        _say(out, trf('{0} — {1}টা যোগ করেছি, এখন {2}টা আছে। খাওয়ার হিসাবে কিছু লিখিনি।', [m.name, bnDigits(added), bnDigits(m.stock + added)]), links: link);
+        _say(out, trf('{0} — {1}টি যোগ করেছি, এখন {2}টি আছে। খাওয়ার হিসাবে কিছু লিখিনি।', [m.name, bnDigits(added), bnDigits(m.stock + added)]), links: link);
         _offerUndo(snap);
         return;
       case 'reminder_off':
@@ -897,7 +897,7 @@ extension _MenuChat on ChatController {
         _say(out, trf('{0} আয় {1}, খরচ {2} — {3}।', [c.target, bnNumber(got), bnNumber(spent), net >= 0 ? trf('হাতে থাকে {0} টাকা (ব্যালেন্স)', [bnNumber(net)]) : trf('আয়ের চেয়ে {0} টাকা বেশি খরচ', [bnNumber(-net)])]), links: link);
       default:
         final items = rows.where((e) => e.kind == CashKind.expense).toList()..sort((a, b) => b.amount.compareTo(a.amount));
-        _say(out, spent == 0 ? trf('{0} {1}কোনো খরচ লেখা নেই।', [c.target, cat]) : trf('{0} {1}খরচ {2} টাকা ({3}টা)।', [c.target, cat, bnNumber(spent), bnDigits(items.length)]),
+        _say(out, spent == 0 ? trf('{0} {1}কোনো খরচ লেখা নেই।', [c.target, cat]) : trf('{0} {1}খরচ {2} টাকা ({3}টি)।', [c.target, cat, bnNumber(spent), bnDigits(items.length)]),
             facts: [for (final e in items.take(10)) '${e.category}${e.note.isEmpty ? '' : ' — ${e.note}'}: ${bnNumber(e.amount)} ${tr('টাকা')} (${shortDate(e.date)})'], links: link);
     }
   }

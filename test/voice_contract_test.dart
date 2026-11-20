@@ -207,7 +207,7 @@ void main() {
 
     testWidgets('১২. paid today + to pay Friday + remind Thursday: three separate things', (t) async {
       final r = await talk(t, ['আজ সজীবকে দুইশ টাকা ফেরত দিয়েছি, বাকি তিনশ টাকা সোমবার দেব, রবিবার মনে করিও।', 'হ্যাঁ', 'সকাল ৯টায়']);
-      expect(r[0], contains('৩টা জিনিস'));
+      expect(r[0], contains('৩টি জিনিস'));
       final e = chat.brain.data.ledger.single;
       expect((e.amount, e.kind), (200, LedgerKind.repaid), reason: 'only what was paid today — never 500');
       final task = chat.brain.data.tasks.single;
@@ -230,7 +230,7 @@ void main() {
       final r = await talk(t, ['ফোন সংক্রান্ত কাজগুলো দেখাও'], setup: (rig) {
         rig.brain.data.tasks.addAll([for (final n in ['রহিম', 'করিম', 'সজীব', 'ইসমাইল']) Task(title: '$nকে ফোন করা')]);
       });
-      expect(r.single, contains('৪টা কাজ'));
+      expect(r.single, contains('৪টি কাজ'));
       expect(chat.messages.last.facts, hasLength(4));
     });
 

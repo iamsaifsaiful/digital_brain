@@ -38,7 +38,7 @@ class _BizStockState extends State<BizStock> {
       onChanged: (v) => setState(() => _part = v),
       top: (tabs) => [
       TabTitle(tr('স্টক'),
-          sub: trf('{0}টা পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
+          sub: trf('{0}টি পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
           trailing: IconButton(key: const Key('biz-stock-add'), tooltip: tr('নতুন পণ্য'), onPressed: () => pushPage(context, const ProductForm()), icon: const Icon(Icons.add_box_outlined))),
       const BizFreeBanner(),
       if (exp.isNotEmpty) ...[
@@ -46,7 +46,7 @@ class _BizStockState extends State<BizStock> {
         AttentionCard(
           icon: Icons.schedule_rounded,
           title: trf('{0}-এর মেয়াদ {1}', [exp.first.name, dayOnly(exp.first.expiry!).isAfter(dayOnly(now)) ? trf('{0} শেষ', [shortDate(exp.first.expiry!)]) : tr('শেষ হয়ে গেছে')]),
-          text: exp.length > 1 ? trf('আরও {0}টা পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন', [bnDigits(exp.length - 1)]) : tr('আজ কম দামে বিক্রি করতে পারেন'),
+          text: exp.length > 1 ? trf('আরও {0}টি পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন', [bnDigits(exp.length - 1)]) : tr('আজ কম দামে বিক্রি করতে পারেন'),
           action: tr('দেখুন'),
           onAction: () => setState(() => _part = 'expiry'),
         ),
@@ -102,7 +102,7 @@ class _BizStockState extends State<BizStock> {
               ),
               const SizedBox(width: 10),
               Expanded(child: Text(tr(shelf), key: Key('biz-section-$shelf'), maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 600))),
-              Counter(trf('{0}টা', [bnDigits(ps.length)])),
+              Counter(trf('{0}টি', [bnDigits(ps.length)])),
               const SizedBox(width: 6),
               IconButton(
                 key: Key('biz-section-add-$shelf'),
@@ -113,12 +113,16 @@ class _BizStockState extends State<BizStock> {
               ),
             ]),
           ),
-          ListCard(
-            rows: [for (final p in ps) _productRow(context, p, now)],
-            foot: shelf == listed.last.$1
-                ? CardFoot(left: tr('+ পণ্য যোগ'), onLeft: () => pushPage(context, ProductForm(category: shelf == otherSection ? '' : shelf)), right: tr('মাল কেনা'), onRight: () => pushPage(context, const PurchasePage()), leftKey: const Key('biz-add-product'), rightKey: const Key('biz-open-purchase'))
-                : null,
-          ),
+          ListCard(rows: [for (final p in ps) _productRow(context, p, now)]),
+        ],
+        // On their own under the list, not stuck to its last section (owner, 13 Nov).
+        if (listed.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: SmallButton(key: const Key('biz-add-product'), label: tr('পণ্য যোগ'), icon: Icons.add_box_outlined, primary: true, onTap: () => pushPage(context, const ProductForm()))),
+            const SizedBox(width: 8),
+            Expanded(child: SmallButton(key: const Key('biz-open-purchase'), label: tr('মাল কেনা'), icon: Icons.local_shipping_outlined, onTap: () => pushPage(context, const PurchasePage()))),
+          ]),
         ],
       ],
     ];
@@ -200,7 +204,7 @@ class _ProductFormState extends State<ProductForm> {
       toast(context, tr('পণ্যের নাম লিখুন'));
       return;
     }
-    if (!await bizCan(context) || !mounted) return;
+    if (_p == null && !await bizNewProduct(context) || !mounted) return;
     final p = Product(
       id: _p?.id,
       name: name,
@@ -254,7 +258,6 @@ class _ProductFormState extends State<ProductForm> {
                   key: const Key('biz-product-delete'),
                   tooltip: tr('মুছুন'),
                   onPressed: () async {
-                    if (!await bizCan(context) || !context.mounted) return;
                     final ok = await confirmDialog(context, title: trf('‘{0}’ মুছবেন?', [_p.name]), text: tr('বিক্রির পুরোনো হিসাব থেকে যাবে। মুছে ফেলা থেকে ৩০ দিন ফেরানো যায়।'), yes: tr('মুছুন'), danger: true);
                     if (!ok || !context.mounted) return;
                     await BrainScope.read(context).deleteProduct(_p.id);
@@ -459,7 +462,7 @@ class _PurchasePageState extends State<PurchasePage> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
                             child: Row(children: [
-                              Expanded(child: Text(trf('{0}টা পণ্য · আনুমানিক', [bnDigits(lines.where((o) => o.picked).length)]), style: body(13, color: C.muted))),
+                              Expanded(child: Text(trf('{0}টি পণ্য · আনুমানিক', [bnDigits(lines.where((o) => o.picked).length)]), style: body(13, color: C.muted))),
                               Text(taka(estimate(lines)), style: display(18, weight: 600)),
                             ]),
                           ),
@@ -648,7 +651,6 @@ class _GoodsInState extends State<_GoodsIn> {
                 return _pickDealer();
               }
               if (total <= 0 && _lines.isEmpty) return toast(context, tr('কোন পণ্য এল, বা মোট বিল কত, লিখুন'));
-              if (!await bizCan(context) || !context.mounted) return;
               await brain.recordPurchase(dealer.id, [for (final (p, q, a) in _lines) (p, readNum(q.text) ?? 0, (readNum(a.text) ?? 0).round())], paid: paid, total: total);
               if (!context.mounted) return;
               toast(context, paid < total ? trf('রাখা হলো — {0}-এর কাছে দেনা {1}', [dealer.name, taka(total - paid)]) : tr('রাখা হলো — স্টকে তোলা হয়েছে'));

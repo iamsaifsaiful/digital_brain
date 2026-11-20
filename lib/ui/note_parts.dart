@@ -112,7 +112,7 @@ class _ChecklistEditorState extends State<ChecklistEditor> {
           ]),
         Align(
           alignment: Alignment.centerLeft,
-          child: TextButton.icon(onPressed: _add, icon: const Icon(Icons.add_rounded), label: Text(tr('আরেকটা যোগ করুন'))),
+          child: TextButton.icon(onPressed: _add, icon: const Icon(Icons.add_rounded), label: Text(tr('আরেকটি যোগ করুন'))),
         ),
       ]),
     );

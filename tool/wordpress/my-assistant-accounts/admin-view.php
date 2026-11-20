@@ -82,7 +82,7 @@ function ma_acc_render($v) {
     $paying_rate = $s['total'] ? round($s['pro'] * 100 / $s['total'], 1) : 0;
     ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
     <?php ma_acc_styles(); ma_ui_styles(); ?>
     <div class="wrap ma">
         <h1 class="screen-reader-text">My Assistant</h1>
@@ -773,6 +773,18 @@ function ma_acc_render_settings($v) {
     </section>
     <?php if (function_exists('ma_play_settings_card')) { ma_play_settings_card(); } ?>
     <?php if (function_exists('ma_admob_settings_card')) { ma_admob_settings_card(); } ?>
+    <section class="ma-card pad">
+        <h2>সাপোর্ট হোয়াটসঅ্যাপ</h2>
+        <p class="muted">অ্যাপের “আরও” → “সাহায্য ও যোগাযোগ”-এ “হোয়াটসঅ্যাপে কথা বলুন” বোতাম এই নম্বরে চ্যাট খোলে। খালি রাখলে বোতাম দেখাবে না। অ্যাপ পরের বার খুললেই নতুন নম্বর পাবে।</p>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="ma_support_wa">
+            <?php wp_nonce_field('ma_support_wa'); ?>
+            <label>নম্বর
+                <input type="tel" name="support_whatsapp" value="<?php echo esc_attr((string) get_option('ma_support_whatsapp', '')); ?>" placeholder="01XXXXXXXXX" inputmode="tel">
+            </label>
+            <button class="ma-btn" type="submit">রাখুন</button>
+        </form>
+    </section>
     <div class="ma-grid">
         <section class="ma-card pad">
             <h2>Google লগইন</h2>
@@ -806,7 +818,7 @@ function ma_acc_styles() {
     ?>
     <style>
     .ma{--g:#0E7A5F;--gd:#0A5C47;--gt:#E7F4EF;--ink:#111827;--mut:#6B7280;--mut2:#374151;--line:#E5E7EB;--bg:#F6F7F9;--amber:#B45309;--amt:#FEF3E2;--rose:#BE123C;--rot:#FFF1F2;--blue:#1D4ED8;--blt:#EEF2FF;
-        font-family:"Hind Siliguri",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);max-width:1240px;margin:16px 20px 40px 0}
+        font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);max-width:1240px;margin:16px 20px 40px 0}
     .ma *{box-sizing:border-box}
     .ma .muted{color:var(--mut)}
     .ma-hero{background:var(--g);background-image:radial-gradient(120% 140% at 100% 0%,rgba(255,255,255,.14) 0,rgba(255,255,255,0) 55%),linear-gradient(160deg,#0E7A5F 0%,#0A5C47 100%);color:#fff;border-radius:22px;padding:22px 26px 24px;box-shadow:0 10px 30px -12px rgba(10,92,71,.55)}
@@ -925,7 +937,7 @@ function ma_acc_styles() {
     .ma-checks li.ok::before{content:"✓";background:var(--gt);color:var(--g)}
     .ma-code{display:inline-flex;align-items:center;gap:4px;background:var(--bg);border-radius:9px;padding:2px 2px 2px 10px;max-width:100%}
     .ma-code code{background:none;padding:0;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .ma-dialog{border:0;border-radius:20px;padding:24px;width:min(460px,calc(100vw - 32px));box-shadow:0 24px 60px -12px rgba(17,24,39,.35);font-family:"Hind Siliguri",system-ui,sans-serif;color:var(--ink)}
+    .ma-dialog{border:0;border-radius:20px;padding:24px;width:min(460px,calc(100vw - 32px));box-shadow:0 24px 60px -12px rgba(17,24,39,.35);font-family:"Noto Sans Bengali","Hind Siliguri",system-ui,sans-serif;color:var(--ink)}
     .ma-dialog.narrow{width:min(400px,calc(100vw - 32px))}
     .ma-dialog::backdrop{background:rgba(17,24,39,.45);backdrop-filter:blur(2px)}
     .ma-dialog h3{font-size:19px;margin:0 0 6px}

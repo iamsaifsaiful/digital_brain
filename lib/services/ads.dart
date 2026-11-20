@@ -20,6 +20,11 @@ class Ads {
   static InterstitialAd? _full;
   static bool _loadingFull = false;
 
+  /// True while our own full-screen ad covers the app (owner, 13 Nov: "এড বাদ
+  /// দিলে এপে ডুকা যায় না"). Google shows it in its own screen, so the app
+  /// looks "left"; that must not lock the app or count as going away.
+  static bool onScreen = false;
+
   /// Asks for consent when needed and starts AdMob. True when ads may be asked for.
   static Future<bool> start() => _ready ??= _start();
 
@@ -95,8 +100,14 @@ class Ads {
         if (!closed.isCompleted) closed.complete();
       },
     );
-    await ad.show();
-    await closed.future.timeout(const Duration(minutes: 5), onTimeout: () {});
+    onScreen = true;
+    try {
+      await ad.show();
+      await closed.future.timeout(const Duration(minutes: 5), onTimeout: () {});
+    } finally {
+      // The app's "resumed" comes a moment after the ad closes.
+      Future<void>.delayed(const Duration(seconds: 2), () => onScreen = false);
+    }
     _loadFull();
     return true;
   }

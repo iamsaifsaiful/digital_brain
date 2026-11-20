@@ -115,6 +115,8 @@ class _BizCustomersState extends State<BizCustomers> {
     final sub = [
       if (c.phone.isNotEmpty) bnDigits(c.phone),
       if (a.due > 0 && days > 0) trf('{0} ধরে বাকি', [owedFor(days)]),
+      // Owed since today: say so, not an empty line (owner, 13 Nov).
+      if (a.due > 0 && days <= 0) tr('আজ বাকিতে নিলেন'),
       if (a.due <= 0 && a.last != null) trf('শেষ কেনা {0}', [shortDate(a.last!)]),
     ].join(' · ');
     return ListRow(
@@ -124,7 +126,10 @@ class _BizCustomersState extends State<BizCustomers> {
       subtitle: sub.isEmpty ? null : sub,
       subtitleColor: days > 30 ? C.warn : null,
       trailing: a.due > 0
-          ? Text(taka(a.due), style: body(14.5, weight: FontWeight.w600, color: days > 30 ? C.warn : C.green))
+          ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(taka(a.due), style: body(15, weight: FontWeight.w700, color: days > 30 ? C.warn : C.green)),
+              Text(tr('বাকি'), style: body(11.5, color: C.muted)),
+            ])
           : Icon(Icons.chevron_right_rounded, color: C.muted),
       onTap: () => pushPage(context, CustomerPage(id: c.id)),
     );
@@ -180,7 +185,7 @@ Future<Customer?> pickCustomer(BuildContext context) async {
   );
   if (name == null || name.trim().isEmpty) return null;
   if (name.startsWith('id:')) return customerById(brain.shop, name.substring(3));
-  if (!context.mounted || !await bizCan(context)) return null;
+  if (customerNamed(brain.shop, name) == null && (!context.mounted || !await bizNewCustomer(context))) return null;
   return brain.customerFor(name.trim());
 }
 
@@ -347,7 +352,6 @@ class CustomerPage extends StatelessWidget {
                         icon: Icons.check_rounded,
                         primary: true,
                         onTap: () async {
-                          if (!await bizCan(context) || !context.mounted) return;
                           final v = await askText(context, tr('কত টাকা পেলেন?'), initial: due > 0 ? bnDigits(due) : '', number: true);
                           final n = v == null ? null : readNum(v);
                           if (n == null || n <= 0) return;
@@ -390,17 +394,16 @@ class CustomerPage extends StatelessWidget {
                 (Icons.chat_outlined, tr('হোয়াটসঅ্যাপ'), bnDigits(c.whatsapp.isNotEmpty ? c.whatsapp : (c.phone.isNotEmpty ? trf('{0} (মোবাইলই)', [c.phone]) : ''))),
                 (Icons.place_outlined, tr('ঠিকানা'), c.address),
                 (Icons.sticky_note_2_outlined, tr('নোট'), c.note),
-                (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টা রসিদ', [taka(bought), bnDigits(sales.length)])),
-                (Icons.event_outlined, tr('গ্রাহক যেদিন থেকে'), c.added.year == 2000 ? '' : shortDate(c.added)),
+                (Icons.shopping_bag_outlined, tr('মোট কেনা'), sales.isEmpty ? '' : trf('{0} · {1}টি রসিদ', [taka(bought), bnDigits(sales.length)])),
+                (Icons.event_outlined, tr('যোগ হয়েছেন'), c.added.year == 2000 ? '' : shortDate(c.added)),
               ]),
-              SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টা', [bnDigits(entries.length)])),
+              SectionHeading(tr('কেনাকাটা ও লেনদেন'), counter: trf('{0}টি', [bnDigits(entries.length)])),
               ListCard(rows: [for (final e in entries) e.$2], empty: tr('এখনো কোনো কেনাকাটা নেই।')),
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: TextButton.icon(
                   key: const Key('biz-customer-old-due'),
                   onPressed: () async {
-                    if (!await bizCan(context) || !context.mounted) return;
                     final v = await askText(context, tr('আগের কত টাকা বাকি আছে?'), number: true);
                     final n = v == null ? null : readNum(v);
                     if (n != null && n > 0) await brain.customerOwes(c.id, n.round());
@@ -483,7 +486,6 @@ class _ReminderCard extends StatelessWidget {
 /// Set (or change) the reminder to collect from [c]: the day, the time,
 /// once or every week.
 Future<void> setCollectReminder(BuildContext context, Customer c) async {
-  if (!await bizCan(context) || !context.mounted) return;
   final brain = BrainScope.read(context);
   final now = brain.services.now();
   final old = c.reminderId == null ? null : brain.reminderById(c.reminderId!);
@@ -495,7 +497,7 @@ Future<void> setCollectReminder(BuildContext context, Customer c) async {
   if (picked == null || !context.mounted) return;
   final ok = await brain.setCollectReminder(c.id, picked.$1, repeat: picked.$2);
   if (!context.mounted) return;
-  toast(context, ok ? trf('রিমাইন্ডার রাখা হলো — {0}, {1}', [shortDate(picked.$1), bnTime(picked.$1.hour, picked.$1.minute)]) : tr('ফ্রিতে একসাথে ২০টা রিমাইন্ডার রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ করুন, বা প্রিমিয়াম নিন।'));
+  toast(context, ok ? trf('রিমাইন্ডার রাখা হলো — {0}, {1}', [shortDate(picked.$1), bnTime(picked.$1.hour, picked.$1.minute)]) : tr('ফ্রি সংস্করণে একসাথে ২০টি রিমাইন্ডার রাখা যায়, সেটা পূর্ণ। পুরোনো কোনোটা বন্ধ করুন, বা প্রিমিয়াম নিন।'));
 }
 
 class _ReminderSheet extends StatefulWidget {
@@ -604,7 +606,7 @@ class _CustomerFormState extends State<CustomerForm> {
     final brain = BrainScope.read(context);
     final name = _name.text.trim();
     if (name.isEmpty) return toast(context, tr('গ্রাহকের নাম লিখুন'));
-    if (!await bizCan(context) || !mounted) return;
+    if (_c == null && !await bizNewCustomer(context) || !mounted) return;
     final base = _c ?? Customer(name: name);
     final kept = await brain.saveCustomer(base.copyWith(
       name: name,
