@@ -677,6 +677,15 @@ class MainActivity : FlutterFragmentActivity() {
                 }
                 result.success(null)
             }
+            "diskSpace" -> {
+                // The phone's free and whole room, for আমার ফাইল's ring.
+                try {
+                    val st = android.os.StatFs(filesDir.path)
+                    result.success(mapOf("free" to st.availableBytes, "total" to st.totalBytes))
+                } catch (e: Exception) {
+                    result.success(null)
+                }
+            }
             "openWith" -> {
                 // A copy in the app's cache, offered to the phone's PDF/Word/… apps.
                 val bytes = call.argument<ByteArray>("bytes")

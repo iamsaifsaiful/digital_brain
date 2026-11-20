@@ -31,6 +31,25 @@ String sizeText(int bytes) {
   return '${bnDigits((bytes / 1024).ceil())} KB';
 }
 
+/// Sends all pages of [d] out of the app — WhatsApp, Messenger, email,
+/// Drive, whatever the phone offers (owner, 20 Nov). Asks for the PIN or
+/// finger first unless the page is already open.
+Future<void> shareDoc(BuildContext context, Doc d, {bool unlocked = false}) async {
+  final brain = BrainScope.read(context);
+  if (!unlocked && !await verifyUser(context, reason: trf('{0} — শেয়ার করতে যাচাই করুন', [d.title]))) return;
+  final out = <PickedDoc>[];
+  for (final f in d.files) {
+    final b = await brain.docBytes(f);
+    if (b != null) out.add(PickedDoc(b, f.name, f.mime));
+  }
+  if (!context.mounted) return;
+  if (out.isEmpty) {
+    toast(context, tr('শেয়ার করার মতো কোনো পাতা নেই।'));
+    return;
+  }
+  await brain.services.files.shareFiles(out, d.title);
+}
+
 /// All folders: the usual ones, then the user's own.
 List<String> allDocFolders(AppData d) => [...docFolders, ...{...d.ownDocFolders, for (final x in d.docs) x.folder}.where((f) => !docFolders.contains(f))];
 
@@ -139,6 +158,12 @@ class _DocsScreenState extends State<DocsScreen> {
           ),
           title: x.title,
           subtitle: trf('{0} · {1} পাতা · {2}{3}', [tr(x.folder), bnDigits(x.files.length), sizeText(x.size), x.expiry != null ? ' · ${trf('মেয়াদ {0}', ['${bnDigits(x.expiry!.day)} ${monthShort(x.expiry!.month)} ${bnDigits(x.expiry!.year)}'])}' : '']),
+          trailing: IconButton(
+            key: Key('doc-share-${x.id}'),
+            tooltip: tr('শেয়ার'),
+            onPressed: x.files.isEmpty ? null : () => shareDoc(context, x),
+            icon: Icon(Icons.share_outlined, color: C.muted, size: 20),
+          ),
           onTap: () => _open(x),
         );
 
@@ -398,6 +423,13 @@ class _DocScreenState extends State<DocScreen> {
       body: SafeArea(
         child: Column(children: [
           TopBar(title: d.title, trailing: [
+            if (d.files.isNotEmpty)
+              IconButton(
+                key: const Key('doc-share'),
+                tooltip: tr('শেয়ার'),
+                onPressed: () => shareDoc(context, d, unlocked: true),
+                icon: const Icon(Icons.share_outlined),
+              ),
             IconButton(
               tooltip: tr('নাম বদলান'),
               onPressed: () async {

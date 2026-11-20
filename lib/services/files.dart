@@ -16,6 +16,13 @@ abstract class FileBridge {
   /// Opens the share sheet with plain text (a receipt, a message).
   Future<void> shareText(String text);
 
+  /// Opens the share sheet with several files at once (all pages of one
+  /// document) — WhatsApp, Messenger, email, Drive… whatever the phone has.
+  Future<void> shareFiles(List<PickedDoc> files, String text);
+
+  /// How much room the app takes on the phone, and the phone's free room.
+  Future<StorageUse> storageUse();
+
   /// Asks where to keep the file (Download or any folder) and writes it
   /// there. True when saved, false when the user cancelled.
   Future<bool> saveFile(Uint8List bytes, String fileName, {String? mime});
@@ -60,6 +67,19 @@ abstract class FileBridge {
 /// page — small print stays readable.
 const maxSide = 2000;
 const photoQuality = 88;
+
+/// The app's own room on the phone: document pages, the data file and
+/// everything else it keeps (the language model, logs…). [free] and
+/// [total] are the phone's; null when the phone did not say.
+class StorageUse {
+  const StorageUse({this.docs = 0, this.data = 0, this.other = 0, this.free, this.total});
+  final int docs;
+  final int data;
+  final int other;
+  final int? free;
+  final int? total;
+  int get app => docs + data + other;
+}
 
 class PickedDoc {
   const PickedDoc(this.bytes, this.name, this.mime);
@@ -148,6 +168,48 @@ class DeviceFiles implements FileBridge {
   @override
   Future<void> shareText(String text) async {
     await sp.SharePlus.instance.share(sp.ShareParams(text: text));
+  }
+
+  @override
+  Future<void> shareFiles(List<PickedDoc> files, String text) async {
+    final dir = Directory('${(await getTemporaryDirectory()).path}/share');
+    if (await dir.exists()) await dir.delete(recursive: true);
+    await dir.create(recursive: true);
+    final out = <sp.XFile>[];
+    for (final (i, f) in files.indexed) {
+      final name = f.name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final file = File('${dir.path}/${files.length > 1 ? '${i + 1}-' : ''}$name');
+      await file.writeAsBytes(f.bytes, flush: true);
+      out.add(sp.XFile(file.path, mimeType: f.mime));
+    }
+    await sp.SharePlus.instance.share(sp.ShareParams(files: out, text: text));
+  }
+
+  @override
+  Future<StorageUse> storageUse() async {
+    var docs = 0, data = 0, other = 0;
+    try {
+      final root = await getApplicationSupportDirectory();
+      await for (final e in root.list(recursive: true, followLinks: false)) {
+        if (e is! File) continue;
+        final n = await e.length();
+        final p = e.path.substring(root.path.length);
+        if (p.startsWith('/docs/')) {
+          docs += n;
+        } else if (p.startsWith('/brain.enc')) {
+          data += n;
+        } else {
+          other += n;
+        }
+      }
+    } catch (_) {}
+    int? free, total;
+    try {
+      final r = await _channel.invokeMethod<Map<Object?, Object?>>('diskSpace');
+      free = (r?['free'] as num?)?.toInt();
+      total = (r?['total'] as num?)?.toInt();
+    } catch (_) {}
+    return StorageUse(docs: docs, data: data, other: other, free: free, total: total);
   }
 
   @override
@@ -250,6 +312,17 @@ class FakeFiles implements FileBridge {
 
   @override
   Future<void> shareText(String text) async => sharedText = text;
+
+  List<PickedDoc>? sharedFiles;
+
+  @override
+  Future<void> shareFiles(List<PickedDoc> files, String text) async => sharedFiles = files;
+
+  /// What the phone reports in tests and screenshots.
+  StorageUse storage = const StorageUse(docs: 18400000, data: 640000, other: 23100000, free: 89000000000, total: 128000000000);
+
+  @override
+  Future<StorageUse> storageUse() async => storage;
 
   @override
   Future<Uint8List?> pickFile() async => toPick;
