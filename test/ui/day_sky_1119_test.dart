@@ -127,4 +127,35 @@ void main() {
       debugDisableShadows = true;
     });
   }
+
+  // Owner, 20 Nov: "ঋতুপঞ্জির আবহাওয়া ও ক্যালেন্ডার ট্যাব গুলো সোয়াইপ হয় না। সোয়াইপ দরকার".
+  testWidgets('ঋতুপঞ্জি: a sideways swipe turns between the two tabs', (t) async {
+    final rig = await start(t);
+    rig.nowAt = DateTime(2026, 11, 19, 16, 10);
+    final b = rig.brain;
+    final now = b.services.now();
+    final w = b.services.weather as FakeWeather;
+    w.answer = cast('ঢাকা', 27, 2, now).now;
+    w.casts = {'ঢাকা': cast('ঢাকা', 27, 2, now)};
+    await b.refreshWeather();
+    await settle(t);
+    await t.tap(find.byKey(const Key('home-temp')));
+    await settle(t);
+    expect(find.byKey(const Key('wx-hours')), findsOneWidget);
+    // To the left: the calendar.
+    await t.fling(find.byKey(const Key('wx-tip')), const Offset(-300, 0), 1500);
+    await settle(t);
+    expect(find.byKey(const Key('cal-choose')), findsOneWidget);
+    expect(find.byKey(const Key('wx-hours')), findsNothing);
+    // A swipe on the month still turns the month, not the tab.
+    await t.fling(find.byKey(const Key('day-2026-11-12')), const Offset(-300, 0), 1500);
+    await settle(t);
+    expect(find.byKey(const Key('cal-choose')), findsOneWidget);
+    expect(find.byKey(const Key('day-2026-12-12')), findsOneWidget);
+    // To the right: the weather again.
+    await t.fling(find.byKey(const Key('cal-choose')), const Offset(300, 0), 1500);
+    await settle(t);
+    expect(find.byKey(const Key('wx-hours')), findsOneWidget);
+    expect(find.byKey(const Key('cal-choose')), findsNothing);
+  });
 }

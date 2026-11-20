@@ -243,33 +243,60 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
                   onChanged: (v) => setState(() => _cal = v),
                 ),
                 const SizedBox(height: 10),
-                if (_cal)
-                  CalendarPanel(forecast: brain.forecastKept(brain.district))
-                else ...[
-                  SizedBox(
-                    height: 34,
-                    child: ListView(scrollDirection: Axis.horizontal, children: [for (final k in keys) chip(k)]),
+                // Owner, 20 Nov: "সোয়াইপ দরকার" — a sideways swipe on a tab's
+                // page turns to the other tab (the month's own swipe and the
+                // sideways lists still scroll themselves).
+                GestureDetector(
+                  key: const Key('ds-swipe'),
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragEnd: (d) {
+                    final v = d.primaryVelocity ?? 0;
+                    if (v.abs() < 250) return;
+                    final cal = v < 0; // to the left: the calendar (the tab on the right)
+                    if (cal != _cal) setState(() => _cal = cal);
+                  },
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 240),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, if (current != null) current]),
+                    transitionBuilder: (child, anim) {
+                      // The calendar comes from the right, the weather from the left.
+                      final fromRight = child.key == const ValueKey('ds-cal');
+                      return SlideTransition(
+                        position: Tween<Offset>(begin: Offset(fromRight ? 0.25 : -0.25, 0), end: Offset.zero).animate(anim),
+                        child: FadeTransition(opacity: anim, child: child),
+                      );
+                    },
+                    child: _cal
+                        ? KeyedSubtree(key: const ValueKey('ds-cal'), child: CalendarPanel(forecast: brain.forecastKept(brain.district)))
+                        : Column(key: const ValueKey('ds-wx'), crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            SizedBox(
+                              height: 34,
+                              child: ListView(scrollDirection: Axis.horizontal, children: [for (final k in keys) chip(k)]),
+                            ),
+                            const SizedBox(height: 12),
+                            if (f != null) ...[
+                              // One line worth knowing, in the tab (the picture stays calm).
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+                                child: Row(children: [
+                                  Icon(_tip(f).$1, size: 18, color: C.green),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(_tip(f).$2, key: const Key('wx-tip'), maxLines: 2, style: body(13.5, weight: FontWeight.w500))),
+                                ]),
+                              ),
+                              if (f.hours.isNotEmpty) _hours(f),
+                              if (f.days.isNotEmpty) ...[const SizedBox(height: 10), _days(f)],
+                              if (f.sunrise != null && f.sunset != null) ...[const SizedBox(height: 10), _sun(f)],
+                              const SizedBox(height: 10),
+                              _facts(f),
+                              const SizedBox(height: 10),
+                              Text(tr('Open-Meteo থেকে · শুধু জায়গার অবস্থান পাঠানো হয়'), textAlign: TextAlign.center, style: body(11.5, color: C.muted)),
+                            ],
+                          ]),
                   ),
-                  const SizedBox(height: 12),
-                ],
-                if (!_cal && f != null) ...[
-                  // One line worth knowing, in the tab (the picture stays calm).
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-                    child: Row(children: [
-                      Icon(_tip(f).$1, size: 18, color: C.green),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(_tip(f).$2, key: const Key('wx-tip'), maxLines: 2, style: body(13.5, weight: FontWeight.w500))),
-                    ]),
-                  ),
-                  if (f.hours.isNotEmpty) _hours(f),
-                  if (f.days.isNotEmpty) ...[const SizedBox(height: 10), _days(f)],
-                  if (f.sunrise != null && f.sunset != null) ...[const SizedBox(height: 10), _sun(f)],
-                  const SizedBox(height: 10),
-                  _facts(f),
-                  const SizedBox(height: 10),
-                  Text(tr('Open-Meteo থেকে · শুধু জায়গার অবস্থান পাঠানো হয়'), textAlign: TextAlign.center, style: body(11.5, color: C.muted)),
-                ],
+                ),
               ]),
             ),
           ),
