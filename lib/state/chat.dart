@@ -2505,7 +2505,7 @@ class ChatController extends ChangeNotifier {
   /// Only an amount and "write it": no person, no "gave/took/got/spent".
   bool _bareAmount(String said) {
     final w = normalize(said);
-    if (RegExp(r'(ধার|দিলাম|দিছি|দিয়েছি|দিল|দিছে|দিয়েছে|নিলাম|নিছি|নিয়েছি|নিল|পেলাম|পাব|পাবো|দেব|দিবো|ফেরত|শোধ|খরচ|ব্যয়|আয়|বেতন|বাকি|পাওনা|দেনা|কাছে|কে\s|রে\s|দের\s)').hasMatch(w)) return false;
+    if (RegExp(r'(ধার|দিলাম|দিছি|দিয়েছি|দিল|দিছে|দিয়েছে|দেবে|দিবে|নিলাম|নিছি|নিয়েছি|নিল|নিছে|নিয়েছে|নেবে|নিবে|পেলাম|পেয়েছি|পেয়েছে|পাব|পাবো|পাবে|দেব|দিবো|ফেরত|শোধ|খরচ|ব্যয়|আয়|বেতন|বাকি|পাওনা|দেনা|কাছে|কে\s|রে\s|দের\s|(?:^|\s)(?:ও|সে|উনি|তিনি|তাকে|ওকে|ওর|তার)(?:\s|$))').hasMatch(w)) return false;
     return true;
   }
 
