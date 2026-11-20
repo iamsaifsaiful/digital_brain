@@ -2502,6 +2502,13 @@ class ChatController extends ChangeNotifier {
   }
 
   /// "নিজের খরচ": a money sentence with no one owing becomes spending.
+  /// Only an amount and "write it": no person, no "gave/took/got/spent".
+  bool _bareAmount(String said) {
+    final w = normalize(said);
+    if (RegExp(r'(ধার|দিলাম|দিছি|দিয়েছি|দিল|দিছে|দিয়েছে|নিলাম|নিছি|নিয়েছি|নিল|পেলাম|পাব|পাবো|দেব|দিবো|ফেরত|শোধ|খরচ|ব্যয়|আয়|বেতন|বাকি|পাওনা|দেনা|কাছে|কে\s|রে\s|দের\s)').hasMatch(w)) return false;
+    return true;
+  }
+
   Future<void> _asOwnSpending(List<String> out) async {
     final src = _src!;
     final amount = _amount > 0 ? _amount : src.amount;
@@ -2637,6 +2644,17 @@ class ChatController extends ChangeNotifier {
     final src = _src!;
     if (_person.isEmpty) {
       final known = knownPeople(brain.data.ledger).take(4);
+      // "১৫০ টাকা লিখে রাখো" (AI review, 14 Nov): only an amount — spent,
+      // earned or with someone is asked, not a name first.
+      final amt = _amount > 0 ? _amount : src.amount;
+      if (src.allowExpense && amt > 0 && _bareAmount(src.transcript)) {
+        _ask(out, trf('{0} টাকা — খরচ, আয়, নাকি কারও সাথে লেনদেন? খরচ বা আয় হলে বলুন, লেনদেন হলে নামটা বলুন।', [bnDigits(amt)]), ChatWait.name, choices: [
+          ChatChoice(tr('খরচ'), 'অন্য খরচ'),
+          ChatChoice(tr('আয়'), 'আয়'),
+          for (final k in known.take(2)) ChatChoice(k, k),
+        ]);
+        return;
+      }
       _ask(out, tr('টাকার হিসাব লেনদেনের খাতায় রাখি। কার সাথে লেনদেন হলো? নামটা বলুন।'), ChatWait.name, choices: [
         for (final k in known) ChatChoice(k, k),
         if (src.allowExpense) ChatChoice(tr('নিজের খরচ'), 'অন্য খরচ'),
@@ -3326,6 +3344,15 @@ class ChatController extends ChangeNotifier {
           wait = ChatWait.none;
           choices = const [];
           await _asOwnSpending(out);
+          return true;
+        }
+        // "আয়" to "খরচ, আয়, নাকি লেনদেন?": money earned.
+        if (_src!.allowExpense && RegExp(r'^\s*(?:আয়|আয়|ইনকাম|income|পেয়েছি|পেলাম|জমা)\s*(?:হয়েছে|হলো|হইছে)?\s*[।!]?\s*$', caseSensitive: false).hasMatch(normalize(t))) {
+          wait = ChatWait.none;
+          choices = const [];
+          final src = _src!;
+          final amount = _amount > 0 ? _amount : src.amount;
+          await _start(CashAdd(src.transcript, kind: CashKind.income, amount: amount, category: categoryFor(normalize(src.transcript), CashKind.income)), out);
           return true;
         }
         if (_looksNew(t) && findAmount(normalize(t)) != null) return false;

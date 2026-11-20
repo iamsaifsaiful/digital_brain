@@ -6191,4 +6191,5 @@ const enStrings = <String, String>{
   'ফোন এই মুহূর্তে অ্যাপের ফাইল দিতে পারেনি। আপনার তথ্য ঠিক আছে — কিছু মোছা হয়নি। আবার চেষ্টা করুন।': 'The phone could not hand the app its file just now. Your data is fine — nothing was deleted. Please try again.',
   'আবার চেষ্টা করুন': 'Try again',
   '{0}টা করে': '{0} each time',
+  '{0} টাকা — খরচ, আয়, নাকি কারও সাথে লেনদেন? খরচ বা আয় হলে বলুন, লেনদেন হলে নামটা বলুন।': '{0} taka — spent, earned, or with someone? Say spent or earned, or say the name.',
 };

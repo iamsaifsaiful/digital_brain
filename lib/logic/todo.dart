@@ -1177,7 +1177,9 @@ TaskEdit? _tdEdit(String said, String f, List<Task> open, DateTime now) {
   // "বুধবার রাখো", "কাল রাখো", "পরশু করো": only a when and the order.
   final onlyWhen = ref.isEmpty && !_thas(f, r'(?<=\s)' + _listP + r'(?=\s)') && _thas(f, r'^\s*(?:\S+\s+){1,3}(?:রাখো|রাখ|দাও|করো|সরাও|নাও|করব|করবো)\s*$') && _tdWhen(f, now).day != null && _tdTerms(f).isEmpty;
   final moveVerb = _thas(f, r'(?<=\s)(?:রাখো|রাখ|রেখো|সরাও|সরিয়ে\s+দাও|নাও|নিয়ে\s+যাও|দাও|করো|move\s+করো|move|শিফট\s+করো|নিয়ে\s+নাও|পাঠাও)(?=\s|$)');
-  final explicitAdd = _thas(f, r'(?:লিখে\s+রাখ|যোগ\s+কর|যুক্ত\s+কর|নতুন\s+কাজ|add)') || _thas(f, _listP);
+  // "…এটা তুমি এড করে দাও" (AI review, 15 Nov): adding, never moving the
+  // to-do that happens to share a word ("পড়ানো").
+  final explicitAdd = _thas(f, r'(?:লিখে\s+রাখ|যোগ\s+কর|যুক্ত\s+কর|এড\s+কর|অ্যাড\s+কর|এ্যাড\s+কর|নতুন\s+কাজ|add)') || _thas(f, _listP);
   final named0 = ref.terms.isNotEmpty && defin;
   // "বাজার করাটা কাল সকালে করব": a to-do on the list, named with "-টা",
   // and "I will" — that one on the new day, never a second one.
