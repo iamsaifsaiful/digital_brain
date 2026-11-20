@@ -3176,6 +3176,8 @@ const enStrings = <String, String>{
   'সম্প্রতি রাখা নোট': 'Recently added notes',
   'সম্প্রতি': 'Recent',
   'ফোনে খালি': 'Free on phone',
+  'ফোনে খালি {0}': '{0} free on phone',
+  'অ্যাপ নিজে': 'App itself',
   'সব ধরন': 'Categories',
   'অ্যাপ নিয়েছে': 'Used by the app',
   'শেয়ার করার মতো কোনো পাতা নেই।': 'Nothing to share yet.',

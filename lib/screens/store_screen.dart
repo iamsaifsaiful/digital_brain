@@ -293,8 +293,13 @@ class _RecentCard extends StatelessWidget {
       );
 }
 
-/// The ring: how much the app takes on the phone in the middle, the share
-/// of it that is documents as the coloured arc, the phone's free room above.
+/// How the room is drawn (owner, 20 Nov: the first ring was not pretty):
+/// 0 a soft gradient ring, 1 a ring in three colours with a key, 2 a card
+/// with a small ring beside the numbers.
+int roomStyle = 0;
+
+/// The ring: how much the app takes on the phone, what part of it is
+/// photos and files, and the phone's free room.
 class _RoomRing extends StatelessWidget {
   const _RoomRing({this.use});
   final StorageUse? use;
@@ -302,63 +307,147 @@ class _RoomRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final u = use;
-    final part = u == null || u.app == 0 ? 0.0 : (u.docs / u.app).clamp(0.0, 1.0);
-    Widget label(String big, String small, CrossAxisAlignment a) => Column(crossAxisAlignment: a, mainAxisSize: MainAxisSize.min, children: [
-          Text(big, style: body(15, weight: FontWeight.w700, height: 1.2)),
-          Text(small, style: body(12.5, color: C.muted, height: 1.3)),
+    final total = u == null || u.app == 0 ? 1 : u.app;
+    final parts = u == null ? <(double, Color)>[] : [(u.docs / total, C.green), (u.data / total, C.blue), (u.other / total, C.ochre)];
+    final docsPart = u == null ? 0.0 : (u.docs / total).clamp(0.0, 1.0);
+    Widget centre(double size) => Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(u == null ? '…' : roomText(u.app), key: const Key('store-room'), style: display(size, weight: 700, height: 1.15)),
+          Text(tr('অ্যাপ নিয়েছে'), style: body(12.5, color: C.muted)),
         ]);
-    return SizedBox(
-      height: 250,
-      child: Stack(children: [
-        if (u?.free != null) Positioned(left: 0, top: 6, child: label(roomText(u!.free!), tr('ফোনে খালি'), CrossAxisAlignment.start)),
-        if (u != null) Positioned(right: 0, bottom: 10, child: label(roomText(u.docs), tr('ছবি ও ফাইল'), CrossAxisAlignment.end)),
-        Center(
-          child: SizedBox(
-            width: 196,
-            height: 196,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: part),
-              duration: const Duration(milliseconds: 900),
-              curve: Curves.easeOutCubic,
-              builder: (context, v, child) => CustomPaint(painter: _RingPainter(v, C.green, C.surface2), child: child),
-              child: Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(u == null ? '…' : roomText(u.app), key: const Key('store-room'), style: display(26, weight: 700, color: C.green, height: 1.2)),
-                  Text(tr('অ্যাপ নিয়েছে'), style: body(13, color: C.muted)),
-                ]),
-              ),
+    Widget animated(double size, double stroke, Widget child, {bool multi = false}) => SizedBox(
+          width: size,
+          height: size,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutCubic,
+            builder: (context, v, child) => CustomPaint(
+              painter: multi ? _PartsPainter(parts, v, stroke, C.surface2) : _RingPainter(docsPart * v, C.green, C.surface2, stroke),
+              child: child,
             ),
+            child: Center(child: child),
           ),
-        ),
-      ]),
-    );
+        );
+    Widget key(Color c, String label, String value) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 9, height: 9, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text(label, style: body(12.5, color: C.muted)),
+          const SizedBox(width: 5),
+          Text(value, style: body(12.5, weight: FontWeight.w600)),
+        ]);
+
+    switch (roomStyle) {
+      case 1:
+        return Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 14),
+          child: Column(children: [
+            animated(184, 16, centre(24), multi: true),
+            const SizedBox(height: 16),
+            if (u != null)
+              Wrap(alignment: WrapAlignment.center, spacing: 16, runSpacing: 6, children: [
+                key(C.green, tr('ছবি ও ফাইল'), roomText(u.docs)),
+                key(C.blue, tr('আপনার তথ্য'), roomText(u.data)),
+                key(C.ochre, tr('অ্যাপ নিজে'), roomText(u.other)),
+              ]),
+            if (u?.free != null)
+              Padding(padding: const EdgeInsets.only(top: 8), child: Text(trf('ফোনে খালি {0}', [roomText(u!.free!)]), style: body(12.5, color: C.muted))),
+          ]),
+        );
+      case 2:
+        return Container(
+          margin: const EdgeInsets.only(top: 12, bottom: 14),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: C.border)),
+          child: Row(children: [
+            animated(112, 12, Text(u == null ? '' : '${bnDigits((docsPart * 100).round())}%', style: body(18, weight: FontWeight.w700, color: C.green))),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr('অ্যাপ নিয়েছে'), style: body(12.5, color: C.muted)),
+                Text(u == null ? '…' : roomText(u.app), key: const Key('store-room'), style: display(24, weight: 700, height: 1.25)),
+                const SizedBox(height: 8),
+                if (u != null) key(C.green, tr('ছবি ও ফাইল'), roomText(u.docs)),
+                if (u?.free != null) ...[const SizedBox(height: 4), key(C.surface2, tr('ফোনে খালি'), roomText(u!.free!))],
+              ]),
+            ),
+          ]),
+        );
+      default:
+        Widget label(String big, String small, CrossAxisAlignment a) => Column(crossAxisAlignment: a, mainAxisSize: MainAxisSize.min, children: [
+              Text(big, style: body(14.5, weight: FontWeight.w700, height: 1.2)),
+              Text(small, style: body(12, color: C.muted, height: 1.3)),
+            ]);
+        return SizedBox(
+          height: 240,
+          child: Stack(children: [
+            if (u?.free != null) Positioned(left: 0, top: 8, child: label(roomText(u!.free!), tr('ফোনে খালি'), CrossAxisAlignment.start)),
+            if (u != null) Positioned(right: 0, bottom: 12, child: label(roomText(u.docs), tr('ছবি ও ফাইল'), CrossAxisAlignment.end)),
+            Center(child: animated(188, 16, centre(26))),
+          ]),
+        );
+    }
   }
 }
 
+/// One arc on a soft track, its colour deepening along the way.
 class _RingPainter extends CustomPainter {
-  _RingPainter(this.part, this.color, this.track);
+  _RingPainter(this.part, this.color, this.track, this.stroke);
   final double part;
   final Color color;
   final Color track;
+  final double stroke;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const stroke = 22.0;
     final rect = Rect.fromCircle(center: size.center(Offset.zero), radius: size.shortestSide / 2 - stroke / 2);
     canvas.drawArc(rect, 0, math.pi * 2, false, Paint()..style = PaintingStyle.stroke..strokeWidth = stroke..color = track);
     if (part <= 0) return;
+    final sweep = math.pi * 2 * part.clamp(0.02, 1.0);
+    final light = Color.lerp(color, Colors.white, 0.55)!;
+    canvas.save();
+    canvas.translate(size.width / 2, size.height / 2);
+    canvas.rotate(-math.pi / 2);
+    canvas.translate(-size.width / 2, -size.height / 2);
     canvas.drawArc(
         rect,
-        -math.pi / 2,
-        math.pi * 2 * part.clamp(0.02, 1.0),
+        0,
+        sweep,
         false,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = stroke
           ..strokeCap = StrokeCap.round
-          ..color = color);
+          ..shader = SweepGradient(colors: [light, color], stops: const [0, 1], endAngle: math.max(sweep, 0.01)).createShader(rect));
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(_RingPainter old) => old.part != part || old.color != color || old.track != track;
+}
+
+/// Several arcs one after another, with small gaps, growing in with [t].
+class _PartsPainter extends CustomPainter {
+  _PartsPainter(this.parts, this.t, this.stroke, this.track);
+  final List<(double, Color)> parts;
+  final double t;
+  final double stroke;
+  final Color track;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromCircle(center: size.center(Offset.zero), radius: size.shortestSide / 2 - stroke / 2);
+    canvas.drawArc(rect, 0, math.pi * 2, false, Paint()..style = PaintingStyle.stroke..strokeWidth = stroke..color = track);
+    final gap = stroke / (size.shortestSide / 2) + 0.06;
+    var at = -math.pi / 2;
+    for (final (p, c) in parts) {
+      final sweep = math.pi * 2 * p * t;
+      if (sweep > gap + 0.01) {
+        canvas.drawArc(rect, at + gap / 2, sweep - gap, false, Paint()..style = PaintingStyle.stroke..strokeWidth = stroke..strokeCap = StrokeCap.round..color = c);
+      }
+      at += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PartsPainter old) => old.t != t || old.parts != parts;
 }
