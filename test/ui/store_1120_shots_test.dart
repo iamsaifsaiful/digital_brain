@@ -43,7 +43,7 @@ void main() {
           await settle(t);
           await t.tap(find.text(en ? 'My Files' : 'আমার ফাইল').last);
           await settle(t);
-          for (final k in ['store-search', 'store-room', 'store-notes', 'store-vault', 'store-docs', 'store-contacts', 'store-special', 'store-health', 'store-expiry', 'store-tags', 'store-warn']) {
+          for (final k in ['store-search', 'store-room', 'store-notes', 'store-vault', 'store-docs', 'store-contacts', 'store-accounts', 'store-cards', 'store-expiry', 'store-tags', 'store-warn']) {
             expect(find.byKey(Key(k)), findsOneWidget, reason: k);
           }
           expect(find.text(en ? 'Used by the app' : 'অ্যাপ নিয়েছে'), findsOneWidget);

@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/cards_screen.dart';
-import 'package:digital_brain/screens/docs_screen.dart' show DocsScreen;
 import 'package:digital_brain/services/files.dart' show PickedDoc;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,12 +26,11 @@ void main() {
     final b = rig.brain;
     await b.saveCard(BankCard(bank: 'ব্র্যাক ব্যাংক', kind: CardKind.debit, number: '4111111111111111', expiry: '08/29'));
     rig.files.photo = PickedDoc(Uint8List.fromList(List.filled(40, 7)), 'card.jpg', 'image/jpeg');
-    // Documents: ব্যাংক কার্ড is the first folder.
-    Navigator.of(t.element(find.byTooltip('বলুন'))).push(MaterialPageRoute(builder: (_) => const DocsScreen()));
+    // ব্যাংক কার্ড sits in আমার ফাইল (owner, 20 Nov), no longer in ডকুমেন্টস.
     await settle(t);
-    final grid = find.byWidgetPredicate((w) => w.runtimeType.toString().startsWith('DragGrid'));
-    expect(t.widget<Material>(find.descendant(of: grid, matching: find.byType(Material)).first).key, const Key('doc-cards'), reason: 'the very first folder');
-    await t.tap(find.byKey(const Key('doc-cards')));
+    await t.tap(find.text('আমার ফাইল').last);
+    await settle(t);
+    await t.tap(find.byKey(const Key('store-cards')));
     await settle(t);
     // The list: bank, kind, only the last four digits.
     expect(find.text('ব্র্যাক ব্যাংক'), findsOneWidget);

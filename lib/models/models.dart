@@ -1164,6 +1164,7 @@ class AppData {
     Map<String, String>? vaccines,
     List<Shop>? shops,
     List<BankCard>? cards,
+    List<BankAccount>? bankAccounts,
     List<Receipt>? receipts,
     List<TrashItem>? trash,
     ZakatBook? zakat,
@@ -1181,6 +1182,7 @@ class AppData {
         trash = trash ?? [],
         shops = shops ?? [],
         cards = cards ?? [],
+        bankAccounts = bankAccounts ?? [],
         receipts = receipts ?? [],
         members = members ?? [],
         health = health ?? [],
@@ -1256,6 +1258,10 @@ class AppData {
   /// encrypted on the phone; never read by the AI or sent anywhere.
   final List<BankCard> cards;
 
+  /// আমার ফাইল › ব্যাংক একাউন্ট (owner, 20 Nov): every account's details,
+  /// to keep and to share; kept like [cards].
+  final List<BankAccount> bankAccounts;
+
   /// Receipts made in the shops.
   final List<Receipt> receipts;
 
@@ -1306,6 +1312,7 @@ class AppData {
         if (vaccines.isNotEmpty) 'vaccines': vaccines,
         if (shops.isNotEmpty) 'shops': shops.map((e) => e.toJson()).toList(),
         if (cards.isNotEmpty) 'cards': cards.map((e) => e.toJson()).toList(),
+        if (bankAccounts.isNotEmpty) 'bankAccounts': bankAccounts.map((e) => e.toJson()).toList(),
         if (receipts.isNotEmpty) 'receipts': receipts.map((e) => e.toJson()).toList(),
         if (trash.isNotEmpty) 'trash': trash.map((e) => e.toJson()).toList(),
         if (!zakat.isEmpty) 'zakat': zakat.toJson(),
@@ -1346,6 +1353,7 @@ class AppData {
       members: list('members', FamilyMember.fromJson),
       shops: list('shops', Shop.fromJson),
       cards: list('cards', BankCard.fromJson),
+      bankAccounts: list('bankAccounts', BankAccount.fromJson),
       receipts: list('receipts', Receipt.fromJson),
       trash: list('trash', TrashItem.fromJson),
       health: list('health', HealthLog.fromJson),
@@ -1361,6 +1369,58 @@ class AppData {
   }
 }
 
+
+// ───────────────────────── Bank accounts ─────────────────────────
+
+/// One bank account (owner, 20 Nov): what someone needs to send money to it.
+class BankAccount {
+  BankAccount({String? id, required this.bank, this.name = '', this.number = '', this.kind = '', this.branch = '', this.routing = '', this.swift = '', this.note = '', DateTime? updatedAt})
+      : id = id ?? newId(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  final String id;
+  final String bank;
+
+  /// The name the account is in.
+  final String name;
+  final String number;
+
+  /// সঞ্চয়ী, চলতি… ('' = not said).
+  final String kind;
+  final String branch;
+  final String routing;
+  final String swift;
+  final String note;
+  final DateTime updatedAt;
+
+  String get last4 => number.length >= 4 ? number.substring(number.length - 4) : number;
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'bank': bank,
+        if (name.isNotEmpty) 'name': name,
+        if (number.isNotEmpty) 'number': number,
+        if (kind.isNotEmpty) 'kind': kind,
+        if (branch.isNotEmpty) 'branch': branch,
+        if (routing.isNotEmpty) 'routing': routing,
+        if (swift.isNotEmpty) 'swift': swift,
+        if (note.isNotEmpty) 'note': note,
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory BankAccount.fromJson(Map<String, Object?> j) => BankAccount(
+        id: j['id'] as String?,
+        bank: (j['bank'] as String?) ?? '',
+        name: (j['name'] as String?) ?? '',
+        number: (j['number'] as String?) ?? '',
+        kind: (j['kind'] as String?) ?? '',
+        branch: (j['branch'] as String?) ?? '',
+        routing: (j['routing'] as String?) ?? '',
+        swift: (j['swift'] as String?) ?? '',
+        note: (j['note'] as String?) ?? '',
+        updatedAt: _date(j['updatedAt']),
+      );
+}
 
 // ───────────────────────── Bank cards ─────────────────────────
 

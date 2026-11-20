@@ -1,4 +1,3 @@
-import 'cards_screen.dart' show CardsScreen;
 import '../ui/secure.dart';
 import '../ui/drag_grid.dart';
 import 'dart:typed_data';
@@ -220,14 +219,11 @@ class _DocsScreenState extends State<DocsScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     aspect: 1.05,
-                    items: inOrder(['__cards', ...folders], (x) => x, brain.orderOf('doc_folders')),
+                    items: inOrder([...folders], (x) => x, brain.orderOf('doc_folders')),
                     keyOf: (x) => x,
                     onReorder: (keys) => brain.setOrder('doc_folders', keys),
-                    tile: (f) => f == '__cards'
-                        // ব্যাংক কার্ড, first unless moved (owner, 28 Oct).
-                        ? _folderTile(key: const Key('doc-cards'), icon: Icons.credit_card_rounded, tint: C.greenTint, color: C.green, title: tr('ব্যাংক কার্ড'), count: d.cards.length,
-                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen())))
-                        : _folderTile(key: Key('doc-folder-$f'), icon: Icons.folder_outlined, tint: C.blueTint, color: C.blue, title: tr(f), count: d.docs.where((x) => x.folder == f).length,
+                    // ব্যাংক কার্ড moved to আমার ফাইল (owner, 20 Nov).
+                    tile: (f) => _folderTile(key: Key('doc-folder-$f'), icon: Icons.folder_outlined, tint: C.blueTint, color: C.blue, title: tr(f), count: d.docs.where((x) => x.folder == f).length,
                             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocsScreen(folder: f)))),
                     trailing:
                       // A folder of the user's own, named by them (owner, 24 Oct).

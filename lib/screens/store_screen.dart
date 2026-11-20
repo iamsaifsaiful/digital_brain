@@ -7,15 +7,15 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/pin.dart' show verifyUser;
 import '../services/files.dart' show StorageUse;
+import 'bank_accounts_screen.dart';
 import 'calls_screen.dart';
+import 'cards_screen.dart' show CardsScreen;
 import 'docs_screen.dart';
 import 'home_page.dart' show helloFor;
 import 'home_shell.dart';
 import 'new_item_screen.dart';
-import 'health_hub.dart';
 import 'notes_screen.dart';
 import 'search_screen.dart';
-import 'special_days_screen.dart';
 import 'store_more_screens.dart';
 import 'vault_screen.dart';
 import '../logic/lang.dart';
@@ -180,10 +180,10 @@ class _StoreScreenState extends State<StoreScreen> {
         ]),
         const SizedBox(height: 10),
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(child: tile(const Key('store-special'), tr('বিশেষ দিন'), Icons.cake_outlined, C.rose, C.roseTint, () => push(const SpecialDaysScreen()))),
-          Expanded(child: tile(const Key('store-health'), tr('স্বাস্থ্য'), Icons.favorite_border_rounded, C.red, C.roseTint, () => push(const HealthScreen()))),
+          Expanded(child: tile(const Key('store-accounts'), tr('ব্যাংক একাউন্ট'), Icons.account_balance_outlined, C.green, C.greenTint, () => push(const BankAccountsScreen()))),
+          Expanded(child: tile(const Key('store-cards'), tr('ব্যাংক কার্ড'), Icons.credit_card_rounded, C.rose, C.roseTint, () => push(const CardsScreen()))),
           Expanded(child: tile(const Key('store-expiry'), tr('মেয়াদ'), Icons.event_outlined, C.warn, C.warnBg, () => push(const ExpiryScreen()), dot: warn != null)),
-          Expanded(child: tile(const Key('store-tags'), tr('ট্যাগ'), Icons.sell_outlined, C.green, C.greenTint, () => push(const TagsScreen()))),
+          Expanded(child: tile(const Key('store-tags'), tr('ট্যাগ'), Icons.sell_outlined, C.muted2, C.surface2, () => push(const TagsScreen()))),
         ]),
         if (!medicalOff)
           Padding(
@@ -293,10 +293,10 @@ class _RecentCard extends StatelessWidget {
       );
 }
 
-/// How the room is drawn (owner, 20 Nov: the first ring was not pretty):
-/// 0 a soft gradient ring, 1 a ring in three colours with a key, 2 a card
-/// with a small ring beside the numbers.
-int roomStyle = 0;
+/// How the room is drawn: 0 a soft gradient ring, 1 a ring in three colours
+/// with a key, 2 a card with a small ring beside the numbers — the one the
+/// owner picked (20 Nov).
+int roomStyle = 2;
 
 /// The ring: how much the app takes on the phone, what part of it is
 /// photos and files, and the phone's free room.

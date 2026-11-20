@@ -15,7 +15,7 @@ void main() {
       testWidgets('ring style $style, ${look.name}', (t) async {
         if (shots) await icons();
         roomStyle = style;
-        addTearDown(() => roomStyle = 0);
+        addTearDown(() => roomStyle = 2);
         final rig = await start(t);
         t.view.physicalSize = const Size(390 * 3, 860 * 3);
         t.view.devicePixelRatio = 3;
