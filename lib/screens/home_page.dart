@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
 import '../logic/world_calendars.dart';
+import '../logic/countries.dart';
 import '../logic/holiday_mix.dart';
 import '../logic/cash.dart';
 import '../logic/lang.dart';
@@ -793,8 +794,8 @@ class _HolChip extends StatelessWidget {
       );
 }
 
-/// কোন কোন দেশের ছুটি দেখাবে: tick the lists, add a country by search or
-/// from those where many Bangladeshis live, then ঠিক আছে.
+/// কোন কোন দেশের ছুটি দেখাবে: tick the lists, add any country in the UN's
+/// list by search or from the list by continent, then ঠিক আছে.
 Future<void> showHolidayLists(BuildContext context) => showAppSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -831,9 +832,30 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
     super.dispose();
   }
 
-  void _toggle(String t) => setState(() => _picked.contains(t) ? _picked.remove(t) : _picked.add(t));
+  /// The countries ticked now ('@' as the profile's country), each once.
+  Set<String> get _countries => {for (final t in _picked) if (t != holIntl) t == holAuto ? _here : t};
+
+  /// Already [holMaxCountries] countries: another one is not taken.
+  bool _takes(String t) => t == holIntl || _countries.contains(t == holAuto ? _here : t) || _countries.length < holMaxCountries;
+
+  /// Said when one more country was tried while full.
+  bool _warn = false;
+
+  void _toggle(String t) => setState(() {
+        if (_picked.remove(t)) {
+          _warn = false;
+        } else if (_takes(t)) {
+          _picked.add(t);
+        } else {
+          _warn = true;
+        }
+      });
 
   void _add(String cc) => setState(() {
+        if (!_takes(cc)) {
+          _warn = true;
+          return;
+        }
         if (cc == _here) {
           if (!_picked.contains(holAuto)) _picked.add(holAuto);
         } else {
@@ -848,7 +870,7 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
       holAuto => (Icons.location_on_outlined, countryName(_here), trf('প্রোফাইলের লোকেশন · {0}', [widget.brain.placeLabel])),
       holIntl => (Icons.public_rounded, tr('আন্তর্জাতিক দিবস'), tr('জাতিসংঘের তালিকা থেকে')),
       'BD' => (Icons.outlined_flag_rounded, countryName('BD'), tr('নিজের দেশ')),
-      _ => (Icons.outlined_flag_rounded, countryName(t), ''),
+      _ => (Icons.outlined_flag_rounded, countryName(t), widget.brain.holMainOnly(t) ? tr('প্রধান ছুটিগুলো · জাতীয় ও ধর্মীয় দিবস') : ''),
     };
     final on = _picked.contains(t);
     return InkWell(
@@ -888,18 +910,61 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
   @override
   Widget build(BuildContext context) {
     final q = _q.text.trim();
-    final hits = q.isEmpty ? const <String>[] : searchCountries(q).where((c) => !_rows.contains(c) && c != _here).take(6).toList();
-    final popular = [for (final c in holPopular) if (!_rows.contains(c) && c != _here) c];
+    // Every country in the UN's list (owner, 20 Nov), by continent; a search
+    // narrows it. The ones already above are ticked.
+    final hits = q.isEmpty ? const <Country>[] : findCountries(q);
+    Widget country(Country c) {
+      final have = _rows.contains(c.code) || c.code == _here;
+      final full = !have && !_takes(c.code);
+      return InkWell(
+        key: Key('hol-add-${c.code}'),
+        onTap: have ? null : () => _add(c.code),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
+          child: Row(children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(c.label, style: body(15, weight: FontWeight.w500, color: have ? C.muted : C.ink)),
+                Text(c.observer ? '${c.capitalLabel} · ${tr('জাতিসংঘের পর্যবেক্ষক')}' : c.capitalLabel, style: body(11.5, color: C.muted)),
+              ]),
+            ),
+            if (have) Icon(Icons.check_rounded, size: 20, color: C.green) else Icon(Icons.add_circle_outline_rounded, size: 21, color: full ? C.muted.withValues(alpha: 0.45) : C.green),
+          ]),
+        ),
+      );
+    }
+
+    Widget box(List<Widget> rows) => Container(
+          decoration: BoxDecoration(border: Border.all(color: C.border), borderRadius: BorderRadius.circular(14)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: [for (final (i, r) in rows.indexed) ...[if (i > 0) const Hairline(), r]]),
+        );
+
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+        // The list scrolls; ঠিক আছে stays at the foot (the list is long).
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      Flexible(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
             Text(tr('কোন কোন দেশের ছুটি দেখাবে'), style: display(19, weight: 700)),
             const SizedBox(height: 3),
-            Text(tr('একসাথে কয়েকটা দেশ বাছতে পারবেন।'), style: body(13, color: C.muted)),
+            Text(trf('একসাথে সর্বোচ্চ {0}টি দেশ · এখন {1}টি', [bnDigits(holMaxCountries), bnDigits(_countries.length)]), style: body(13, color: C.muted)),
+            if (_warn)
+              Container(
+                key: const Key('hol-full'),
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+                decoration: BoxDecoration(color: C.warnBg, border: Border.all(color: C.warnBorder), borderRadius: BorderRadius.circular(12)),
+                child: Row(children: [
+                  Icon(Icons.info_outline_rounded, size: 18, color: C.warn),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(trf('{0}টি দেশ হয়ে গেছে। নতুন দেশ নিতে আগে একটির টিক তুলে দিন।', [bnDigits(holMaxCountries)]), style: body(13, color: C.ink))),
+                ]),
+              ),
             const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(border: Border.all(color: C.border), borderRadius: BorderRadius.circular(14)),
@@ -918,54 +983,45 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
               decoration: InputDecoration(
                 isDense: true,
                 prefixIcon: Icon(Icons.search_rounded, color: C.muted, size: 20),
-                hintText: tr('আরও দেশ যোগ করুন — বাংলায় বা ইংরেজিতে'),
+                hintText: tr('দেশের নাম লিখুন — বাংলায় বা ইংরেজিতে'),
                 hintStyle: body(14, color: C.muted),
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.inputBorder)),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: C.green, width: 1.6)),
               ),
             ),
+            const SizedBox(height: 10),
             if (q.isNotEmpty)
-              Container(
-                margin: const EdgeInsets.only(top: 6),
-                decoration: BoxDecoration(border: Border.all(color: C.border), borderRadius: BorderRadius.circular(14)),
-                child: Column(children: [
-                  if (hits.isEmpty) Padding(padding: const EdgeInsets.all(14), child: Text(tr('এই নামে কোনো দেশ পাইনি।'), style: body(13, color: C.muted))),
-                  for (final (i, c) in hits.indexed) ...[
-                    if (i > 0) const Hairline(),
-                    ListTile(
-                      key: Key('hol-hit-$c'),
-                      dense: true,
-                      leading: Icon(Icons.add_rounded, color: C.green, size: 20),
-                      title: Text(countryName(c), style: body(15, weight: FontWeight.w500)),
-                      onTap: () => _add(c),
-                    ),
-                  ],
-                ]),
+              hits.isEmpty
+                  ? Padding(padding: const EdgeInsets.all(14), child: Text(tr('এই নামে কোনো দেশ পাইনি।'), style: body(13, color: C.muted)))
+                  : box([for (final c in hits) country(c)])
+            else ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 6, 2, 2),
+                child: Text(tr('জাতিসংঘের সব দেশ'), style: body(13.5, weight: FontWeight.w700)),
               ),
-            if (popular.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Text(tr('যেসব দেশে অনেক বাংলাদেশি থাকেন'), style: body(12.5, weight: FontWeight.w600, color: C.muted)),
-              const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                for (final c in popular)
-                  Material(
-                    color: Colors.transparent,
-                    shape: StadiumBorder(side: BorderSide(color: C.border)),
-                    child: InkWell(
-                      key: Key('hol-add-$c'),
-                      customBorder: const StadiumBorder(),
-                      onTap: () => _add(c),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                        child: Text('+ ${countryName(c)}', style: body(13.5, color: C.ink)),
-                      ),
-                    ),
-                  ),
-              ]),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 0, 2, 4),
+                child: Text(tr('১৯৩টি সদস্য দেশ ও ২টি পর্যবেক্ষক · মহাদেশ অনুযায়ী'), style: body(12, color: C.muted)),
+              ),
+              for (final k in continents.keys) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+                  child: Row(children: [
+                    Expanded(child: Text(continentLabel(k), style: body(12.5, weight: FontWeight.w600, color: C.muted))),
+                    Text(bnDigits(countriesIn(k).length), style: body(12, color: C.muted)),
+                  ]),
+                ),
+                box([for (final c in countriesIn(k)) country(c)]),
+              ],
             ],
-            const SizedBox(height: 18),
-            FilledButton(
+          ]),
+        ),
+      ),
+      Container(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+        decoration: BoxDecoration(color: C.surface, border: Border(top: BorderSide(color: C.line2))),
+        child: FilledButton(
               key: const Key('hol-done'),
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), backgroundColor: C.green, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
               onPressed: () {
@@ -975,8 +1031,8 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
               },
               child: Text(tr('ঠিক আছে'), style: body(16, weight: FontWeight.w600, color: Colors.white)),
             ),
-          ]),
-        ),
+          ),
+        ]),
       ),
     );
   }

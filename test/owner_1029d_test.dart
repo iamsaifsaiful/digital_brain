@@ -79,7 +79,7 @@ void main() {
       await t.enterText(find.byKey(const Key('place-search')), 'Buch');
       await t.pump(const Duration(milliseconds: 600));
       await settle(t);
-      expect(find.text('Romania'), findsNothing);
+      expect(find.byKey(const Key('place-country-RO')), findsOneWidget, reason: 'its capital: the country is offered too (20 Nov)');
       expect(find.text('Bucharest, Romania'), findsOneWidget);
       await t.tap(find.byKey(const Key('place-hit-0')));
       await settle(t);

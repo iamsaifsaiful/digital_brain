@@ -6,6 +6,7 @@
 library;
 
 import 'calendar_bd.dart' show HolidayRun, upcomingHolidays;
+import 'countries.dart' show countryOf, findCountries;
 import 'holidays_abroad.dart' show AbroadHoliday;
 import 'lang.dart' show isEn, tr;
 
@@ -15,89 +16,24 @@ const holAuto = '@';
 /// The international days.
 const holIntl = 'INTL';
 
-/// What a new member sees: the profile's country, Bangladesh (the same
-/// when at home) and the international days.
-const holDefault = [holAuto, 'BD', holIntl];
+/// What a new member sees: only the profile location's country (owner,
+/// 20 Nov: "লোকেশন অনুযায়ী ডিফল্ট ছুটির তারিখ দেখাবে। পরে চাইলে ইউজার অন্য
+/// দেশ যুক্ত করবে"); Bangladesh and the international days are a tick away.
+const holDefault = [holAuto];
 
-/// Countries to pick from: two letters, the Bengali name, the English name;
-/// [holPopular] are shown first (where many Bangladeshis live and work).
-const holCountries = <(String, String, String)>[
-  ('BD', 'বাংলাদেশ', 'Bangladesh'),
-  ('SA', 'সৌদি আরব', 'Saudi Arabia'),
-  ('AE', 'সংযুক্ত আরব আমিরাত', 'United Arab Emirates'),
-  ('MY', 'মালয়েশিয়া', 'Malaysia'),
-  ('QA', 'কাতার', 'Qatar'),
-  ('KW', 'কুয়েত', 'Kuwait'),
-  ('OM', 'ওমান', 'Oman'),
-  ('BH', 'বাহরাইন', 'Bahrain'),
-  ('GB', 'যুক্তরাজ্য', 'United Kingdom'),
-  ('US', 'যুক্তরাষ্ট্র', 'United States'),
-  ('IT', 'ইতালি', 'Italy'),
-  ('SG', 'সিঙ্গাপুর', 'Singapore'),
-  ('CA', 'কানাডা', 'Canada'),
-  ('AU', 'অস্ট্রেলিয়া', 'Australia'),
-  ('JP', 'জাপান', 'Japan'),
-  ('KR', 'দক্ষিণ কোরিয়া', 'South Korea'),
-  ('IN', 'ভারত', 'India'),
-  ('PK', 'পাকিস্তান', 'Pakistan'),
-  ('NP', 'নেপাল', 'Nepal'),
-  ('LK', 'শ্রীলঙ্কা', 'Sri Lanka'),
-  ('MV', 'মালদ্বীপ', 'Maldives'),
-  ('CN', 'চীন', 'China'),
-  ('HK', 'হংকং', 'Hong Kong'),
-  ('TH', 'থাইল্যান্ড', 'Thailand'),
-  ('ID', 'ইন্দোনেশিয়া', 'Indonesia'),
-  ('BN', 'ব্রুনাই', 'Brunei'),
-  ('JO', 'জর্ডান', 'Jordan'),
-  ('LB', 'লেবানন', 'Lebanon'),
-  ('EG', 'মিশর', 'Egypt'),
-  ('TR', 'তুরস্ক', 'Türkiye'),
-  ('LY', 'লিবিয়া', 'Libya'),
-  ('MA', 'মরক্কো', 'Morocco'),
-  ('ZA', 'দক্ষিণ আফ্রিকা', 'South Africa'),
-  ('MU', 'মরিশাস', 'Mauritius'),
-  ('FR', 'ফ্রান্স', 'France'),
-  ('DE', 'জার্মানি', 'Germany'),
-  ('ES', 'স্পেন', 'Spain'),
-  ('PT', 'পর্তুগাল', 'Portugal'),
-  ('GR', 'গ্রিস', 'Greece'),
-  ('NL', 'নেদারল্যান্ডস', 'Netherlands'),
-  ('BE', 'বেলজিয়াম', 'Belgium'),
-  ('SE', 'সুইডেন', 'Sweden'),
-  ('FI', 'ফিনল্যান্ড', 'Finland'),
-  ('DK', 'ডেনমার্ক', 'Denmark'),
-  ('NO', 'নরওয়ে', 'Norway'),
-  ('IE', 'আয়ারল্যান্ড', 'Ireland'),
-  ('CH', 'সুইজারল্যান্ড', 'Switzerland'),
-  ('AT', 'অস্ট্রিয়া', 'Austria'),
-  ('PL', 'পোল্যান্ড', 'Poland'),
-  ('RO', 'রোমানিয়া', 'Romania'),
-  ('CY', 'সাইপ্রাস', 'Cyprus'),
-  ('MT', 'মাল্টা', 'Malta'),
-  ('RU', 'রাশিয়া', 'Russia'),
-  ('NZ', 'নিউজিল্যান্ড', 'New Zealand'),
-  ('BR', 'ব্রাজিল', 'Brazil'),
-  ('MX', 'মেক্সিকো', 'Mexico'),
-];
+/// At most this many countries at once (owner, 20 Nov: "এক সাথে তিনটির
+/// বেশি ছুটির দেশ সিলেক্ট করা যাবে না"); the international days not counted.
+const holMaxCountries = 3;
 
-const holPopular = ['SA', 'AE', 'MY', 'QA', 'KW', 'OM', 'GB', 'US', 'IT', 'SG'];
-
-/// [cc]'s name in the app's language (the code itself when not listed).
+/// [cc]'s name in the app's language (the code itself when not listed);
+/// all the countries in the UN's list are in countries.dart.
 String countryName(String cc, {bool short = false}) {
   if (short && cc == 'AE') return tr('আমিরাত');
-  for (final (c, bn, _) in holCountries) {
-    if (c == cc) return tr(bn);
-  }
-  return cc;
+  return countryOf(cc)?.label ?? cc;
 }
 
-/// Countries whose Bengali or English name starts (a word) with [q].
-List<String> searchCountries(String q) {
-  final s = q.trim().toLowerCase();
-  if (s.isEmpty) return [for (final c in holCountries) c.$1];
-  bool hit(String name) => name.toLowerCase().startsWith(s) || name.toLowerCase().contains(' $s');
-  return [for (final (c, bn, en) in holCountries) if (hit(bn) || hit(en) || c.toLowerCase() == s) c];
-}
+/// Countries whose Bengali or English name (or capital) matches [q].
+List<String> searchCountries(String q) => [for (final c in findCountries(q)) c.code];
 
 /// The international days of [year]: days the world keeps (the UN's and a
 /// few everyone knows), by their Bengali names.
@@ -261,6 +197,31 @@ const _abroadBn = {
   'Pakistan Day': 'পাকিস্তান দিবস',
   'Good Friday': 'গুড ফ্রাইডে',
   'Easter Monday': 'ইস্টার মানডে',
+  'Republic Day': 'প্রজাতন্ত্র দিবস',
+  'Victory Day': 'বিজয় দিবস',
+  'Revolution Day': 'বিপ্লব দিবস',
+  'Nowruz': 'নওরোজ',
+  'Constitution Day': 'সংবিধান দিবস',
+  'Statehood Day': 'রাষ্ট্র দিবস',
+  'Unity Day': 'ঐক্য দিবস',
+  'Orthodox Christmas': 'অর্থোডক্স বড়দিন',
+  'National Foundation Day': 'জাতীয় প্রতিষ্ঠা দিবস',
+  'State Foundation Day': 'রাষ্ট্র প্রতিষ্ঠা দিবস',
+  'Foundation Day': 'প্রতিষ্ঠা দিবস',
+  'Gandhi Jayanti': 'গান্ধী জয়ন্তী',
+  'Ethiopian New Year': 'ইথিওপীয় নববর্ষ',
+  'Freedom Day': 'স্বাধীনতা দিবস',
+  'Throne Day': 'সিংহাসন দিবস',
+  'Evacuation Day': 'স্বাধীনতা দিবস (উচ্ছেদ দিবস)',
+  'Australia Day': 'অস্ট্রেলিয়া দিবস',
+  'Canada Day': 'কানাডা দিবস',
+  "King's Day": 'রাজা দিবস',
+  'Bastille Day': 'বাস্তিল দিবস',
+  'German Unity Day': 'জার্মান ঐক্য দিবস',
+  'Russia Day': 'রাশিয়া দিবস',
+  'Portugal Day': 'পর্তুগাল দিবস',
+  "St Patrick's Day": 'সেন্ট প্যাট্রিক দিবস',
+  'May Revolution': 'মে বিপ্লব দিবস',
 };
 
 /// [name] (a holiday abroad) in Bengali when the app is in Bangla and it is known.

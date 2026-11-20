@@ -66,6 +66,7 @@ import '../services/voice.dart';
 import '../services/platform.dart';
 import '../services/location_share.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/countries.dart' show mainHolidays;
 import '../logic/holidays_abroad.dart' show builtInHolidays;
 import '../logic/holiday_mix.dart';
 import '../logic/meal.dart';
@@ -1394,7 +1395,7 @@ class Brain extends ChangeNotifier {
       final cc = t == holAuto ? placeNamed(district).country : t;
       if (cc.isNotEmpty && !out.contains(cc)) out.add(cc);
     }
-    return out;
+    return out.take(holMaxCountries).toList();
   }
 
   Future<void> setHolLists(List<String> lists) async {
@@ -1450,14 +1451,22 @@ class Brain extends ChangeNotifier {
       final k = '${cc}_$y';
       if (_holidayBook().containsKey(k)) continue;
       // The Gulf, Malaysia, Pakistan: worked out on the phone; the rest asked.
-      final got = builtInHolidays(cc, y, adjust: hijriShift) ?? await services.weather.holidays(cc, y);
+      var got = builtInHolidays(cc, y, adjust: hijriShift) ?? await services.weather.holidays(cc, y);
       if (got == null) continue;
+      // A country the web has no list for (owner, 20 Nov: every country in
+      // the UN's list): its main days, worked out on the phone.
+      final basic = got.isEmpty;
+      if (basic) got = mainHolidays(cc, y, adjust: hijriShift) ?? const [];
       final book = _holidayBook()..[k] = [for (final h in got) h.toJson()];
+      if (basic) book['${cc}_main'] = true;
       prefs['hol_abroad'] = jsonEncode(book);
       await _put('hol_abroad', prefs['hol_abroad']!);
       notifyListeners();
     }
   }
+
+  /// Only the main days are known for [cc] (no full list on the web).
+  bool holMainOnly(String cc) => _holidayBook()['${cc}_main'] == true;
 
   /// Holidays kept by "CC_year".
   Map<String, Object?> _holidayBook() {

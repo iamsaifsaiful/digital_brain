@@ -15,14 +15,14 @@ abstract class WeatherSource {
 
   /// Places in the world whose name starts like [q] (owner, 29 Oct: search
   /// in the place picker). Only the typed name is sent; [] offline.
-  Future<List<PlaceHit>> search(String q, {String lang = 'bn'}) async => const [];
+  Future<List<PlaceHit>> search(String q, {String lang = 'bn', String country = ''}) async => const [];
 
   /// Minutes from UTC of the clock at ([lat], [lon]) today; null offline.
   Future<int?> offsetAt(double lat, double lon) async => null;
 
   /// A country's public holidays in [year] ([cc]: two letters), from
-  /// Nager.Date (free, no key; only the country code is sent). Null offline
-  /// or for a country it does not know.
+  /// Nager.Date (free, no key; only the country code is sent). Null offline;
+  /// empty for a country it has no list for.
   Future<List<AbroadHoliday>?> holidays(String cc, int year) async => null;
 }
 
@@ -82,10 +82,11 @@ class OpenMeteo implements WeatherSource {
   }
 
   @override
-  Future<List<PlaceHit>> search(String q, {String lang = 'bn'}) async {
+  Future<List<PlaceHit>> search(String q, {String lang = 'bn', String country = ''}) async {
     if (q.trim().length < 2) return const [];
     try {
-      final u = Uri.https('geocoding-api.open-meteo.com', '/v1/search', {'name': q.trim(), 'count': '12', 'language': lang, 'format': 'json'});
+      final u = Uri.https('geocoding-api.open-meteo.com', '/v1/search',
+          {'name': q.trim(), 'count': '12', 'language': lang, 'format': 'json', if (country.isNotEmpty) 'countryCode': country});
       final r = await _http.get(u).timeout(const Duration(seconds: 10));
       if (r.statusCode != 200) return const [];
       final j = jsonDecode(r.body);
@@ -106,7 +107,10 @@ class OpenMeteo implements WeatherSource {
     if (!RegExp(r'^[A-Z]{2}$').hasMatch(cc)) return null;
     try {
       final r = await _http.get(Uri.https('date.nager.at', '/api/v3/PublicHolidays/$year/$cc')).timeout(const Duration(seconds: 15));
-      if (r.statusCode != 200 || r.body.trim().isEmpty) return null;
+      // No list kept there for this country: an empty list (not "offline"),
+      // so the phone works out the main days itself.
+      if (r.statusCode == 404 || r.statusCode == 204 || (r.statusCode == 200 && r.body.trim().isEmpty)) return const [];
+      if (r.statusCode != 200) return null;
       final j = jsonDecode(r.body);
       if (j is! List) return null;
       final seen = <String>{};
@@ -146,7 +150,8 @@ class FakeWeather implements WeatherSource {
   int? offset;
 
   @override
-  Future<List<PlaceHit>> search(String q, {String lang = 'bn'}) async => [for (final h in hits) if (h.name.toLowerCase().startsWith(q.trim().toLowerCase())) h];
+  Future<List<PlaceHit>> search(String q, {String lang = 'bn', String country = ''}) async =>
+      [for (final h in hits) if (h.name.toLowerCase().startsWith(q.trim().toLowerCase()) && (country.isEmpty || h.countryCode.toUpperCase() == country)) h];
 
   @override
   Future<int?> offsetAt(double lat, double lon) async => offset;
