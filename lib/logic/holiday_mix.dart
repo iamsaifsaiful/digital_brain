@@ -20,6 +20,10 @@ const holIntl = 'INTL';
 /// when at home) and the international days.
 const holDefault = [holAuto, 'BD', holIntl];
 
+/// At most this many countries at once (owner, 20 Nov: "এক সাথে তিনটির
+/// বেশি ছুটির দেশ সিলেক্ট করা যাবে না"); the international days not counted.
+const holMaxCountries = 3;
+
 /// [cc]'s name in the app's language (the code itself when not listed);
 /// all the countries in the UN's list are in countries.dart.
 String countryName(String cc, {bool short = false}) {

@@ -832,9 +832,30 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
     super.dispose();
   }
 
-  void _toggle(String t) => setState(() => _picked.contains(t) ? _picked.remove(t) : _picked.add(t));
+  /// The countries ticked now ('@' as the profile's country), each once.
+  Set<String> get _countries => {for (final t in _picked) if (t != holIntl) t == holAuto ? _here : t};
+
+  /// Already [holMaxCountries] countries: another one is not taken.
+  bool _takes(String t) => t == holIntl || _countries.contains(t == holAuto ? _here : t) || _countries.length < holMaxCountries;
+
+  /// Said when one more country was tried while full.
+  bool _warn = false;
+
+  void _toggle(String t) => setState(() {
+        if (_picked.remove(t)) {
+          _warn = false;
+        } else if (_takes(t)) {
+          _picked.add(t);
+        } else {
+          _warn = true;
+        }
+      });
 
   void _add(String cc) => setState(() {
+        if (!_takes(cc)) {
+          _warn = true;
+          return;
+        }
         if (cc == _here) {
           if (!_picked.contains(holAuto)) _picked.add(holAuto);
         } else {
@@ -894,6 +915,7 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
     final hits = q.isEmpty ? const <Country>[] : findCountries(q);
     Widget country(Country c) {
       final have = _rows.contains(c.code) || c.code == _here;
+      final full = !have && !_takes(c.code);
       return InkWell(
         key: Key('hol-add-${c.code}'),
         onTap: have ? null : () => _add(c.code),
@@ -906,7 +928,7 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
                 Text(c.observer ? '${c.capitalLabel} · ${tr('জাতিসংঘের পর্যবেক্ষক')}' : c.capitalLabel, style: body(11.5, color: C.muted)),
               ]),
             ),
-            if (have) Icon(Icons.check_rounded, size: 20, color: C.green) else Icon(Icons.add_circle_outline_rounded, size: 21, color: C.green),
+            if (have) Icon(Icons.check_rounded, size: 20, color: C.green) else Icon(Icons.add_circle_outline_rounded, size: 21, color: full ? C.muted.withValues(alpha: 0.45) : C.green),
           ]),
         ),
       );
@@ -930,7 +952,19 @@ class _HolidayListsSheetState extends State<_HolidayListsSheet> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
             Text(tr('কোন কোন দেশের ছুটি দেখাবে'), style: display(19, weight: 700)),
             const SizedBox(height: 3),
-            Text(tr('একসাথে কয়েকটা দেশ বাছতে পারবেন।'), style: body(13, color: C.muted)),
+            Text(trf('একসাথে সর্বোচ্চ {0}টি দেশ · এখন {1}টি', [bnDigits(holMaxCountries), bnDigits(_countries.length)]), style: body(13, color: C.muted)),
+            if (_warn)
+              Container(
+                key: const Key('hol-full'),
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+                decoration: BoxDecoration(color: C.warnBg, border: Border.all(color: C.warnBorder), borderRadius: BorderRadius.circular(12)),
+                child: Row(children: [
+                  Icon(Icons.info_outline_rounded, size: 18, color: C.warn),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(trf('{0}টি দেশ হয়ে গেছে। নতুন দেশ নিতে আগে একটির টিক তুলে দিন।', [bnDigits(holMaxCountries)]), style: body(13, color: C.ink))),
+                ]),
+              ),
             const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(border: Border.all(color: C.border), borderRadius: BorderRadius.circular(14)),

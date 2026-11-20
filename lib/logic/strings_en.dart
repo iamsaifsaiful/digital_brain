@@ -6145,4 +6145,6 @@ const enStrings = <String, String>{
   'আরও শহর': 'More cities',
   'খুঁজে পাওয়া জায়গা': 'Places found',
   'অন্য শহর বা এলাকা? ওপরে নাম লিখুন — বাংলা বা ইংরেজিতে।': 'Another city or area? Type its name above.',
+  'একসাথে সর্বোচ্চ {0}টি দেশ · এখন {1}টি': 'Up to {0} countries at once · {1} now',
+  '{0}টি দেশ হয়ে গেছে। নতুন দেশ নিতে আগে একটির টিক তুলে দিন।': 'That’s {0} countries. Untick one to add another.',
 };

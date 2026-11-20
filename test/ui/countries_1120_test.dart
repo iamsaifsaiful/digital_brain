@@ -100,11 +100,30 @@ void main() {
     await settle(t);
     expect(find.byKey(const Key('hol-add-KI')), findsOneWidget);
     expect(find.byKey(const Key('hol-add-PK')), findsOneWidget, reason: 'Pakistan has "ki" inside');
+    // Three countries already (Dubai's, Bangladesh, Zambia): no fourth.
+    await t.tap(find.byKey(const Key('hol-add-KI')));
+    await settle(t);
+    expect(find.byKey(const Key('hol-full')), findsOneWidget);
+    expect(find.byKey(const Key('hol-row-KI')), findsNothing);
+    await t.enterText(find.byKey(const Key('hol-search')), '');
+    await settle(t);
+    await t.drag(find.byKey(const Key('hol-search')), const Offset(0, 1500));
+    await settle(t);
+    await shot(t, '6-holiday-max-three');
+    // Zambia off: then Kiribati comes in.
+    await t.ensureVisible(find.byKey(const Key('hol-row-ZM')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('hol-row-ZM')));
+    await settle(t);
+    expect(find.byKey(const Key('hol-full')), findsNothing);
+    await t.enterText(find.byKey(const Key('hol-search')), 'ki');
+    await settle(t);
     await t.tap(find.byKey(const Key('hol-add-KI')));
     await settle(t);
     await t.tap(find.byKey(const Key('hol-done')));
     await settle(t);
-    expect(b.holLists, ['@', 'BD', 'ZM', 'KI', 'INTL']);
+    expect(b.holLists, ['@', 'BD', 'KI', 'INTL']);
+    expect(b.holCountriesShown.length, 3);
     debugDisableShadows = true;
   });
 

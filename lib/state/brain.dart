@@ -1395,7 +1395,7 @@ class Brain extends ChangeNotifier {
       final cc = t == holAuto ? placeNamed(district).country : t;
       if (cc.isNotEmpty && !out.contains(cc)) out.add(cc);
     }
-    return out;
+    return out.take(holMaxCountries).toList();
   }
 
   Future<void> setHolLists(List<String> lists) async {
