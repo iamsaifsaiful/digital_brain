@@ -3,12 +3,16 @@
 // anything else in the world is asked from the weather service by name.
 // Owner, 19 Nov (design 1 of three): a sheet from below — search on top,
 // "where I am now", the places picked before, then the districts by division.
+// Owner, 20 Nov: every country in the UN's list, by continent; a country
+// opens to its capital, the cities the app knows there, and a search for
+// any other town in it (the same sheet adds a place to the weather page).
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
 import '../logic/calendar_bd.dart';
+import '../logic/countries.dart';
 import '../logic/lang.dart';
 import '../logic/strings_en.dart' show enStrings;
 import '../logic/world_places.dart';
@@ -35,6 +39,18 @@ List<Place> knownMatches(String q) {
   final f = _fold(q);
   bool hit(Place p) => f.isEmpty || _fold(p.name).contains(f) || _fold(enName(p.name)).contains(f);
   return [...bdPlaces.where(hit), ...worldPlaces.where(hit)];
+}
+
+/// A country's capital as a place (its clock from the list; the weather
+/// service's when online, see [_PlaceSheetState]).
+Place capitalPlace(Country c, {int? tz}) => Place(c.capitalBn, c.lat, c.lon, tz: tz ?? c.tz, region: regionAt(c.lat, c.lon), cc: c.code);
+
+/// The places the app knows in country [c] (the capital first): the
+/// districts for Bangladesh, else the capital and the big cities.
+List<Place> placesIn(Country c) {
+  if (c.code == 'BD') return [...bdPlaces];
+  final cap = capitalPlace(c);
+  return [cap, for (final p in worldPlaces) if (p.cc == c.code && p.name != cap.name && kmBetween(p.lat, p.lon, cap.lat, cap.lon) >= 15) p];
 }
 
 /// A place's name in English (the app's own list), else itself.
@@ -99,6 +115,27 @@ class _PlaceSheetState extends State<_PlaceSheet> {
   bool _searching = false;
   int _asked = 0;
 
+  /// The country opened from the list (its cities shown), or null.
+  Country? _in;
+
+  void _open(Country? c) {
+    _wait?.cancel();
+    _q.clear();
+    setState(() {
+      _in = c;
+      _hits = const [];
+      _searching = false;
+      _asked++;
+    });
+  }
+
+  /// The capital: the clock there asked from the weather service when online.
+  Future<void> _pickCapital(Country c) async {
+    final brain = BrainScope.read(context);
+    final tz = await brain.services.weather.offsetAt(c.lat, c.lon);
+    if (mounted) Navigator.pop(context, PickedPlace(capitalPlace(c, tz: tz)));
+  }
+
   @override
   void dispose() {
     _wait?.cancel();
@@ -117,10 +154,11 @@ class _PlaceSheetState extends State<_PlaceSheet> {
       final n = ++_asked;
       setState(() => _searching = true);
       final brain = BrainScope.read(context);
-      final got = await brain.services.weather.search(v, lang: brain.english ? 'en' : 'bn');
+      final within = _in;
+      final got = await brain.services.weather.search(v, lang: brain.english ? 'en' : 'bn', country: within?.code ?? '');
       if (!mounted || n != _asked) return;
       // Not the ones already listed from the app's own list.
-      final known = knownMatches(v);
+      final known = within == null ? knownMatches(v) : _knownIn(within, v);
       setState(() {
         _searching = false;
         _hits = [for (final h in got) if (!known.any((p) => kmBetween(p.lat, p.lon, h.lat, h.lon) < 15)) h];
@@ -132,6 +170,12 @@ class _PlaceSheetState extends State<_PlaceSheet> {
     final brain = BrainScope.read(context);
     final p = await brain.placeFromHit(h);
     if (mounted) Navigator.pop(context, PickedPlace(p));
+  }
+
+  /// The places the app knows in [c] that match [q].
+  List<Place> _knownIn(Country c, String q) {
+    final f = _fold(q);
+    return [for (final p in placesIn(c)) if (f.isEmpty || _fold(p.name).contains(f) || _fold(enName(p.name)).contains(f)) p];
   }
 
   @override
@@ -250,6 +294,30 @@ class _PlaceSheetState extends State<_PlaceSheet> {
       ]);
     }
 
+    // A country in the list: its name, its capital, and an arrow.
+    Widget countryRow(Country c) => InkWell(
+          key: Key('place-country-${c.code}'),
+          onTap: () => _open(c),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 10, 14, 10),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(c.label, style: body(15.5, weight: FontWeight.w500)),
+                  Text(c.code == 'BD' ? trf('{0}টি জেলা', [bnDigits(bdPlaces.length)]) : c.capitalLabel, style: body(12, color: C.muted)),
+                ]),
+              ),
+              if (!brain.english) Text(c.en, style: body(12.5, color: C.muted)),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, size: 20, color: C.muted),
+            ]),
+          ),
+        );
+
+    final c = _in;
+    if (c != null) return _countryView(c, row, cap);
+
     final byName = {for (final p in bdPlaces) p.name: p};
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.88,
@@ -298,8 +366,19 @@ class _PlaceSheetState extends State<_PlaceSheet> {
                 for (final n in e.value)
                   if (byName[n] != null) row(byName[n]!),
               ],
-              if (world.isNotEmpty) ...[cap(tr('দেশের বাইরে')), for (final p in world) row(p)],
+              cap(tr('সব দেশ · মহাদেশ অনুযায়ী'), end: tr('জাতিসংঘের তালিকা')),
+              for (final k in continents.keys) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                  child: Row(children: [
+                    Expanded(child: Text(continentLabel(k), style: body(12, weight: FontWeight.w600, color: C.muted2))),
+                    Text(bnDigits(countriesIn(k).length), style: body(12, color: C.muted)),
+                  ]),
+                ),
+                for (final x in countriesIn(k)) countryRow(x),
+              ],
             ] else ...[
+              if (findCountries(q).isNotEmpty) ...[cap(tr('দেশ')), for (final x in findCountries(q).take(6)) countryRow(x)],
               if (bd.isNotEmpty) ...[cap(tr('বাংলাদেশ')), for (final p in bd) row(p, where: true)],
               if (world.isNotEmpty) ...[cap(tr('দেশের বাইরে')), for (final p in world) row(p, where: true)],
               if (_hits.isNotEmpty) ...[
@@ -337,6 +416,117 @@ class _PlaceSheetState extends State<_PlaceSheet> {
                   child: Text(tr('বাংলা বা ইংরেজি, যেভাবে খুশি লিখুন'), textAlign: TextAlign.center, style: body(13, color: C.muted)),
                 ),
             ],
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  /// One country opened: its capital, the cities the app knows there, and
+  /// a search for any other town in it.
+  Widget _countryView(Country c, Widget Function(Place, {bool where}) row, Widget Function(String, {String? end}) cap) {
+    final q = _q.text;
+    final known = _knownIn(c, q);
+    final capital = c.code == 'BD' ? null : capitalPlace(c);
+    Widget capitalRow() => InkWell(
+          key: const Key('place-capital'),
+          onTap: () => _pickCapital(c),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+            child: Row(children: [
+              Icon(Icons.account_balance_outlined, size: 20, color: C.green),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(c.capitalLabel, style: body(15.5, weight: FontWeight.w600)),
+                  Text(tr('রাজধানী'), style: body(12, color: C.muted)),
+                ]),
+              ),
+              if (!isEn && c.capitalEn != c.capitalBn) Text(c.capitalEn, style: body(12.5, color: C.muted)),
+            ]),
+          ),
+        );
+    final others = [for (final p in known) if (capital == null || p.name != capital.name) p];
+    final showCapital = capital != null && known.any((p) => p.name == capital.name);
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.88,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 0, 20, 10),
+          child: Row(children: [
+            IconButton(key: const Key('place-back'), tooltip: tr('ফিরে যান'), icon: const Icon(Icons.arrow_back_rounded), onPressed: () => _open(null)),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(c.label, style: display(20, weight: 700)),
+                Text(c.observer ? '${continentLabel(c.continent)} · ${tr('জাতিসংঘের পর্যবেক্ষক')}' : continentLabel(c.continent), style: body(12.5, color: C.muted)),
+              ]),
+            ),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TextField(
+            textCapitalization: TextCapitalization.sentences,
+            key: const Key('place-search'),
+            controller: _q,
+            onChanged: _changed,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: trf('{0}-এর যেকোনো শহর লিখুন', [c.label]),
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: q.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: tr('মুছুন'),
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () {
+                        _q.clear();
+                        _changed('');
+                      }),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView(padding: const EdgeInsets.only(bottom: 16), children: [
+            if (showCapital) capitalRow(),
+            if (others.isNotEmpty) ...[
+              cap(c.code == 'BD' ? tr('সব জেলা') : tr('আরও শহর')),
+              for (final p in others) row(p, where: c.code == 'BD' && q.isNotEmpty),
+            ],
+            if (_hits.isNotEmpty) ...[
+              cap(tr('খুঁজে পাওয়া জায়গা')),
+              for (final (i, h) in _hits.indexed)
+                InkWell(
+                  key: Key('place-hit-$i'),
+                  onTap: () => _pickHit(h),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 9, 20, 9),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+                    child: Row(children: [
+                      Icon(Icons.place_outlined, size: 20, color: C.muted),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(h.name, style: body(15.5, weight: FontWeight.w500)),
+                          if (h.area.isNotEmpty) Text(h.area, style: body(12, color: C.muted)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ),
+            ],
+            if (_searching) const Padding(padding: EdgeInsets.all(16), child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)))),
+            if (q.trim().length >= 2 && !_searching && known.isEmpty && _hits.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(tr('এই নামে কিছু পাইনি। বানানটা দেখে নিন, বা ইন্টারনেট চালু করে আবার লিখুন।'), style: body(14, color: C.muted)),
+              ),
+            if (q.isEmpty && c.code != 'BD')
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Text(tr('অন্য শহর বা এলাকা? ওপরে নাম লিখুন — বাংলা বা ইংরেজিতে।'), textAlign: TextAlign.center, style: body(13, color: C.muted)),
+              ),
           ]),
         ),
       ]),

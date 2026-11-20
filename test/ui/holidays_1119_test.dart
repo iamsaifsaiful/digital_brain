@@ -90,6 +90,8 @@ void main() {
     await settle(t);
     expect(find.text('কোন কোন দেশের ছুটি দেখাবে'), findsOneWidget);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/holidays/3-sheet.png'));
+    await t.ensureVisible(find.byKey(const Key('hol-add-SA')));
+    await settle(t);
     await t.tap(find.byKey(const Key('hol-add-SA')));
     await settle(t);
     await t.tap(find.byKey(const Key('hol-done')));
