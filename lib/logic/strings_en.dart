@@ -3,6 +3,17 @@
 // ignore_for_file: lines_longer_than_80_chars
 
 const enStrings = <String, String>{
+  'ধর্ম': 'Religion',
+  'বাছুন (ঐচ্ছিক)': 'Choose (optional)',
+  'ইসলাম': 'Islam',
+  'হিন্দু': 'Hinduism',
+  'বৌদ্ধ': 'Buddhism',
+  'খ্রিস্টান': 'Christianity',
+  'অন্য ধর্ম': 'Other',
+  'বলতে চাই না': 'Prefer not to say',
+  'আপনার ধর্ম': 'Your religion',
+  'দেওয়া ঐচ্ছিক। শুধু আপনার ফোনেই থাকবে, কোথাও পাঠানো হয় না।': 'Optional. It stays only on your phone and is never sent anywhere.',
+  'খালি রাখুন': 'Leave blank',
   'আজ বৃষ্টি হতে পারে — ছাতা সাথে রাখুন': 'Rain likely today — keep an umbrella',
   '{0} বৃষ্টি হতে পারে': 'Rain likely on {0}',
   'রাতে {0}° পর্যন্ত নামবে': 'Down to {0}° tonight',

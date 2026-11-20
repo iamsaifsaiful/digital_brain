@@ -89,6 +89,7 @@ class ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final blood = brain.data.emergency.blood;
+    final religion = brain.text('religion');
     Widget row(Key key, IconData icon, Color color, String label, String value, VoidCallback onTap, {bool empty = false}) => Material(
           color: Colors.transparent,
           child: InkWell(
@@ -161,6 +162,10 @@ class ProfileCard extends StatelessWidget {
         Divider(height: 1, indent: 52, color: C.line2),
         row(const Key('profile-blood'), Icons.bloodtype_outlined, C.rose, tr('রক্তের গ্রুপ'), blood.isEmpty ? tr('রক্তের গ্রুপ দিন') : blood, () => pickBloodGroup(context),
             empty: blood.isEmpty),
+        Divider(height: 1, indent: 52, color: C.line2),
+        // Owner, 20 Nov: religion, optional, never counted in "প্রোফাইল N%".
+        row(const Key('profile-religion'), Icons.auto_awesome_outlined, C.ochre, tr('ধর্ম'), religion.isEmpty ? tr('বাছুন (ঐচ্ছিক)') : religionLabel(religion), () => pickReligion(context),
+            empty: religion.isEmpty),
       ]),
     );
   }
@@ -194,6 +199,61 @@ Future<void> pickBloodGroup(BuildContext context) async {
   // A group needs its number and last donation (owner, 28 Oct); not given → not kept.
   if (picked.isNotEmpty && !await askBloodDetails(context, picked)) return;
   await brain.saveEmergency(brain.data.emergency.copyWith(blood: picked));
+}
+
+/// The religions a member can pick (owner, 20 Nov); 'none' is "বলতে চাই না".
+const religions = ['islam', 'hindu', 'buddhist', 'christian', 'other', 'none'];
+
+String religionLabel(String key) => switch (key) {
+      'islam' => tr('ইসলাম'),
+      'hindu' => tr('হিন্দু'),
+      'buddhist' => tr('বৌদ্ধ'),
+      'christian' => tr('খ্রিস্টান'),
+      'other' => tr('অন্য ধর্ম'),
+      'none' => tr('বলতে চাই না'),
+      _ => '',
+    };
+
+/// The member's religion: optional, kept only on this phone (pref 'religion'),
+/// never sent to our server.
+Future<void> pickReligion(BuildContext context) async {
+  final brain = BrainScope.read(context);
+  final current = brain.text('religion');
+  final picked = await showAppSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('আপনার ধর্ম'), style: display(20, weight: 700)),
+          const SizedBox(height: 4),
+          Text(tr('দেওয়া ঐচ্ছিক। শুধু আপনার ফোনেই থাকবে, কোথাও পাঠানো হয় না।'), style: body(13.5, color: C.muted)),
+          const SizedBox(height: 14),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final r in religions)
+              ChoiceChip(
+                key: Key('religion-$r'),
+                label: Text(religionLabel(r), style: body(16, weight: FontWeight.w600)),
+                selected: current == r,
+                onSelected: (_) => Navigator.pop(ctx, r),
+              ),
+          ]),
+          if (current.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              key: const Key('religion-clear'),
+              onPressed: () => Navigator.pop(ctx, ''),
+              icon: Icon(Icons.close_rounded, size: 18, color: C.muted),
+              label: Text(tr('খালি রাখুন'), style: body(14, color: C.muted)),
+            ),
+          ],
+        ]),
+      ),
+    ),
+  );
+  if (picked == null || picked == current) return;
+  await brain.setPref('religion', picked);
 }
 
 /// সেটিংস › চেহারা ও ভাষা: language, light/dark, accent colour, letter size, easy mode.
