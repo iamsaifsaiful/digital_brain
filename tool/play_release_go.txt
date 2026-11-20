@@ -1,1 +1,1 @@
-1.0.13 (code 10018): ঋতুপঞ্জি / Almanac (calendar + weather in one page, °C/°F); 12 calendars; holidays of several countries; মুসলিম টাইম; family medicine reminders; new location picker; mobile country code; My Files and sign-in redesign; professional wording; country search capitalizes sentences
+1.0.14 (code 10019): login logo below the Cox picture; intro in English after install; Home task open/edit; মুসলিম টাইম mosque pictures and swipe tabs; all UN countries for holidays/location/weather; religion in profile; My Files redesign with bank accounts and sharing
