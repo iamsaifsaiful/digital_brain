@@ -3,6 +3,10 @@
 // ignore_for_file: lines_longer_than_80_chars
 
 const enStrings = <String, String>{
+  'তালিকা': 'List',
+  'শেষ করেছেন': 'Done',
+  'এডিট করুন': 'Edit',
+  'নোট (চাইলে)': 'Note (optional)',
   'আজ বৃষ্টি হতে পারে — ছাতা সাথে রাখুন': 'Rain likely today — keep an umbrella',
   '{0} বৃষ্টি হতে পারে': 'Rain likely on {0}',
   'রাতে {0}° পর্যন্ত নামবে': 'Down to {0}° tonight',
