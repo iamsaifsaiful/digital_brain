@@ -76,6 +76,9 @@ Future<void> main() async {
   final brain = Brain(services);
   ErrorLog.connect(services.server, () => brain.services.ai.session);
   nluAppVersion = shownVersion;
+  // The language before the first frame, so the intro after a new install
+  // speaks English and only turns Bangla once বাংলা is picked (owner, 20 Nov).
+  await brain.loadLook();
   runApp(DigitalBrainApp(brain: brain));
   await brain.load();
   // The window starts blocked from screenshots; once the first page is up,
