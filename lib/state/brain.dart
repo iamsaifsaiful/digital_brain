@@ -1838,6 +1838,8 @@ class Brain extends ChangeNotifier {
     // Owner, 19 Nov: the calendars beside English, the weather's other places,
     // and °C or °F (these were saved but not read back at start).
     'calendars', 'weather_places', 'temp_unit',
+    // Owner, 20 Nov: the member's religion (optional, only on this phone).
+    'religion',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
