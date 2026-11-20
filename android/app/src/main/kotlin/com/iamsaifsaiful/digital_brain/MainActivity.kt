@@ -756,6 +756,14 @@ class MainActivity : FlutterFragmentActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/contacts").setMethodCallHandler { call, result ->
             contactsChannel(call, result)
         }
+        // The app's own folders, for when path_provider's call fails (problem log, 19 Nov).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/paths").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "support" -> result.success(applicationContext.filesDir.absolutePath)
+                "cache" -> result.success(applicationContext.cacheDir.absolutePath)
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "my_assistant/files").setMethodCallHandler { call, result ->
             if (call.method != "saveFile") {
                 fileViewChannel(call, result)

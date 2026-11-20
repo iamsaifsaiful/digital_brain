@@ -1,8 +1,8 @@
+import 'app_dir.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:path_provider/path_provider.dart';
 
 import '../models/models.dart';
 import 'crypto.dart';
@@ -18,7 +18,7 @@ class FileBlobStore implements BlobStore {
 
   Future<File> _f() async {
     if (_file != null) return _file!;
-    final dir = await getApplicationSupportDirectory();
+    final dir = await appSupportDir();
     await dir.create(recursive: true);
     return _file = File('${dir.path}/brain.enc');
   }
@@ -59,7 +59,7 @@ abstract class DocFiles {
 
 class FileDocFiles implements DocFiles {
   Future<File> _f(String id) async {
-    final dir = Directory('${(await getApplicationSupportDirectory()).path}/docs');
+    final dir = Directory('${(await appSupportDir()).path}/docs');
     if (!await dir.exists()) await dir.create(recursive: true);
     return File('${dir.path}/$id.bin');
   }

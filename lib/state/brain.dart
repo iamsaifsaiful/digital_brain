@@ -1,3 +1,4 @@
+import '../services/app_dir.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -42,7 +43,6 @@ import '../nlu/reader.dart' show NluPiece;
 import '../nlu/router.dart';
 import '../nlu/samples.dart' show nluAppVersion, nluConsentVer, delexicalize;
 import '../nlu/updater.dart';
-import 'package:path_provider/path_provider.dart';
 import '../logic/parser.dart';
 import '../logic/plan.dart';
 import '../logic/proactive.dart';
@@ -159,6 +159,36 @@ class Brain extends ChangeNotifier {
   AppData data = AppData();
   bool loaded = false;
   String? loadError;
+
+  /// The data could not be read right now (the phone did not give the app its
+  /// folder, a file was busy) — not a lock that does not fit. Problem log,
+  /// 19 Nov: such a start offered "start fresh" for data that was fine.
+  bool loadErrorPassing = false;
+
+  /// Tries reading the data again (the page "তথ্য খুলতে সমস্যা").
+  Future<bool> retryLoad() async {
+    try {
+      data = await services.store.load();
+      loadError = null;
+      loadErrorPassing = false;
+      try {
+        photo = await services.store.loadDocFile(_photoId);
+      } catch (_) {}
+      notifyListeners();
+      await _reschedule();
+      return true;
+    } catch (e, st) {
+      loadError = '$e';
+      loadErrorPassing = !_lockProblem(e);
+      ErrorLog.problem('DataLoad', e.runtimeType.toString(), st: st);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// A lock that does not open the file (or a file that is not data): the
+  /// only case where restoring or starting fresh is offered first.
+  static bool _lockProblem(Object e) => e is WrongKey || e is DataKeyMissing || e is FormatException;
 
   /// True between the user unlocking and the app locking again.
   bool unlocked = false;
@@ -1138,7 +1168,7 @@ class Brain extends ChangeNotifier {
     if (session.isEmpty || !services.server.configured || nluMode == 'off') return;
     try {
       final r = await services.server.send('GET', '/nlu/model', session);
-      final files = NluModelFiles(await getApplicationSupportDirectory());
+      final files = NluModelFiles(await appSupportDir());
       final what = await updateNluModel(files, r.status, r.data, mayDownload: await unmetered());
       Trace.log('nlu', 'model update', {'result': what});
       nluModelState = what.startsWith('updated:') ? 'ready' : (what == 'same' ? 'ready' : what);
@@ -2626,6 +2656,7 @@ class Brain extends ChangeNotifier {
       } catch (_) {}
     } catch (e, st) {
       loadError = '$e';
+      loadErrorPassing = !_lockProblem(e);
       ErrorLog.problem('DataLoad', e.runtimeType.toString(), st: st);
     }
     loaded = true;

@@ -1,9 +1,9 @@
+import 'services/app_dir.dart';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'services/health_connect.dart';
 import 'services/google_account.dart';
@@ -62,7 +62,7 @@ Future<void> main() async {
   // kept in a small file until sent, and sent a few seconds after.
   ErrorLog.version = shownVersion;
   try {
-    await ErrorLog.open(await getApplicationSupportDirectory());
+    await ErrorLog.open(await appSupportDir());
   } catch (_) {}
   final shown = FlutterError.onError;
   FlutterError.onError = (d) {

@@ -6187,4 +6187,8 @@ const enStrings = <String, String>{
   'অন্য শহর বা এলাকা? ওপরে নাম লিখুন — বাংলা বা ইংরেজিতে।': 'Another city or area? Type its name above.',
   'একসাথে সর্বোচ্চ {0}টি দেশ · এখন {1}টি': 'Up to {0} countries at once · {1} now',
   '{0}টি দেশ হয়ে গেছে। নতুন দেশ নিতে আগে একটির টিক তুলে দিন।': 'That’s {0} countries. Untick one to add another.',
+  'তথ্য খুলতে একটু দেরি হচ্ছে': 'Opening your data is taking a moment',
+  'ফোন এই মুহূর্তে অ্যাপের ফাইল দিতে পারেনি। আপনার তথ্য ঠিক আছে — কিছু মোছা হয়নি। আবার চেষ্টা করুন।': 'The phone could not hand the app its file just now. Your data is fine — nothing was deleted. Please try again.',
+  'আবার চেষ্টা করুন': 'Try again',
+  '{0}টা করে': '{0} each time',
 };

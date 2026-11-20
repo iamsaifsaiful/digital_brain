@@ -3,10 +3,10 @@
 // the UI thread.
 // Any failure (no model, a phone the library does not support) leaves the
 // model off; the app keeps working with its old reading.
+import '../services/app_dir.dart';
 import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:path_provider/path_provider.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import 'reader.dart';
@@ -26,7 +26,7 @@ class TfliteRunner implements NluRunner {
   /// does not load, it is deleted. Then one in the assets, if a build has it.
   static Future<NluReader?> load() async {
     try {
-      final files = NluModelFiles(await getApplicationSupportDirectory());
+      final files = NluModelFiles(await appSupportDir());
       if (files.present) {
         try {
           return await _open(jsonDecode(files.config.readAsStringSync()) as Map<String, dynamic>, Interpreter.fromFile(files.model, options: InterpreterOptions()..threads = 2));

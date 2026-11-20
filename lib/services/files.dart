@@ -1,3 +1,4 @@
+import 'app_dir.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -5,7 +6,6 @@ import 'package:file_selector/file_selector.dart' as fs;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' as sp;
 
 /// Sharing a file out of the app, picking one in, and the clipboard.
@@ -159,7 +159,7 @@ class DeviceFiles implements FileBridge {
 
   @override
   Future<void> shareFile(Uint8List bytes, String fileName, String mime, String text) async {
-    final dir = await getTemporaryDirectory();
+    final dir = await appTempDir();
     final f = File('${dir.path}/$fileName');
     await f.writeAsBytes(bytes, flush: true);
     await sp.SharePlus.instance.share(sp.ShareParams(files: [sp.XFile(f.path, mimeType: mime)], text: text));
@@ -172,7 +172,7 @@ class DeviceFiles implements FileBridge {
 
   @override
   Future<void> shareFiles(List<PickedDoc> files, String text) async {
-    final dir = Directory('${(await getTemporaryDirectory()).path}/share');
+    final dir = Directory('${(await appTempDir()).path}/share');
     if (await dir.exists()) await dir.delete(recursive: true);
     await dir.create(recursive: true);
     final out = <sp.XFile>[];
@@ -189,7 +189,7 @@ class DeviceFiles implements FileBridge {
   Future<StorageUse> storageUse() async {
     var docs = 0, data = 0, other = 0;
     try {
-      final root = await getApplicationSupportDirectory();
+      final root = await appSupportDir();
       await for (final e in root.list(recursive: true, followLinks: false)) {
         if (e is! File) continue;
         final n = await e.length();
