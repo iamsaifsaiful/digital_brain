@@ -16,9 +16,10 @@ const holAuto = '@';
 /// The international days.
 const holIntl = 'INTL';
 
-/// What a new member sees: the profile's country, Bangladesh (the same
-/// when at home) and the international days.
-const holDefault = [holAuto, 'BD', holIntl];
+/// What a new member sees: only the profile location's country (owner,
+/// 20 Nov: "লোকেশন অনুযায়ী ডিফল্ট ছুটির তারিখ দেখাবে। পরে চাইলে ইউজার অন্য
+/// দেশ যুক্ত করবে"); Bangladesh and the international days are a tick away.
+const holDefault = [holAuto];
 
 /// At most this many countries at once (owner, 20 Nov: "এক সাথে তিনটির
 /// বেশি ছুটির দেশ সিলেক্ট করা যাবে না"); the international days not counted.

@@ -127,6 +127,30 @@ void main() {
     debugDisableShadows = true;
   });
 
+  testWidgets('holidays by default: only the location\'s country', (t) async {
+    if (shots) {
+      await four.icons();
+      debugDisableShadows = false;
+    }
+    final rig = await start(t);
+    rig.nowAt = DateTime(2026, 11, 20, 10, 10);
+    t.view.physicalSize = const Size(1170, 2532);
+    final b = rig.brain;
+    await b.setDistrict(worldPlaces.firstWhere((p) => p.name == 'দুবাই').key);
+    await b.refreshHolidaysAbroad();
+    await settle(t);
+    final card = find.byKey(const Key('home-holidays'));
+    await t.scrollUntilVisible(card, 300, scrollable: find.byType(Scrollable).first);
+    await settle(t);
+    await Scrollable.ensureVisible(t.element(find.text('সামনের ছুটি').first), alignment: 0.06);
+    await settle(t);
+    expect(b.holCountriesShown, ['AE']);
+    expect(find.byKey(const Key('hol-chip-BD')), findsNothing);
+    expect(find.byKey(const Key('hol-chip-INTL')), findsNothing);
+    await shot(t, '0-holiday-default');
+    debugDisableShadows = true;
+  });
+
   testWidgets('location: all countries by continent; one opens to its capital, cities and a search in it', (t) async {
     final rig = await rig0(t);
     await rig.brain.setDistrict('ঢাকা');

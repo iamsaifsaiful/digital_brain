@@ -63,6 +63,11 @@ void main() {
     final b = rig.brain;
     final dubai = worldPlaces.firstWhere((p) => p.name == 'দুবাই');
     await b.setDistrict(dubai.key);
+    // By default only the location's country (owner, 20 Nov); here the
+    // member has also ticked Bangladesh and the international days.
+    expect(b.holLists, ['@']);
+    expect(b.holCountriesShown, ['AE']);
+    await b.setHolLists(['@', 'BD', 'INTL']);
     await b.refreshHolidaysAbroad();
     await settle(t);
     final card = find.byKey(const Key('home-holidays'));
