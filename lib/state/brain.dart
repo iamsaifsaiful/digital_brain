@@ -3134,6 +3134,21 @@ class Brain extends ChangeNotifier {
     await _save();
   }
 
+  // ── আমার ফাইল › ব্যাংক একাউন্ট (owner, 20 Nov) ──
+
+  Future<void> saveBankAccount(BankAccount a) async {
+    _upsert(data.bankAccounts, a, (x) => x.id);
+    await _save();
+  }
+
+  Future<void> deleteBankAccount(String id) async {
+    for (final a in data.bankAccounts.where((x) => x.id == id)) {
+      _trash(a.bank, [('bankAccounts', a.toJson())]);
+    }
+    data.bankAccounts.removeWhere((x) => x.id == id);
+    await _save();
+  }
+
   Future<void> deleteDoc(Doc d) async {
     _trash(d.title, [('docs', d.toJson()), ..._remindersJson([d.reminderId])], files: [for (final f in d.files) f.id]);
     data.docs.removeWhere((x) => x.id == d.id);

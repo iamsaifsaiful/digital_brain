@@ -1,4 +1,3 @@
-import 'cards_screen.dart' show CardsScreen;
 import '../ui/secure.dart';
 import '../ui/drag_grid.dart';
 import 'dart:typed_data';
@@ -29,6 +28,25 @@ import '../ui/pdf_export.dart';
 String sizeText(int bytes) {
   if (bytes >= 1024 * 1024) return '${bnDigits((bytes / (1024 * 1024)).toStringAsFixed(1))} MB';
   return '${bnDigits((bytes / 1024).ceil())} KB';
+}
+
+/// Sends all pages of [d] out of the app — WhatsApp, Messenger, email,
+/// Drive, whatever the phone offers (owner, 20 Nov). Asks for the PIN or
+/// finger first unless the page is already open.
+Future<void> shareDoc(BuildContext context, Doc d, {bool unlocked = false}) async {
+  final brain = BrainScope.read(context);
+  if (!unlocked && !await verifyUser(context, reason: trf('{0} — শেয়ার করতে যাচাই করুন', [d.title]))) return;
+  final out = <PickedDoc>[];
+  for (final f in d.files) {
+    final b = await brain.docBytes(f);
+    if (b != null) out.add(PickedDoc(b, f.name, f.mime));
+  }
+  if (!context.mounted) return;
+  if (out.isEmpty) {
+    toast(context, tr('শেয়ার করার মতো কোনো পাতা নেই।'));
+    return;
+  }
+  await brain.services.files.shareFiles(out, d.title);
 }
 
 /// All folders: the usual ones, then the user's own.
@@ -139,6 +157,12 @@ class _DocsScreenState extends State<DocsScreen> {
           ),
           title: x.title,
           subtitle: trf('{0} · {1} পাতা · {2}{3}', [tr(x.folder), bnDigits(x.files.length), sizeText(x.size), x.expiry != null ? ' · ${trf('মেয়াদ {0}', ['${bnDigits(x.expiry!.day)} ${monthShort(x.expiry!.month)} ${bnDigits(x.expiry!.year)}'])}' : '']),
+          trailing: IconButton(
+            key: Key('doc-share-${x.id}'),
+            tooltip: tr('শেয়ার'),
+            onPressed: x.files.isEmpty ? null : () => shareDoc(context, x),
+            icon: Icon(Icons.share_outlined, color: C.muted, size: 20),
+          ),
           onTap: () => _open(x),
         );
 
@@ -195,14 +219,11 @@ class _DocsScreenState extends State<DocsScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     aspect: 1.05,
-                    items: inOrder(['__cards', ...folders], (x) => x, brain.orderOf('doc_folders')),
+                    items: inOrder([...folders], (x) => x, brain.orderOf('doc_folders')),
                     keyOf: (x) => x,
                     onReorder: (keys) => brain.setOrder('doc_folders', keys),
-                    tile: (f) => f == '__cards'
-                        // ব্যাংক কার্ড, first unless moved (owner, 28 Oct).
-                        ? _folderTile(key: const Key('doc-cards'), icon: Icons.credit_card_rounded, tint: C.greenTint, color: C.green, title: tr('ব্যাংক কার্ড'), count: d.cards.length,
-                            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen())))
-                        : _folderTile(key: Key('doc-folder-$f'), icon: Icons.folder_outlined, tint: C.blueTint, color: C.blue, title: tr(f), count: d.docs.where((x) => x.folder == f).length,
+                    // ব্যাংক কার্ড moved to আমার ফাইল (owner, 20 Nov).
+                    tile: (f) => _folderTile(key: Key('doc-folder-$f'), icon: Icons.folder_outlined, tint: C.blueTint, color: C.blue, title: tr(f), count: d.docs.where((x) => x.folder == f).length,
                             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DocsScreen(folder: f)))),
                     trailing:
                       // A folder of the user's own, named by them (owner, 24 Oct).
@@ -398,6 +419,13 @@ class _DocScreenState extends State<DocScreen> {
       body: SafeArea(
         child: Column(children: [
           TopBar(title: d.title, trailing: [
+            if (d.files.isNotEmpty)
+              IconButton(
+                key: const Key('doc-share'),
+                tooltip: tr('শেয়ার'),
+                onPressed: () => shareDoc(context, d, unlocked: true),
+                icon: const Icon(Icons.share_outlined),
+              ),
             IconButton(
               tooltip: tr('নাম বদলান'),
               onPressed: () async {
