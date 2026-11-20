@@ -73,6 +73,15 @@ Future<void> showHomePins(BuildContext context) => showAppSheet<void>(
       },
     );
 
+/// The picture on top for each tab (owner, 20 Nov; the owner's own
+/// pictures): নামাজ মসজিদে নববী, সেহরি ও ইফতার মসজিদুল আকসা, কিবলা the
+/// Kaaba: (asset, alignment).
+const mosquePictures = <IbadahTab, (String, Alignment)>{
+  IbadahTab.prayer: ('assets/mosque/nabawi.jpg', Alignment(0.15, 0)),
+  IbadahTab.fasting: ('assets/mosque/aqsa.jpg', Alignment(0.1, 0)),
+  IbadahTab.qibla: ('assets/mosque/kaaba.jpg', Alignment(0, -0.2)),
+};
+
 /// The three parts of মুসলিম টাইম.
 enum IbadahTab { prayer, fasting, qibla }
 
@@ -116,44 +125,141 @@ class _IbadahScreenState extends State<IbadahScreen> {
     final now = brain.services.now();
     final place = placeNamed(brain.district);
     final hj = hijriDate(now, adjust: brain.hijriShift);
+    final t = sunTimes(now, place);
+    final bottom = MediaQuery.of(context).padding.bottom;
+    // Owner, 20 Nov: a picture of a famous mosque on top, and the tabs move
+    // by a swipe as well as a tap. The picture scrolls away with the page.
     return Scaffold(
-      body: SafeArea(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          TopBar(title: tr('মুসলিম টাইম'), trailing: [
-            // Pin times to Home (owner, 19 Nov).
-            TextButton.icon(
-              key: const Key('ibadah-pin'),
-              onPressed: () => showHomePins(context),
-              icon: Icon(homePins.any((k) => brain.flag(k)) ? Icons.push_pin : Icons.push_pin_outlined, size: 18, color: C.green),
-              label: Text(tr('হোমে দেখান'), style: body(13, weight: FontWeight.w600, color: C.green)),
-            ),
-          ]),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 0, 20, 10),
-            child: Row(children: [
-              Icon(Icons.place_outlined, size: 16, color: C.muted),
-              const SizedBox(width: 4),
-              Flexible(child: Text(place.label, key: const Key('ibadah-place'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted))),
-              Text('  ·  ', style: body(13, color: C.muted)),
-              Flexible(child: Text(hj.short, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: C.muted))),
-            ]),
-          ),
+      body: TabPages<IbadahTab>(
+        key: const Key('ibadah-tabs'),
+        items: [(IbadahTab.prayer, tr('নামাজ')), (IbadahTab.fasting, tr('সেহরি ও ইফতার')), (IbadahTab.qibla, tr('কিবলা'))],
+        value: _tab,
+        onChanged: (v) => setState(() => _tab = v),
+        padding: EdgeInsets.fromLTRB(0, 0, 0, 24 + bottom),
+        top: (tabs) => [
+          _hero(context, brain, now, place, hj, t),
+          Padding(padding: const EdgeInsets.fromLTRB(20, 14, 20, 12), child: tabs),
+        ],
+        page: (v) => [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: SegTabs<IbadahTab>(
-              key: const Key('ibadah-tabs'),
-              items: [(IbadahTab.prayer, tr('নামাজ')), (IbadahTab.fasting, tr('সেহরি ও ইফতার')), (IbadahTab.qibla, tr('কিবলা'))],
-              value: _tab,
-              onChanged: (v) => setState(() => _tab = v),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Expanded(
-            child: switch (_tab) {
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: switch (v) {
               IbadahTab.prayer => _prayers(brain, now, place),
               IbadahTab.fasting => _fasting(brain, now, place),
-              IbadahTab.qibla => const QiblaView(),
-            },
+              IbadahTab.qibla => const [QiblaView()],
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The picture of the mosque, darkened for the words: back, the name, the
+  /// pin, the place and Hijri date, and the next prayer with the time left.
+  Widget _hero(BuildContext context, Brain brain, DateTime now, Place place, HijriDate hj, SunTimes t) {
+    final top = MediaQuery.of(context).padding.top;
+    final friday = now.weekday == DateTime.friday;
+    final all = [(tr('ফজর'), t.fajr), (friday ? tr('জুমা') : tr('জোহর'), t.dhuhr), (tr('আসর'), t.asr), (tr('মাগরিব'), t.maghrib), (tr('এশা'), t.isha)];
+    final idx = all.indexWhere((p) => p.$2.isAfter(now));
+    final tomorrow = sunTimes(now.add(const Duration(days: 1)), place);
+    final yesterday = sunTimes(now.subtract(const Duration(days: 1)), place);
+    final next = idx >= 0 ? all[idx] : (tr('ফজর'), tomorrow.fajr);
+    final from = idx > 0 ? all[idx - 1].$2 : (idx == 0 ? yesterday.isha : t.isha);
+    final left = next.$2.difference(now);
+    final done = (now.difference(from).inSeconds / next.$2.difference(from).inSeconds).clamp(0.0, 1.0);
+    const white = Colors.white;
+    final soft = Colors.white.withValues(alpha: 0.85);
+    const shade = [Shadow(color: Color(0x66000000), blurRadius: 12)];
+    final pinned = homePins.any((k) => brain.flag(k));
+    return ClipRRect(
+      key: const Key('ibadah-hero'),
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
+      child: SizedBox(
+        height: top + 272,
+        child: Stack(fit: StackFit.expand, children: [
+          // The tab's own mosque; a soft fade when the tab changes.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            child: Image.asset(
+              mosquePictures[_tab]!.$1,
+              key: ValueKey(_tab),
+              fit: BoxFit.cover,
+              alignment: mosquePictures[_tab]!.$2,
+              width: double.infinity,
+              height: double.infinity,
+              gaplessPlayback: true,
+              excludeFromSemantics: true,
+            ),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: [0, 0.35, 0.62, 1], colors: [
+                Color(0x8C000000),
+                Color(0x26000000),
+                Color(0x33000000),
+                Color(0xB3000000),
+              ]),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(8, top + 4, 12, 18),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                IconButton(
+                  tooltip: tr('ফিরে যান'),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.chevron_left_rounded, size: 30, color: white, shadows: shade),
+                ),
+                const SizedBox(width: 2),
+                Expanded(child: Text(tr('মুসলিম টাইম'), maxLines: 1, overflow: TextOverflow.ellipsis, style: display(21, weight: 600, color: white).copyWith(shadows: shade))),
+                // Pin times to Home (owner, 19 Nov).
+                TextButton.icon(
+                  key: const Key('ibadah-pin'),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.16),
+                    shape: StadiumBorder(side: BorderSide(color: Colors.white.withValues(alpha: 0.45))),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () => showHomePins(context),
+                  icon: Icon(pinned ? Icons.push_pin : Icons.push_pin_outlined, size: 16, color: white),
+                  label: Text(tr('হোমে দেখান'), style: body(12.5, weight: FontWeight.w600, color: white)),
+                ),
+              ]),
+              Padding(
+                padding: const EdgeInsets.only(left: 14),
+                child: Row(children: [
+                  Icon(Icons.place_outlined, size: 15, color: soft, shadows: shade),
+                  const SizedBox(width: 4),
+                  Flexible(child: Text(place.label, key: const Key('ibadah-place'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: soft).copyWith(shadows: shade))),
+                  Text('  ·  ', style: body(13, color: soft)),
+                  Flexible(child: Text(hj.short, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, color: soft).copyWith(shadows: shade))),
+                ]),
+              ),
+              const Spacer(),
+              Padding(
+                key: const Key('ibadah-next'),
+                padding: const EdgeInsets.only(left: 14, right: 6),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr('পরের ওয়াক্ত'), style: body(12.5, color: soft).copyWith(shadows: shade)),
+                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(next.$1, style: display(30, weight: 600, height: 1.25, color: white).copyWith(shadows: shade)),
+                    const SizedBox(width: 10),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 5),
+                      child: Text(trf('আর {0} বাকি', [_span(left)]), style: body(13, weight: FontWeight.w600, color: soft).copyWith(shadows: shade)),
+                    ),
+                    const Spacer(),
+                    Text(_clock(next.$2), style: display(30, weight: 600, height: 1.25, color: white).copyWith(shadows: shade)),
+                  ]),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(value: done, minHeight: 3, backgroundColor: Colors.white.withValues(alpha: 0.25), valueColor: const AlwaysStoppedAnimation(white)),
+                  ),
+                ]),
+              ),
+            ]),
           ),
         ]),
       ),
@@ -162,7 +268,7 @@ class _IbadahScreenState extends State<IbadahScreen> {
 
   // ── নামাজ ──
 
-  Widget _prayers(Brain brain, DateTime now, Place place) {
+  List<Widget> _prayers(Brain brain, DateTime now, Place place) {
     final today = DateTime(now.year, now.month, now.day);
     final day = today.add(Duration(days: _day));
     final t = sunTimes(day, place);
@@ -185,9 +291,7 @@ class _IbadahScreenState extends State<IbadahScreen> {
         }
       }
     }
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 6, 20, 24), children: [
-      if (_day == 0) _nextCard(now, place, t),
-      if (_day == 0) const SizedBox(height: 12),
+    return [
       Row(children: [
         IconButton(
           key: const Key('ibadah-day-back'),
@@ -227,7 +331,7 @@ class _IbadahScreenState extends State<IbadahScreen> {
         trf('{0} অনুযায়ী আনুমানিক সময় · {1}, আসর হানাফি। আজান ও জামাতের সময় নিজের মসজিদের সঙ্গে মিলিয়ে নিন।', [place.label, _method(place)]),
         style: body(12, color: C.muted, height: 1.5),
       ),
-    ]);
+    ];
   }
 
   String _method(Place p) => switch (p.region) {
@@ -236,39 +340,6 @@ class _IbadahScreenState extends State<IbadahScreen> {
         'na' => tr('ISNA পদ্ধতি'),
         _ => tr('করাচি পদ্ধতি (১৮°)'),
       };
-
-  /// পরের ওয়াক্ত, its time, how long until it, and a thin line of the way there.
-  Widget _nextCard(DateTime now, Place place, SunTimes t) {
-    final friday = now.weekday == DateTime.friday;
-    final all = [(tr('ফজর'), t.fajr), (friday ? tr('জুমা') : tr('জোহর'), t.dhuhr), (tr('আসর'), t.asr), (tr('মাগরিব'), t.maghrib), (tr('এশা'), t.isha)];
-    final idx = all.indexWhere((p) => p.$2.isAfter(now));
-    final tomorrow = sunTimes(now.add(const Duration(days: 1)), place);
-    final yesterday = sunTimes(now.subtract(const Duration(days: 1)), place);
-    final next = idx >= 0 ? all[idx] : (tr('ফজর'), tomorrow.fajr);
-    final from = idx > 0 ? all[idx - 1].$2 : (idx == 0 ? yesterday.isha : t.isha);
-    final left = next.$2.difference(now);
-    final done = (now.difference(from).inSeconds / next.$2.difference(from).inSeconds).clamp(0.0, 1.0);
-    return Panel(
-      key: const Key('ibadah-next'),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(tr('পরের ওয়াক্ত'), style: body(12.5, color: C.muted)),
-        const SizedBox(height: 2),
-        Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(next.$1, style: display(26, weight: 600, height: 1.2)),
-          const Spacer(),
-          Text(_clock(next.$2), style: display(26, weight: 600, height: 1.2)),
-        ]),
-        const SizedBox(height: 4),
-        Text(trf('আর {0} বাকি', [_span(left)]), style: body(13.5, weight: FontWeight.w600, color: C.green)),
-        const SizedBox(height: 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(2),
-          child: LinearProgressIndicator(value: done, minHeight: 3, backgroundColor: C.surface2, valueColor: AlwaysStoppedAnimation(C.green)),
-        ),
-      ]),
-    );
-  }
 
   Widget _waqtRow(String name, IconData icon, DateTime at, {required bool now, DateTime? until}) {
     return Container(
@@ -308,7 +379,7 @@ class _IbadahScreenState extends State<IbadahScreen> {
 
   // ── সেহরি ও ইফতার ──
 
-  Widget _fasting(Brain brain, DateTime now, Place place) {
+  List<Widget> _fasting(Brain brain, DateTime now, Place place) {
     final today = DateTime(now.year, now.month, now.day);
     final t = sunTimes(today, place);
     final hj = hijriDate(today, adjust: brain.hijriShift);
@@ -337,7 +408,7 @@ class _IbadahScreenState extends State<IbadahScreen> {
     final sehriNext = now.isBefore(t.sehriEnd) ? t.sehriEnd : tomorrow.sehriEnd;
     final iftarNext = now.isBefore(t.maghrib) ? t.maghrib : tomorrow.maghrib;
 
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 6, 20, 24), children: [
+    return [
       Panel(
         key: const Key('ibadah-fast-today'),
         child: IntrinsicHeight(
@@ -395,7 +466,7 @@ class _IbadahScreenState extends State<IbadahScreen> {
         trf('{0} অনুযায়ী আনুমানিক সময়। সেহরির শেষ সময় ফজরের ৫ মিনিট আগে; ইফতার মাগরিবের সময়ে।', [place.label]),
         style: body(12, color: C.muted, height: 1.5),
       ),
-    ]);
+    ];
   }
 
   Widget _half(IconData icon, String label, DateTime at) => Padding(

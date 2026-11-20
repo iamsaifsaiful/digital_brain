@@ -41,7 +41,10 @@ void main() {
     if (dark) await rig.brain.setLook(Look.dark);
     await rig.brain.setUserName('সাইফুল');
     await settle(t);
-    Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => IbadahScreen(tab: tab)));
+    final ctx = t.element(find.byType(Scaffold).first);
+    // The mosque picture decoded before the shot.
+    if (shots) await t.runAsync(() async { for (final p in mosquePictures.values) { await precacheImage(AssetImage(p.$1), ctx); } });
+    Navigator.of(ctx).push(MaterialPageRoute(builder: (_) => IbadahScreen(tab: tab)));
     await settle(t);
     return rig;
   }
@@ -79,7 +82,7 @@ void main() {
     // 1448 Ramadan starts about 8-9 Feb 2027.
     await openPage(t, at: DateTime(2027, 2, 20, 11), tab: IbadahTab.fasting);
     expect(hijriDate(DateTime(2027, 2, 20)).isRamadan, isTrue);
-    await t.drag(find.byType(ListView).last, const Offset(0, -560));
+    await t.drag(find.byKey(const Key('ibadah-timetable')), const Offset(0, -900));
     await settle(t);
     await _shot(t, '3-in-ramadan');
   });
@@ -113,6 +116,21 @@ void main() {
     expect(find.textContaining('আসর'), findsWidgets);
     expect(find.textContaining('ইফতার'), findsWidgets);
     await _shot(t, '7-home-pinned');
+  });
+
+  testWidgets('the tabs move by a swipe (owner, 20 Nov), and the mosque picture is on top', (t) async {
+    await openPage(t);
+    expect(find.byKey(const Key('ibadah-hero')), findsOneWidget);
+    await t.fling(find.byType(PageView), const Offset(-400, 0), 1500);
+    await settle(t);
+    expect(find.byKey(const Key('ibadah-fast-today')), findsOneWidget);
+    await t.fling(find.byType(PageView), const Offset(-400, 0), 1500);
+    await settle(t);
+    expect(find.byKey(const Key('compass-qibla')), findsOneWidget);
+    await t.fling(find.byType(PageView), const Offset(400, 0), 1500);
+    await settle(t);
+    expect(find.byKey(const Key('ibadah-fast-today')), findsOneWidget);
+    debugDisableShadows = true;
   });
 
   testWidgets('dark look', (t) async {

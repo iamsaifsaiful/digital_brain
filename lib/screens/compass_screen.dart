@@ -97,7 +97,7 @@ class _QiblaViewState extends State<QiblaView> {
     if (facing && !_facing) HapticFeedback.mediumImpact();
     _facing = facing;
 
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               if (_none)
                 EmptyState(
                   icon: Icons.explore_off_outlined,
