@@ -43,7 +43,7 @@ void main() {
     await settle(t);
     final ctx = t.element(find.byType(Scaffold).first);
     // The mosque picture decoded before the shot.
-    if (shots) await t.runAsync(() => precacheImage(const AssetImage(mosquePicture), ctx));
+    if (shots) await t.runAsync(() async { for (final p in mosquePictures.values) { await precacheImage(AssetImage(p.$1), ctx); } });
     Navigator.of(ctx).push(MaterialPageRoute(builder: (_) => IbadahScreen(tab: tab)));
     await settle(t);
     return rig;
@@ -121,7 +121,6 @@ void main() {
   testWidgets('the tabs move by a swipe (owner, 20 Nov), and the mosque picture is on top', (t) async {
     await openPage(t);
     expect(find.byKey(const Key('ibadah-hero')), findsOneWidget);
-    expect(find.byKey(const Key('ibadah-credit')), findsOneWidget);
     await t.fling(find.byType(PageView), const Offset(-400, 0), 1500);
     await settle(t);
     expect(find.byKey(const Key('ibadah-fast-today')), findsOneWidget);

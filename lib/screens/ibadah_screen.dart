@@ -73,10 +73,14 @@ Future<void> showHomePins(BuildContext context) => showAppSheet<void>(
       },
     );
 
-/// The picture on top (a freely licensed photo; credited under the times).
-const mosquePicture = 'assets/mosque/mosque.jpg';
-const mosqueAlign = Alignment(0, 0.1);
-const mosqueCredit = 'ছবি: ষাট গম্বুজ মসজিদ, বাগেরহাট · Belayet, CC BY 3.0 (Wikimedia Commons)';
+/// The picture on top for each tab (owner, 20 Nov; the owner's own
+/// pictures): নামাজ মসজিদে নববী, সেহরি ও ইফতার মসজিদুল আকসা, কিবলা the
+/// Kaaba: (asset, alignment).
+const mosquePictures = <IbadahTab, (String, Alignment)>{
+  IbadahTab.prayer: ('assets/mosque/nabawi.jpg', Alignment(0.15, 0)),
+  IbadahTab.fasting: ('assets/mosque/aqsa.jpg', Alignment(0.1, 0)),
+  IbadahTab.qibla: ('assets/mosque/kaaba.jpg', Alignment(0, -0.2)),
+};
 
 /// The three parts of মুসলিম টাইম.
 enum IbadahTab { prayer, fasting, qibla }
@@ -173,7 +177,20 @@ class _IbadahScreenState extends State<IbadahScreen> {
       child: SizedBox(
         height: top + 272,
         child: Stack(fit: StackFit.expand, children: [
-          Image.asset(mosquePicture, fit: BoxFit.cover, alignment: mosqueAlign, excludeFromSemantics: true),
+          // The tab's own mosque; a soft fade when the tab changes.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            child: Image.asset(
+              mosquePictures[_tab]!.$1,
+              key: ValueKey(_tab),
+              fit: BoxFit.cover,
+              alignment: mosquePictures[_tab]!.$2,
+              width: double.infinity,
+              height: double.infinity,
+              gaplessPlayback: true,
+              excludeFromSemantics: true,
+            ),
+          ),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: [0, 0.35, 0.62, 1], colors: [
@@ -314,8 +331,6 @@ class _IbadahScreenState extends State<IbadahScreen> {
         trf('{0} অনুযায়ী আনুমানিক সময় · {1}, আসর হানাফি। আজান ও জামাতের সময় নিজের মসজিদের সঙ্গে মিলিয়ে নিন।', [place.label, _method(place)]),
         style: body(12, color: C.muted, height: 1.5),
       ),
-      const SizedBox(height: 8),
-      Text(mosqueCredit, key: const Key('ibadah-credit'), style: body(11, color: C.muted, height: 1.4)),
     ];
   }
 
