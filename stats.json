@@ -1,0 +1,229 @@
+{
+ "seed": 7,
+ "total": 51889,
+ "train": 44966,
+ "dev": 6923,
+ "families": 1617,
+ "template_families": 302,
+ "kinds": {
+  "single": 37993,
+  "context": 2981,
+  "multi_numbered": 875,
+  "multi": 2625,
+  "long": 3000,
+  "headed": 1800,
+  "exit": 991,
+  "real": 52,
+  "crowd": 1572
+ },
+ "states": {
+  "idle": 48020,
+  "confirm_delete": 542,
+  "confirm_save": 371,
+  "confirm_batch": 948,
+  "await_time": 367,
+  "await_ampm": 114,
+  "await_new_value": 367,
+  "await_person": 336,
+  "await_kind": 108,
+  "pick_one": 296,
+  "clarify": 170,
+  "dictating_list": 250
+ },
+ "noise": {
+  "filler": 7942,
+  "ascii_digits": 3123,
+  "no_punct": 3527,
+  "filler_end": 4026,
+  "stt": 3301,
+  "region": 1116,
+  "join": 774
+ },
+ "regions": {
+  "বরিশাল": 218,
+  "চট্টগ্রাম": 246,
+  "নোয়াখালী": 273,
+  "ময়মনসিংহ": 164,
+  "সিলেট": 186,
+  "রাজশাহী": 29
+ },
+ "per_intent": {
+  "cash_add": 10057,
+  "task_add": 8582,
+  "reminder_add": 5570,
+  "ledger_add": 5312,
+  "task_edit": 2721,
+  "task_done": 2336,
+  "note_add": 2298,
+  "task_delete": 2265,
+  "ledger_set": 2052,
+  "reminder_edit": 1522,
+  "task_remind": 1486,
+  "app_help": 1458,
+  "task_query": 1192,
+  "ledger_query": 1138,
+  "rename": 1084,
+  "cash_query": 1016,
+  "reminder_delete": 1015,
+  "health_add": 951,
+  "reminder_stop": 937,
+  "correct": 885,
+  "item_delete": 865,
+  "call": 801,
+  "reminder_query": 763,
+  "inform": 728,
+  "select": 641,
+  "open_page": 606,
+  "contact_query": 605,
+  "special_query": 567,
+  "contact_add": 563,
+  "special_add": 552,
+  "menu_people": 500,
+  "menu_project": 482,
+  "task_skip_once": 400,
+  "task_reopen": 380,
+  "menu_cash": 378,
+  "complain_help": 364,
+  "menu_habit": 360,
+  "menu_accounts": 344,
+  "menu_savings": 342,
+  "confirm_yes": 306,
+  "menu_shop": 297,
+  "out_of_scope": 286,
+  "dictate_start": 280,
+  "menu_special": 213,
+  "calendar_query": 173,
+  "note_query": 172,
+  "doc_query": 149,
+  "menu_zakat": 146,
+  "smalltalk": 143,
+  "cancel": 120,
+  "menu_health": 117,
+  "reminder_snooze": 104,
+  "vault_query": 98,
+  "menu_medicine": 90,
+  "vault_add": 72,
+  "confirm_no": 68,
+  "briefing": 63,
+  "menu_backup": 62,
+  "profile_query": 61,
+  "memory_add": 54,
+  "menu_notes": 52,
+  "menu_alarm": 50,
+  "menu_trash": 37,
+  "menu_installment": 36,
+  "menu_memory": 33,
+  "menu_settings": 26,
+  "dictate_end": 18
+ },
+ "missing_intents": [],
+ "dropped_gold": 248,
+ "dropped_gold_kinds": {
+  "near": 112,
+  "exact": 136
+ },
+ "gold_sentences": 7078,
+ "conflicts": 3,
+ "pairs": [
+  {
+   "pair": "প্রশ্ন বনাম রাখা",
+   "a": "ledger_query",
+   "a_n": 1138,
+   "b": "ledger_add",
+   "b_n": 3317
+  },
+  {
+   "pair": "হয়ে গেছে / হবে / হয়নি",
+   "a": "ledger_add",
+   "a_n": 3317,
+   "b": "task_add",
+   "b_n": 3658
+  },
+  {
+   "pair": "কাজ বনাম রিমাইন্ডার",
+   "a": "task_add",
+   "a_n": 3658,
+   "b": "reminder_add",
+   "b_n": 2849
+  },
+  {
+   "pair": "ধার বনাম নিজের খরচ",
+   "a": "ledger_add",
+   "a_n": 3317,
+   "b": "cash_add",
+   "b_n": 3905
+  },
+  {
+   "pair": "নোট বনাম টাকার হিসাব",
+   "a": "ledger_add",
+   "a_n": 3317,
+   "b": "note_add",
+   "b_n": 958
+  },
+  {
+   "pair": "তালিকা দেখা বনাম লেখা",
+   "a": "task_query",
+   "a_n": 1192,
+   "b": "dictate_start",
+   "b_n": 280
+  },
+  {
+   "pair": "বাকিতে মাল দেওয়া বনাম বাকি আদায়",
+   "a": "menu_shop",
+   "a_n": 297,
+   "b": "ledger_add",
+   "b_n": 3317
+  },
+  {
+   "pair": "\"সরাও\": দিন বদল বনাম মোছা",
+   "a": "task_edit",
+   "a_n": 1386,
+   "b": "task_delete",
+   "b_n": 1537
+  },
+  {
+   "pair": "রিমাইন্ডার বদল বনাম নতুন",
+   "a": "reminder_edit",
+   "a_n": 891,
+   "b": "reminder_add",
+   "b_n": 2849
+  },
+  {
+   "pair": "নাম বদল বনাম দিন বদল",
+   "a": "rename",
+   "a_n": 1084,
+   "b": "task_edit",
+   "b_n": 1386
+  },
+  {
+   "pair": "বন্ধ বনাম মোছা",
+   "a": "reminder_stop",
+   "a_n": 937,
+   "b": "reminder_delete",
+   "b_n": 1015
+  },
+  {
+   "pair": "অভিযোগ বনাম সংশোধন",
+   "a": "complain_help",
+   "a_n": 364,
+   "b": "correct",
+   "b_n": 885
+  },
+  {
+   "pair": "অভিযোগ বনাম অ্যাপ নিয়ে প্রশ্ন",
+   "a": "complain_help",
+   "a_n": 364,
+   "b": "app_help",
+   "b_n": 1458
+  }
+ ],
+ "sources": {
+  "template": 50265,
+  "real:review": 23,
+  "real:cloud": 21,
+  "real:phone": 6,
+  "real:user": 2,
+  "crowd": 1572
+ },
+ "cost_usd": 0.0
+}
