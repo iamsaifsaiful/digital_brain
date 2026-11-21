@@ -60,6 +60,11 @@ T['task_done'] = '''
 
 {todo:bl} [hoye gese|kora hoye geche|sesh]
 {todo:title} [হইয়া গেছে|কইরা ফালাইছি|হইছে]
+
+{todo:title}টা [হয়েছে|হয়ে গেছে|করা হয়েছে|শেষ হলো]
+[শোনো, |আচ্ছা, |ও হ্যাঁ, |]{todo:title}টা [হয়েছে|হয়ে গেছে]
+{todo:title} [ডান|done|কমপ্লিট|complete]
+{todo:title} [ডান|done] [করো|করে দাও|মার্ক করো]
 '''
 
 T['task_reopen'] = '''
