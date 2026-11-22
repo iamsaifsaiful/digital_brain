@@ -2,6 +2,7 @@ import '../logic/repeat_text.dart';
 import '../logic/vault_age.dart' show usedBefore;
 import '../logic/services_list.dart';
 import 'package:flutter/material.dart';
+import 'notes_screen.dart' show noteCatIcon, noteCatColors, pickNoteCategory;
 
 import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
@@ -433,7 +434,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.editing ? trf('{0} বদলান', [_cat.label]) : (_cat == ItemCategory.reminder ? tr('নতুন রিমাইন্ডার') : tr('নতুন তথ্য'));
+    final title = widget.editing ? trf('{0} বদলান', [_cat.label]) : (_cat == ItemCategory.reminder ? tr('নতুন রিমাইন্ডার') : widget.category == ItemCategory.note ? tr('নতুন নোট') : tr('নতুন তথ্য'));
     return Scaffold(
       body: SafeArea(
         child: Form(
@@ -667,40 +668,87 @@ class _NewItemScreenState extends State<NewItemScreen> {
         ),
       ];
 
+  (Offset, Duration)? _swipeFrom;
+
+  void _setList(bool v) => setState(() {
+        if (v && !_list) _items = [for (final l in _b.text.split('\n')) if (l.trim().isNotEmpty) (false, l.trim())];
+        if (!v && _list) _b.text = [for (final (_, t) in _items) if (t.trim().isNotEmpty) t.trim()].join('\n');
+        _list = v;
+      });
+
   List<Widget> _noteForm() => [
         TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('শিরোনাম'), hintText: tr('যেমন: বাজারের তালিকা')), validator: _required),
         _gap,
-        TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteCat, decoration: InputDecoration(labelText: tr('বিভাগ'), hintText: tr('যেমন: নোট, যানবাহন, স্বাস্থ্য'))),
-        const SizedBox(height: 8),
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          for (final c in {defaultNoteCategory, ...BrainScope.of(context).data.noteCategories})
-            ActionChip(
-              label: Text(c, style: body(13)),
-              backgroundColor: _noteCat.text.trim() == c ? C.ochreTint : C.surface,
-              side: BorderSide(color: C.border),
-              onPressed: () => setState(() => _noteCat.text = c),
+        // Owner, 22 Nov: no বিভাগ field — the note goes in the category it was
+        // written from; one small line says which, and a tap changes it.
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: InkWell(
+            key: const Key('note-cat'),
+            borderRadius: BorderRadius.circular(20),
+            onTap: () async {
+              final c = await pickNoteCategory(context, title: tr('কোন বিভাগে রাখবেন?'), current: _noteCat.text.trim());
+              if (c != null) setState(() => _noteCat.text = c);
+            },
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+              decoration: BoxDecoration(color: noteCatColors(_noteCat.text.trim()).$2, borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(noteCatIcon(_noteCat.text.trim()), size: 16, color: noteCatColors(_noteCat.text.trim()).$1),
+                const SizedBox(width: 6),
+                Text(tr(_noteCat.text.trim()), style: body(13, weight: FontWeight.w600, color: noteCatColors(_noteCat.text.trim()).$1)),
+                Icon(Icons.expand_more_rounded, size: 18, color: noteCatColors(_noteCat.text.trim()).$1),
+              ]),
             ),
-        ]),
-        _gap,
+          ),
+        ),
+        const SizedBox(height: 14),
         SegTabs<bool>(
           items: [(false, tr('লেখা')), (true, tr('টিক দেওয়ার তালিকা'))],
           value: _list,
-          onChanged: (v) => setState(() {
-            if (v && !_list) _items = [for (final l in _b.text.split('\n')) if (l.trim().isNotEmpty) (false, l.trim())];
-            if (!v && _list) _b.text = [for (final (_, t) in _items) if (t.trim().isNotEmpty) t.trim()].join('\n');
-            _list = v;
-          }),
+          onChanged: _setList,
         ),
         const SizedBox(height: 10),
-        if (_list)
-          ChecklistEditor(key: const ValueKey('checklist'), items: _items, onChanged: (v) => _items = v)
-        else
-          TextFormField(textCapitalization: TextCapitalization.sentences, 
-            controller: _b,
-            minLines: 6,
-            maxLines: 14,
-            decoration: InputDecoration(labelText: tr('লেখা'), hintText: tr('যা মনে রাখতে চান…'), alignLabelWithHint: true),
+        // Owner, 22 Nov: swipe sideways between লেখা and the tick list.
+        // A Listener, not a drag recogniser: the text field inside would win
+        // the drag; raw pointer moves reach us whatever it does.
+        Listener(
+          key: const Key('note-swipe'),
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (e) => _swipeFrom = (e.position, e.timeStamp),
+          onPointerUp: (e) {
+            final f = _swipeFrom;
+            _swipeFrom = null;
+            if (f == null) return;
+            final d = e.position - f.$1;
+            final quick = e.timeStamp - f.$2 < const Duration(milliseconds: 700);
+            if (!quick || d.dx.abs() < 70 || d.dx.abs() < d.dy.abs() * 2) return;
+            _setList(d.dx < 0);
+          },
+          onPointerCancel: (_) => _swipeFrom = null,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            switchInCurve: Curves.easeOutCubic,
+            transitionBuilder: (child, a) {
+              final toList = child.key == const ValueKey('checklist');
+              return SlideTransition(
+                position: Tween(begin: Offset(toList ? 0.25 : -0.25, 0), end: Offset.zero).animate(a),
+                child: FadeTransition(opacity: a, child: child),
+              );
+            },
+            child: _list
+                ? ChecklistEditor(key: const ValueKey('checklist'), items: _items, onChanged: (v) => _items = v)
+                : TextFormField(
+                    key: const ValueKey('note-text'),
+                    textCapitalization: TextCapitalization.sentences,
+                    controller: _b,
+                    minLines: 6,
+                    maxLines: 14,
+                    decoration: InputDecoration(labelText: tr('লেখা'), hintText: tr('যা মনে রাখতে চান…'), alignLabelWithHint: true),
+                  ),
           ),
+        ),
         _gap,
         AttachmentsEditor(
           files: _files,

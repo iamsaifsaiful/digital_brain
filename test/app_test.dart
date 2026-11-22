@@ -1603,12 +1603,15 @@ void main() {
     PickedDoc photo(String n) => PickedDoc(Uint8List.fromList(List.generate(300, (i) => i % 251)), n, 'image/jpeg');
     rig.files.photos = [photo('a.jpg'), photo('b.jpg')];
     await openMenu(t, 'নোট');
-    await t.tap(find.byTooltip('নতুন নোট'));
+    // Owner, 22 Nov: the floating "নোট লিখুন" asks the category first.
+    await t.tap(find.byKey(const Key('note-fab')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('pick-cat-কেনাকাটা')));
     await settle(t);
     await t.enterText(find.widgetWithText(TextFormField, 'শিরোনাম'), 'বাজারের তালিকা');
     await t.tap(find.text('টিক দেওয়ার তালিকা'));
     await settle(t);
-    await t.enterText(find.byType(TextField).at(2), 'ডিম');
+    await t.enterText(find.byType(TextField).at(1), 'ডিম');
     await t.ensureVisible(find.text('ছবি ও ফাইল'));
     await t.tap(find.text('যোগ করুন').last);
     await settle(t);
@@ -1620,6 +1623,7 @@ void main() {
     final n = rig.brain.data.notes.single;
     expect(n.files, hasLength(2));
     expect(n.body, '[ ] ডিম');
+    expect(n.category, 'কেনাকাটা');
   });
 
   testWidgets('v2.9: a birthday said in chat is saved yearly, and ফিরিয়ে নিন takes it back', (t) async {

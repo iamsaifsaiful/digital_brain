@@ -300,6 +300,12 @@ class Contact {
 /// The category manual notes go to.
 const defaultNoteCategory = 'নোট';
 
+/// The will's own category; never shown among the others.
+const willNoteCategory = 'ওছিয়তনামা';
+
+/// The categories a new user starts with in নোট ও অন্যান্য (owner, 22 Nov).
+const starterNoteCats = ['পারিবারিক', 'ব্যবসা', 'অনুষ্ঠান', 'ব্যক্তিগত', 'কেনাকাটা', 'পড়াশোনা'];
+
 /// A note or any other remembered piece of information. [category] groups
 /// them ("নোট", or one the app created such as "যানবাহন").
 class Note {
