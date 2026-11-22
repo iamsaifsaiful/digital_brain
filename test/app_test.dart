@@ -1660,7 +1660,7 @@ void main() {
     final rig = await start(t);
     await openMenu(t, 'সেটিংস');
     expect(find.byKey(const Key('tool-zakat')), findsOneWidget);
-    // আরও › চেহারা ও ভাষা (owner, 3 Nov: each setting on its own page).
+    // আরও › থিম ও ভাষা (owner, 3 Nov: each setting on its own page).
     // Drag and settle a step at a time (scrollUntilVisible loses the list mid-way).
     for (var i = 0; i < 12 && find.byKey(const Key('more-set-look')).evaluate().isEmpty; i++) {
       await t.drag(find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first, const Offset(0, -200));

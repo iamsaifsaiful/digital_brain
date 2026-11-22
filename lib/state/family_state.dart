@@ -29,7 +29,11 @@ Future<Uint8List> openBytes(List<int> sealed, List<int> key) => open(sealed, key
 /// Medicine reminders in the Play app too (owner, 19 Nov: "পরিবার বা
 /// উত্তরাধিকার থেকে ওষুধের রিমাইন্ডার দেওয়ার অপশন থাকা দরকার"): there they
 /// arrive as daily reminders, no medicine record ([medicineReminders]).
-const familyPerms = ['task', 'reminder', 'medicine', 'note', 'location'];
+/// Live location ("এখন কোথায়?") is off for now (owner, 22 Nov: "এটা ঠিক
+/// ভাবে কাজ করে না"): not offered, and this phone stops sharing. The code
+/// stays so it can come back by flipping [liveLocationOn].
+const liveLocationOn = false;
+const familyPerms = ['task', 'reminder', 'medicine', 'note', if (liveLocationOn) 'location'];
 
 /// The note under a medicine reminder: before/after food, how many, the
 /// sender's instructions, why (in the sender's words), till when.
@@ -433,7 +437,7 @@ class FamilyState extends ChangeNotifier {
   /// a new key when someone is taken off. The phone answers by itself.
   Future<void> syncLocation() async {
     if (!_online) return;
-    final viewers = [for (final l in links) if (l.active && l.iAllow.contains('location')) l];
+    final viewers = [for (final l in links) if (liveLocationOn && l.active && l.iAllow.contains('location')) l];
     final before = ((await _get('fam_loc_viewers')) ?? '').split(',').where((x) => x.isNotEmpty).toSet();
     final now = {for (final l in viewers) '${l.id}'};
     if (viewers.isEmpty) {

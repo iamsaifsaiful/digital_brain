@@ -1,7 +1,7 @@
 /// The home picture (owner, 4 Nov): which painting, and what lives on it —
 /// the six seasons by the Bangla calendar, a region the member picks, the
 /// real moon, the weather, small movements and the national and Eid days.
-/// Chosen in আরও › চেহারা ও ভাষা › হোমের ছবি; "অটো" by default.
+/// Chosen in আরও › থিম ও ভাষা › হোমের ছবি; "অটো" by default.
 library;
 
 import 'dart:math' as math;

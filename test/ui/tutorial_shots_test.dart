@@ -131,7 +131,7 @@ void main() {
     final f = Flow(t, 'more');
     await f.step(find.text('আরও').last);
     // In আরও's order (owner, 2 Nov; settings as rows, 3 Nov): look, reminders, assistant, keeping data safe, then help.
-    for (final x in ['সাইফুল ইসলাম', 'চেহারা ও ভাষা', 'রিমাইন্ডার ও নোটিফিকেশন', 'সহকারী ও কণ্ঠ', 'ব্যাকআপ', 'কী কী করা যায়']) {
+    for (final x in ['সাইফুল ইসলাম', 'থিম ও ভাষা', 'রিমাইন্ডার ও নোটিফিকেশন', 'সহকারী ও কণ্ঠ', 'ব্যাকআপ', 'কী কী করা যায়']) {
       // Help is last in আরও now: scroll to each before its step.
       await t.scrollUntilVisible(find.text(x, skipOffstage: false), 200, scrollable: find.descendant(of: find.byType(MoreScreen), matching: vScroll()).first);
       await f.step(find.text(x, skipOffstage: false), press: false, below: 40);

@@ -6,7 +6,7 @@ import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
-/// আরও › চেহারা ও ভাষা › হোমের ছবি (owner, 4 Nov): the member picks the
+/// আরও › থিম ও ভাষা › হোমের ছবি (owner, 4 Nov): the member picks the
 /// painting, or leaves it on অটো (the season by the Bangla calendar), and
 /// turns the weather, the movements and the special days on or off.
 class HomePictureScreen extends StatelessWidget {

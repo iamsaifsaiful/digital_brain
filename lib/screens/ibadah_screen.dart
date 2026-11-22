@@ -100,6 +100,17 @@ class IbadahScreen extends StatefulWidget {
 class _IbadahScreenState extends State<IbadahScreen> {
   late IbadahTab _tab = widget.tab;
 
+  // Owner, 22 Nov: the pictures and the sections didn't belong together
+  // ("খাপ ছাড়া"). All three pictures are warm sandstone and gold, so the
+  // page takes their tone: a sand ground the picture fades into (no hard
+  // edge), sand lines, and gold for what is marked.
+  bool get _night => C.mix >= 0.5;
+  Color get _sand => _night ? C.ground : const Color(0xFFF6F1E8);
+  Color get _track => _night ? C.surface2 : const Color(0xFFEDE4D3);
+  Color get _line => _night ? C.line : const Color(0xFFEADFCB);
+  Color get _gold => _night ? const Color(0xFFE0BC74) : const Color(0xFF8C6418);
+  Color get _goldTint => _night ? const Color(0xFF3A3326) : const Color(0xFFF6ECD8);
+
   /// Days from today shown on the prayer tab (‹ ›).
   int _day = 0;
   Timer? _tick;
@@ -130,7 +141,10 @@ class _IbadahScreenState extends State<IbadahScreen> {
     // Owner, 20 Nov: a picture of a famous mosque on top, and the tabs move
     // by a swipe as well as a tap. The picture scrolls away with the page.
     return Scaffold(
+      backgroundColor: _sand,
       body: TabPages<IbadahTab>(
+        track: _track,
+        edge: _line,
         key: const Key('ibadah-tabs'),
         items: [(IbadahTab.prayer, tr('নামাজ')), (IbadahTab.fasting, tr('সেহরি ও ইফতার')), (IbadahTab.qibla, tr('কিবলা'))],
         value: _tab,
@@ -138,16 +152,18 @@ class _IbadahScreenState extends State<IbadahScreen> {
         padding: EdgeInsets.fromLTRB(0, 0, 0, 24 + bottom),
         top: (tabs) => [
           _hero(context, brain, now, place, hj, t),
-          Padding(padding: const EdgeInsets.fromLTRB(20, 14, 20, 12), child: tabs),
+          Padding(padding: const EdgeInsets.fromLTRB(20, 2, 20, 14), child: tabs),
         ],
         page: (v) => [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: switch (v) {
-              IbadahTab.prayer => _prayers(brain, now, place),
-              IbadahTab.fasting => _fasting(brain, now, place),
-              IbadahTab.qibla => const [QiblaView()],
-            }),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: switch (v) {
+                  IbadahTab.prayer => _prayers(brain, now, place),
+                  IbadahTab.fasting => _fasting(brain, now, place),
+                  IbadahTab.qibla => [QiblaView(dial: 250, accent: _gold, accentTint: _goldTint)],
+                }),
           ),
         ],
       ),
@@ -171,11 +187,10 @@ class _IbadahScreenState extends State<IbadahScreen> {
     final soft = Colors.white.withValues(alpha: 0.85);
     const shade = [Shadow(color: Color(0x66000000), blurRadius: 12)];
     final pinned = homePins.any((k) => brain.flag(k));
-    return ClipRRect(
+    return SizedBox(
       key: const Key('ibadah-hero'),
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(26)),
       child: SizedBox(
-        height: top + 272,
+        height: top + 300,
         child: Stack(fit: StackFit.expand, children: [
           // The tab's own mosque; a soft fade when the tab changes.
           AnimatedSwitcher(
@@ -191,18 +206,38 @@ class _IbadahScreenState extends State<IbadahScreen> {
               excludeFromSemantics: true,
             ),
           ),
+          // Dark enough for the words, warmed a little toward the stone.
           const DecoratedBox(
             decoration: BoxDecoration(
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: [0, 0.35, 0.62, 1], colors: [
-                Color(0x8C000000),
-                Color(0x26000000),
-                Color(0x33000000),
-                Color(0xB3000000),
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: [
+                0,
+                0.32,
+                0.58,
+                0.86
+              ], colors: [
+                Color(0x8C140C02),
+                Color(0x22140C02),
+                Color(0x4D140C02),
+                Color(0xA6140C02),
+              ]),
+            ),
+          ),
+          // The bottom melts into the page instead of ending in an edge.
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [
+                0.80,
+                0.93,
+                1
+              ], colors: [
+                _sand.withValues(alpha: 0),
+                _sand.withValues(alpha: 0.75),
+                _sand,
               ]),
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(8, top + 4, 12, 18),
+            padding: EdgeInsets.fromLTRB(8, top + 4, 12, 58),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 IconButton(
@@ -314,13 +349,14 @@ class _IbadahScreenState extends State<IbadahScreen> {
       ]),
       const SizedBox(height: 6),
       Panel(
+        borderColor: _line,
         child: Column(children: [
           for (final (i, p) in list.indexed) ...[
-            if (i > 0) Divider(height: 1, indent: 56, color: C.line),
+            if (i > 0) Divider(height: 1, indent: 56, color: _line),
             _waqtRow(p.$1, p.$2, p.$3, now: i == current, until: p.$4),
             // Sunrise after Fajr: the end of Fajr, not a prayer.
             if (i == 0) ...[
-              Divider(height: 1, indent: 56, color: C.line),
+              Divider(height: 1, indent: 56, color: _line),
               _sunRow(tr('সূর্যোদয়'), Icons.wb_sunny_outlined, t.sunrise, tr('ফজরের শেষ')),
             ],
           ],
@@ -344,25 +380,25 @@ class _IbadahScreenState extends State<IbadahScreen> {
   Widget _waqtRow(String name, IconData icon, DateTime at, {required bool now, DateTime? until}) {
     return Container(
       key: Key('ibadah-waqt-$name'),
-      color: now ? C.greenTint.withValues(alpha: 0.55) : null,
+      color: now ? _goldTint.withValues(alpha: 0.55) : null,
       padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
       child: Row(children: [
-        SizedBox(width: 28, child: Icon(icon, size: 22, color: now ? C.green : C.muted2)),
+        SizedBox(width: 28, child: Icon(icon, size: 22, color: now ? _gold : C.muted2)),
         const SizedBox(width: 12),
         Expanded(
           child: Row(children: [
-            Text(name, style: body(15.5, weight: now ? FontWeight.w600 : FontWeight.w500, color: now ? C.green : C.ink)),
+            Text(name, style: body(15.5, weight: now ? FontWeight.w600 : FontWeight.w500, color: now ? _gold : C.ink)),
             if (now) ...[
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: C.green)),
-                child: Text(tr('এখন'), style: body(11, weight: FontWeight.w600, color: C.green)),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), border: Border.all(color: _gold)),
+                child: Text(tr('এখন'), style: body(11, weight: FontWeight.w600, color: _gold)),
               ),
             ],
           ]),
         ),
-        Text(bnTime(at.hour, at.minute), style: body(15.5, weight: FontWeight.w600, color: now ? C.green : C.ink)),
+        Text(bnTime(at.hour, at.minute), style: body(15.5, weight: FontWeight.w600, color: now ? _gold : C.ink)),
       ]),
     );
   }
@@ -410,11 +446,12 @@ class _IbadahScreenState extends State<IbadahScreen> {
 
     return [
       Panel(
+        borderColor: _line,
         key: const Key('ibadah-fast-today'),
         child: IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Expanded(child: _half(Icons.nightlight_outlined, sehriNext.day != today.day ? tr('কাল সেহরি শেষ') : tr('সেহরির শেষ সময়'), sehriNext)),
-            VerticalDivider(width: 1, color: C.line),
+            VerticalDivider(width: 1, color: _line),
             Expanded(child: _half(Icons.wb_twilight_rounded, iftarNext.day != today.day ? tr('আগামীকাল ইফতার') : tr('আজ ইফতার'), iftarNext)),
           ]),
         ),
@@ -422,9 +459,10 @@ class _IbadahScreenState extends State<IbadahScreen> {
       const SizedBox(height: 10),
       if (!hj.isRamadan)
         Panel(
+          borderColor: _line,
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           child: Row(children: [
-            Icon(Icons.dark_mode_outlined, size: 22, color: C.green),
+            Icon(Icons.dark_mode_outlined, size: 22, color: _gold),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -436,9 +474,10 @@ class _IbadahScreenState extends State<IbadahScreen> {
         )
       else
         Panel(
+          borderColor: _line,
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           child: Row(children: [
-            Icon(Icons.dark_mode_outlined, size: 22, color: C.green),
+            Icon(Icons.dark_mode_outlined, size: 22, color: _gold),
             const SizedBox(width: 12),
             Expanded(child: Text(trf('আজ {0} রমজান', [bnDigits(hj.day)]), style: body(14.5, weight: FontWeight.w600))),
           ]),
@@ -449,11 +488,12 @@ class _IbadahScreenState extends State<IbadahScreen> {
         child: Text(trf('রমজান {0} · সেহরি ও ইফতারের সময়সূচি', [bnDigits(ramadanYear)]), style: body(14, weight: FontWeight.w600)),
       ),
       Panel(
+        borderColor: _line,
         key: const Key('ibadah-timetable'),
         child: Column(children: [
           _tableRow(tr('রোজা'), tr('তারিখ'), tr('সেহরি'), tr('ইফতার'), head: true),
           for (final (i, d) in days.indexed) ...[
-            Divider(height: 1, color: C.line),
+            Divider(height: 1, color: _line),
             Builder(builder: (_) {
               final s = sunTimes(d, place);
               return _tableRow(bnDigits(i + 1), '${shortDate(d)}, ${weekdayShort(d)}', _clock(s.sehriEnd), _clock(s.maghrib), today: d == today, friday: d.weekday == DateTime.friday);
@@ -473,7 +513,7 @@ class _IbadahScreenState extends State<IbadahScreen> {
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Icon(icon, size: 18, color: C.green),
+            Icon(icon, size: 18, color: _gold),
             const SizedBox(width: 6),
             Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted))),
           ]),
@@ -483,13 +523,13 @@ class _IbadahScreenState extends State<IbadahScreen> {
       );
 
   Widget _tableRow(String n, String date, String sehri, String iftar, {bool head = false, bool today = false, bool friday = false}) {
-    final style = head ? body(12, color: C.muted, weight: FontWeight.w500) : body(13.5, weight: today ? FontWeight.w700 : FontWeight.w500, color: today ? C.green : C.ink);
+    final style = head ? body(12, color: C.muted, weight: FontWeight.w500) : body(13.5, weight: today ? FontWeight.w700 : FontWeight.w500, color: today ? _gold : C.ink);
     return Container(
-      color: today ? C.greenTint.withValues(alpha: 0.55) : null,
+      color: today ? _goldTint.withValues(alpha: 0.55) : null,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       child: Row(children: [
         SizedBox(width: 40, child: Text(n, style: style)),
-        Expanded(child: Text(date, style: head ? style : style.copyWith(color: today ? C.green : (friday ? C.green : C.muted2)))),
+        Expanded(child: Text(date, style: head ? style : style.copyWith(color: today ? _gold : (friday ? _gold : C.muted2)))),
         SizedBox(width: 64, child: Text(sehri, textAlign: TextAlign.right, style: style)),
         SizedBox(width: 64, child: Text(iftar, textAlign: TextAlign.right, style: style)),
       ]),

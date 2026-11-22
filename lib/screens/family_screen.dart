@@ -88,7 +88,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
           for (final l in fam.links)
             if (!l.incoming) l
         ];
-        final sharing = mine.any((l) => l.active && l.iAllow.contains('location'));
+        final sharing = liveLocationOn && mine.any((l) => l.active && l.iAllow.contains('location'));
         final heirs = mine.where((l) => l.active && l.theyAreMyHeir).toList();
         return Scaffold(
           floatingActionButton: brain.signedIn ? AddButton(key: const Key('family-add'), label: tr('সদস্য যোগ'), icon: Icons.person_add_alt_1_rounded, onPressed: _invite) : null,
@@ -150,7 +150,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                               icon: Icons.family_restroom_rounded,
                               title: tr('এখনো কেউ নেই'),
                               text: tr(
-                                  'মা-বাবা, স্বামী-স্ত্রী, সন্তান — তাঁদের ইমেইল দিয়ে যুক্ত করুন। তাঁরা যা অনুমতি দেবেন, শুধু তা-ই করতে পারবেন: কাজ, রিমাইন্ডার, ওষুধের রিমাইন্ডার, নোট, লাইভ লোকেশন।'),
+                                  'মা-বাবা, স্বামী-স্ত্রী, সন্তান — তাঁদের ইমেইল দিয়ে যুক্ত করুন। তাঁরা যা অনুমতি দেবেন, শুধু তা-ই করতে পারবেন: কাজ, রিমাইন্ডার, ওষুধের রিমাইন্ডার, নোট।'),
                             ),
                           if (mine.isNotEmpty)
                             Panel(
@@ -161,7 +161,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                     leading: Avatar(name: l.name, fg: C.purple, bg: C.purpleTint),
                                     title: l.title,
                                     subtitle: l.active
-                                        ? (l.theyAllow.isEmpty ? tr('আপনাকে এখনো কিছুর অনুমতি দেননি') : trf('অনুমতি: {0}', [l.theyAllow.map(_short).join(', ')]))
+                                        ? (!l.theyAllow.any(familyPerms.contains) ? tr('আপনাকে এখনো কিছুর অনুমতি দেননি') : trf('অনুমতি: {0}', [l.theyAllow.where(familyPerms.contains).map(_short).join(', ')]))
                                         : tr('উত্তরের অপেক্ষায় — তিনি অ্যাপ খুলে মেনে নেবেন'),
                                     // A request not yet answered can be taken back (owner, 24 Oct).
                                     trailing: l.active
@@ -467,7 +467,7 @@ class _FamilyMemberScreenState extends State<FamilyMemberScreen> {
                       else
                         action('medicine', Icons.medication_outlined, tr('ওষুধের রিমাইন্ডার দিন'), () {}),
                       action('note', Icons.sticky_note_2_outlined, tr('নোট পাঠান'), () => _send(l, 'note')),
-                      if (l.theyAllow.contains('location'))
+                      if (liveLocationOn && l.theyAllow.contains('location'))
                         ListRow(
                           key: const Key('family-locate'),
                           leading: Icon(Icons.my_location_rounded, color: C.blue),
