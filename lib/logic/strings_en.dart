@@ -6187,4 +6187,10 @@ const enStrings = <String, String>{
   'অন্য শহর বা এলাকা? ওপরে নাম লিখুন — বাংলা বা ইংরেজিতে।': 'Another city or area? Type its name above.',
   'একসাথে সর্বোচ্চ {0}টি দেশ · এখন {1}টি': 'Up to {0} countries at once · {1} now',
   '{0}টি দেশ হয়ে গেছে। নতুন দেশ নিতে আগে একটির টিক তুলে দিন।': 'That’s {0} countries. Untick one to add another.',
+  // Contacts, 22 Nov.
+  'কল': 'Call',
+  'মেসেজ দিন': 'Message',
+  'ফোনবুক থেকে আনুন': 'Import from phone book',
+  'ফোনের সব নম্বর এক বারে আনুন, অথবা বলুন “রহিমের নম্বর ০১৭… রাখো”।': 'Import all your phone’s contacts at once, or say “Save Rahim’s number 017…”.',
+  '{0} জন · এক ছোঁয়ায় কল, মেসেজ': '{0} people · call or message in one tap',
 };
