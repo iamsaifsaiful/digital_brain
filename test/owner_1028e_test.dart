@@ -25,9 +25,6 @@ void main() {
       Navigator.of(t.element(find.byTooltip('বলুন'))).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.reminder)));
       await settle(t);
       await t.enterText(find.byType(TextFormField).first, title);
-      await t.scrollUntilVisible(find.textContaining('কতবার'), 200, scrollable: find.byType(Scrollable).last);
-      await t.tap(find.textContaining('কতবার'));
-      await settle(t);
       await pick();
       await t.tap(find.text('রাখুন').last);
       await settle(t);
@@ -42,15 +39,10 @@ void main() {
     }
 
     final sat = await make('বাজার', () async {
-      await chip('প্রতি সপ্তাহে');
-      // The form's date's weekday comes ticked: Saturday on, every other day off.
-      final satChip = find.byKey(const Key('rem-day-${DateTime.saturday}'));
-      await t.scrollUntilVisible(satChip, 150, scrollable: find.byType(Scrollable).last);
-      if (!t.widget<FilterChip>(satChip).selected) await t.tap(satChip);
-      await settle(t);
+      // 22 Nov: one picker — প্রতিদিন with all seven days on; a tap leaves a day out.
+      await chip('প্রতিদিন');
       for (final d in weekOrder.where((d) => d != DateTime.saturday)) {
-        final c = find.byKey(Key('rem-day-$d'));
-        if (t.widget<FilterChip>(c).selected) await t.tap(c);
+        await t.tap(find.byKey(Key('rem-day-$d')));
         await settle(t);
       }
     });
@@ -67,9 +59,6 @@ void main() {
       Navigator.of(t.element(find.byTooltip('বলুন'))).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.reminder)));
       await settle(t);
       await t.enterText(find.byType(TextFormField).first, title);
-      await t.scrollUntilVisible(find.textContaining('কতবার'), 200, scrollable: find.byType(Scrollable).last);
-      await t.tap(find.textContaining('কতবার'));
-      await settle(t);
       await pick();
       await t.tap(find.text('রাখুন').last);
       await settle(t);
@@ -85,9 +74,7 @@ void main() {
 
     final noFri = await make('হাঁটা', () async {
       await chip('প্রতিদিন');
-      final fri = find.byKey(const Key('rem-day-${DateTime.friday}'));
-      await t.scrollUntilVisible(fri, 150, scrollable: find.byType(Scrollable).last);
-      await t.tap(fri);
+      await t.tap(find.byKey(const Key('rem-day-${DateTime.friday}')));
       await settle(t);
     });
     expect(noFri.repeat, Repeat.weekly);

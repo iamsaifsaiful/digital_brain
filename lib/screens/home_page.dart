@@ -147,6 +147,9 @@ class AddNudgeCard extends StatefulWidget {
   State<AddNudgeCard> createState() => _AddNudgeCardState();
 }
 
+/// How far the home picture is brought closer (1 = the whole painting).
+const homeZoom = 1.5;
+
 class _AddNudgeCardState extends State<AddNudgeCard> {
   int _i = 0;
   Timer? _turn;
@@ -329,7 +332,7 @@ class _HomeHeroState extends State<HomeHero> {
     final light = skyLight(now, sun.sunrise, sun.sunset);
     final facts = slotFacts(now, sun, hj);
     final top = MediaQuery.of(context).padding.top;
-    final height = top + 318.0;
+    final height = top + 340.0;
     // In the dark look the day is a little dimmer, so it sits with the page.
     final dim = (light.dim + 0.16 * C.mix * (1 - light.night)).clamp(0.0, 0.6);
 
@@ -354,8 +357,13 @@ class _HomeHeroState extends State<HomeHero> {
         weather: weatherOn ? weatherKind(brain.weatherNow?.code) : '',
         special: specialOn ? specialDayOf(now, hj) : null,
         motion: brain.text('scene_motion') != 'off',
+        moonAt: const Offset(860, 610),
       ),
     ]);
+    // Owner, 22 Nov: "লগইন পেইজের সমুদ্রের ছবি হোম পেইজে অল্প দেখা যায়" —
+    // closer in, so the sea and the beach fill the picture as on the
+    // sign-in page, and less of the empty sky. The moving parts scale with it.
+    picture = ClipRect(child: Transform.scale(scale: homeZoom, alignment: const Alignment(0.15, 1), child: picture));
     if (light.tintAmount > 0.01) {
       // Clipped: a colour filter's layer has no edge of its own and would tint the whole page.
       picture = ClipRect(child: ColorFiltered(colorFilter: ColorFilter.mode(light.tint.withValues(alpha: light.tintAmount), BlendMode.softLight), child: picture));
@@ -370,7 +378,7 @@ class _HomeHeroState extends State<HomeHero> {
         // A veil at the top for the words, and the fade into the page.
         DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.42, 0.8, 1], colors: [
+            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, stops: const [0, 0.36, 0.88, 1], colors: [
               Colors.black.withValues(alpha: 0.30),
               Colors.black.withValues(alpha: 0),
               C.ground.withValues(alpha: 0),

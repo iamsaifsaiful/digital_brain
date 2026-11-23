@@ -19,6 +19,8 @@ import 'parser.dart' show mentionsSecret;
 import 'phrases.dart' show possessive;
 import 'proactive.dart' show specialTitle;
 import 'answers.dart' show taskWhen;
+import 'calendar_bd.dart';
+import 'day_plan.dart' show PlanItem;
 
 enum ReportPart {
   tasks('কাজের তালিকা', 'tasks'),
@@ -679,4 +681,89 @@ void _shops(_Doc doc, AppData d, DateTime now, String? onlyId) {
       doc.table([tr('গ্রাহক'), tr('বাকি')], [for (final p in owing) [p.name, cell(taka(p.balance), tone: 'o', bold: true)]], w: [5, 2], a: ['l', 'r']);
     }
   }
+}
+
+// ───────────────────────── দিনলিপি ─────────────────────────
+
+/// The diary of [days] as a PDF (owner, 22 Nov: "দিনলিপি পিডিএফ আকারে
+/// ডাউনলোড করার অপশন থাকবে"): each day with its Bangla and Hijri dates,
+/// what was on it by time and whether it was done, and the habits.
+/// [itemsOn] gives a day's reminders and to-dos as the diary shows them.
+Map<String, Object?> diarySpec(AppData d, List<DateTime> days, DateTime now, {required List<PlanItem> Function(DateTime day) itemsOn, String userName = ''}) {
+  final doc = _Doc();
+  final first = days.first, last = days.last;
+  final all = [for (final day in days) (day, itemsOn(day))];
+  final nTasks = all.fold<int>(0, (n, x) => n + x.$2.where((i) => i.task != null).length);
+  final nDone = all.fold<int>(0, (n, x) => n + x.$2.where((i) => i.task?.done ?? false).length);
+  final nRem = all.fold<int>(0, (n, x) => n + x.$2.where((i) => i.reminder != null).length);
+  doc.stats([
+    [tr('কাজ'), bnNumber(nTasks), 'm'],
+    [tr('শেষ হয়েছে'), bnNumber(nDone), 'g'],
+    [tr('রিমাইন্ডার'), bnNumber(nRem), 'm'],
+  ]);
+  var any = false;
+  for (final (day, items) in all) {
+    final hol = holidayOn(day);
+    if (items.isEmpty && hol == null && days.length > 1) continue;
+    any = true;
+    doc.h2('${weekdayName(day)}, ${_d(day)} · ${banglaDate(day).dayMonth} · ${hijriDate(day).dayMonth}');
+    if (hol != null) doc.p(trf('ছুটি: {0}', [hol.label]), muted: true);
+    if (items.isEmpty) {
+      doc.p(tr('এই দিনে কিছু রাখা নেই।'), muted: true);
+      continue;
+    }
+    doc.table(
+      [tr('সময়'), tr('কী'), tr('অবস্থা')],
+      [
+        for (final i in items)
+          if (i.reminder case final r?)
+            [
+              r.repeat.isInterval ? tr(r.repeat.label) : _hm(i.sort),
+              r.repeat == Repeat.none || r.repeat.isInterval ? r.title : '${r.title} (${repeatText(r)})',
+              r.enabled ? cell(tr('রিমাইন্ডার'), tone: 'm') : cell(tr('বন্ধ'), tone: 'm'),
+            ]
+          else
+            [
+              tr('যেকোনো সময়'),
+              i.task!.list.isEmpty ? i.title : '${i.title} · ${i.task!.list}',
+              i.task!.done ? cell(tr('শেষ'), tone: 'g') : cell(tr('বাকি'), tone: 'o'),
+            ],
+      ],
+      w: [1.6, 5.4, 1.6],
+    );
+  }
+  if (!any) doc.p(tr('এই সময়ে কিছু রাখা নেই।'), muted: true);
+  if (d.habits.isNotEmpty) {
+    doc.h2(tr('অভ্যাস'));
+    final upTo = [for (final day in days) if (!day.isAfter(now)) day];
+    doc.table(
+      [tr('অভ্যাস'), tr('করা হয়েছে'), tr('টানা')],
+      [
+        for (final h in d.habits)
+          [
+            h.name,
+            upTo.isEmpty ? '—' : trf('{0}/{1} দিন', [bnDigits(upTo.where(h.doneOn).length), bnDigits(upTo.length)]),
+            trf('{0} দিন', [bnDigits(h.streak(now))]),
+          ],
+      ],
+      w: [5, 2.2, 1.6],
+    );
+  }
+  final range = days.length == 1 ? '${weekdayName(first)}, ${_d(first)}' : '${_d(first)} – ${_d(last)}';
+  final who = userName.trim();
+  return {
+    'brand': 'My Assistant',
+    'title': who.isEmpty ? tr('দিনলিপি') : trf('{0} দিনলিপি', [_whose(who)]),
+    'subtitle': '$range · ${trf('তৈরি: {0}, {1}', [_d(now), _hm(now)])}',
+    'footer': trf('My Assistant · {0}', [_d(now)]),
+    'pageWord': tr('পাতা'),
+    'bnDigits': !isEn,
+    'blocks': doc.blocks,
+  };
+}
+
+/// `my-assistant-diary-20261101-20261130.pdf`.
+String diaryFileName(DateTime from, DateTime to) {
+  String k(DateTime x) => '${x.year}${x.month.toString().padLeft(2, '0')}${x.day.toString().padLeft(2, '0')}';
+  return from == to ? 'my-assistant-diary-${k(from)}.pdf' : 'my-assistant-diary-${k(from)}-${k(to)}.pdf';
 }

@@ -38,7 +38,12 @@ class SceneLayers extends StatefulWidget {
     required this.weather,
     required this.special,
     required this.motion,
+    this.moonAt = const Offset(915, 452),
   });
+
+  /// Where the moon sits on the painting (Home brings the picture closer,
+  /// so its moon comes lower, clear of the words and the photo).
+  final Offset moonAt;
 
   final String scene;
 
@@ -169,7 +174,7 @@ class _ScenePainter extends CustomPainter {
   }
 
   void _moon(Canvas c) {
-    final o = m.at(915, 452);
+    final o = m.at(w.moonAt.dx, w.moonAt.dy);
     final r = m.len(27);
     final a = w.night.clamp(0.0, 1.0);
     c.drawCircle(o, r * 4, Paint()..shader = RadialGradient(colors: [const Color(0xFFDCE2FF).withValues(alpha: 0.22 * a * (0.3 + w.moon.lit)), Colors.transparent]).createShader(Rect.fromCircle(center: o, radius: r * 4)));

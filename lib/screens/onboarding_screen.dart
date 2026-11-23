@@ -5,12 +5,15 @@ import '../logic/templates.dart';
 import '../state/brain.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import '../logic/bn.dart';
+import 'pick_sheets.dart' show TemplatePreviewScreen;
 
 export '../logic/templates.dart' show personaLabel;
 
 // The "আপনি কী করেন?" screen was removed (owner, 24 Oct: no profile).
 
-/// তৈরি তালিকা: ready-made lists to add in one tap.
+/// তৈরি তালিকা: ready-made lists. A tap shows the list first, to take
+/// things out or put more in before it is added (owner, 22 Nov).
 class TemplatesScreen extends StatelessWidget {
   const TemplatesScreen({super.key});
 
@@ -23,23 +26,10 @@ class TemplatesScreen extends StatelessWidget {
           TopBar(title: tr('রেডিমেড তালিকা')),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 24), children: [
-              Text(tr('একটা বেছে নিলে তার সব জিনিস কাজের তালিকায় আলাদা নামে উঠে যাবে। টিক দিয়ে দিয়ে শেষ করুন, দরকারমতো বাদ দিন বা যোগ করুন।'),
-                  style: body(14, color: C.muted, height: 1.5)),
+              Text(tr('একটা বেছে নিন — যোগ করার আগে পুরো তালিকা দেখাবে, দরকারমতো বাদ দিন বা যোগ করুন।'), style: body(14, color: C.muted, height: 1.5)),
               const SizedBox(height: 14),
               for (final t in listTemplates) ...[
-                Panel(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      _IconBox(templateIcon(t.name)),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(tr(t.name), style: body(17, weight: FontWeight.w600))),
-                      _addButton(context, brain, t),
-                    ]),
-                    const SizedBox(height: 6),
-                    Text(t.items.map(tr).join(' · '), style: body(13, color: C.muted, height: 1.5), maxLines: 3, overflow: TextOverflow.ellipsis),
-                  ]),
-                ),
+                _card(context, brain, t),
                 const SizedBox(height: 10),
               ],
             ]),
@@ -49,16 +39,35 @@ class TemplatesScreen extends StatelessWidget {
     );
   }
 
-  Widget _addButton(BuildContext context, Brain brain, ListTemplate t) {
+  Widget _card(BuildContext context, Brain brain, ListTemplate t) {
     final have = brain.data.tasks.any((x) => x.list == tr(t.name) && !x.done);
-    if (have) return Pill(tr('যোগ করা আছে'));
-    return FilledButton(
-      onPressed: () async {
-        await brain.addList(tr(t.name), [for (final i in t.items) tr(i)]);
-        if (context.mounted) toast(context, trf('‘{0}’ কাজের তালিকায় যোগ হলো', [tr(t.name)]));
-      },
-      style: FilledButton.styleFrom(backgroundColor: C.green, shape: const StadiumBorder()),
-      child: Text(tr('যোগ করুন')),
+    void open() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TemplatePreviewScreen(template: t)));
+    return Material(
+      key: Key('tpl-${t.name}'),
+      color: C.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: C.border)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: open,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(children: [
+            _IconBox(templateIcon(t.name)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(t.name), style: body(16.5, weight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(t.items.take(3).map(tr).join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted)),
+                const SizedBox(height: 4),
+                Text(have ? tr('যোগ করা আছে · আবার দেখুন') : trf('{0}টি জিনিস · দেখে যোগ করুন', [bnDigits(t.items.length)]),
+                    style: body(12.5, weight: FontWeight.w600, color: have ? C.muted : C.green)),
+              ]),
+            ),
+            Icon(Icons.chevron_right_rounded, color: C.muted),
+          ]),
+        ),
+      ),
     );
   }
 }

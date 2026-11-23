@@ -12,6 +12,8 @@ import '../models/models.dart';
 import '../state/brain.dart';
 import '../state/family_state.dart' show FamilyLink;
 import '../ui/early_picker.dart';
+import '../ui/repeat_picker.dart';
+import '../logic/when.dart' show sayWhen;
 import '../ui/forms.dart';
 import '../ui/med_search.dart';
 import '../ui/medicine_times.dart';
@@ -152,14 +154,8 @@ class _NewItemScreenState extends State<NewItemScreen> {
         if (_medWhy.text.trim().isNotEmpty) trf('কেন: {0}', [_medWhy.text.trim()]),
       ].where((p) => p.isNotEmpty).join(' · ');
 
-  /// "প্রতি সপ্তাহে": which days; "প্রতিদিন": which days left out (owner, 28 Oct).
-  Set<int> _days = {};
-  Set<int> _skip = {};
-
-  /// "কতক্ষণ আগে": a number and its unit.
-  final _beforeN = TextEditingController();
-  BeforeUnit _beforeUnit = BeforeUnit.minute;
-  bool _showRepeat = false;
+  /// প্রতিদিন: the days it rings (owner, 28 Oct; one picker 22 Nov).
+  Set<int> _days = {...weekOrder};
 
   @override
   void initState() {
@@ -226,20 +222,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
       _daysBefore = r.daysBefore;
       _minutesBefore = r.minutesBefore;
       _repeat = r.repeat;
-      _showRepeat = r.repeat != Repeat.none;
-      if (r.repeat == Repeat.weekly) {
-        final days = r.ringDays;
-        // Five or six days a week reads as "প্রতিদিন, … বাদে".
-        if (days.length >= 5 && days.length < 7) {
-          _repeat = Repeat.daily;
-          _skip = {for (final d in weekOrder) if (!days.contains(d)) d};
-        } else {
-          _days = {...days};
-        }
-      }
-      final (n, u) = beforeOf(r.daysBefore, r.minutesBefore);
-      _beforeUnit = u;
-      if (n > 0) _beforeN.text = bnDigits(n);
+      if (r.repeat == Repeat.weekly) _days = {...r.ringDays};
       _noteText.text = r.note;
       _vaultLink = r.vaultId;
     }
@@ -248,7 +231,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   @override
   void dispose() {
-    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat, _address, _beforeN, _medWhy]) {
+    for (final c in [_a, _b, _c, _d, _pw, _noteText, _noteCat, _address, _medWhy]) {
       c.dispose();
     }
     _medFocus.dispose();
@@ -372,7 +355,8 @@ class _NewItemScreenState extends State<NewItemScreen> {
           done = trf('{0} — প্রতিদিন {1} বার মনে করাব', [name, bnDigits(_medTimes.length)]);
           break;
         }
-        final at = DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
+        final day = _needsDay ? _date : (widget.reminder != null && !_date.isAfter(now) ? _date : dayOnly(now));
+        final at = DateTime(day.year, day.month, day.day, _time.hour, _time.minute);
         if (_repeat == Repeat.none && !at.isAfter(now)) {
           toast(context, tr('এই সময় পার হয়ে গেছে — তারিখ বা সময় বদলান'));
           return;
@@ -380,23 +364,20 @@ class _NewItemScreenState extends State<NewItemScreen> {
         final wasOn = widget.reminder?.enabled ?? false;
         if (!wasOn && !await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder)) return;
         if (!mounted) return;
-        final (days, minutes) = beforeIn(readInt(_beforeN.text) ?? 0, _usableUnit);
-        _daysBefore = days;
-        _minutesBefore = minutes;
+        if (!_dayUnits) _daysBefore = 0;
+        final (repeat, weekdays) = keptRepeat(_repeat, _days);
         final rid = widget.reminder?.id ?? newId();
         await brain.saveReminder(Reminder(
           id: rid,
           title: _a.text.trim(),
-          date: _date,
+          date: day,
           hour: _time.hour,
           minute: _time.minute,
           daysBefore: _minutesBefore > 0 ? 0 : _daysBefore,
-          minutesBefore: _minutesBefore,
+          minutesBefore: _repeat.isInterval ? 0 : _minutesBefore,
           // "শুক্রবার বাদে প্রতিদিন" is kept as the other six days of the week.
-          repeat: _repeat == Repeat.daily && _skip.isNotEmpty ? Repeat.weekly : _repeat,
-          weekdays: _repeat == Repeat.weekly
-              ? (_days.isEmpty ? [_date.weekday] : [for (final d in weekOrder) if (_days.contains(d)) d])
-              : (_repeat == Repeat.daily && _skip.isNotEmpty ? [for (final d in weekOrder) if (!_skip.contains(d)) d] : const []),
+          repeat: repeat,
+          weekdays: weekdays,
           note: _noteText.text.trim(),
           vaultId: _vaultLink,
           alarm: widget.reminder?.alarm ?? false,
@@ -719,15 +700,10 @@ class _NewItemScreenState extends State<NewItemScreen> {
       ];
 
   /// Day units make no sense for a reminder that rings every day or every hour.
-  /// "প্রতি শনিবার", "শুক্রবার বাদে প্রতিদিন" — as it will be kept.
-  String get _repeatShown => repeatText(Reminder(
-      title: '',
-      date: _date,
-      repeat: _repeat == Repeat.daily && _skip.isNotEmpty ? Repeat.weekly : _repeat,
-      weekdays: _repeat == Repeat.weekly ? [..._days] : (_repeat == Repeat.daily && _skip.isNotEmpty ? [for (final d in weekOrder) if (!_skip.contains(d)) d] : const [])));
-
   bool get _dayUnits => _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly;
-  BeforeUnit get _usableUnit => !_dayUnits && _beforeUnit.days ? BeforeUnit.hour : _beforeUnit;
+
+  /// প্রতিদিন and the short repeats start today: no date to pick.
+  bool get _needsDay => _dayUnits;
 
   List<Widget> _medForm(Brain brain) {
     final people = brain.healthPeople;
@@ -827,166 +803,156 @@ class _NewItemScreenState extends State<NewItemScreen> {
   List<Widget> _reminderForm() {
     final brain = BrainScope.of(context);
     final vault = [...brain.data.vault]..sort((a, b) => a.name.compareTo(b.name));
-    return [
-      // ওষুধ খাওয়ার রিমাইন্ডার (owner, 13 Nov; the new form 18 Nov).
-      if (widget.reminder == null) ...[
-        Material(
-          color: _med ? C.greenTint : C.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: _med ? C.green : C.border)),
+    final early = _minutesBefore > 0 ? _minutesBefore : _daysBefore * 1440;
+    final extras = _noteText.text.trim().isNotEmpty || _vaultLink != null;
+    Widget tile(String label, String value, IconData icon, VoidCallback onTap, {Key? key}) => Material(
+          key: key,
+          color: C.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: C.border)),
           child: InkWell(
-            key: const Key('rem-med'),
             borderRadius: BorderRadius.circular(14),
-            onTap: () => setState(() => _med = !_med),
+            onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Row(children: [
-                Icon(Icons.medication_outlined, color: C.green),
+                Icon(icon, size: 20, color: C.green),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(tr('ওষুধ খাওয়ার রিমাইন্ডার'), style: body(15, weight: FontWeight.w600)),
-                    Text(tr('নাম আর সময় দিন — প্রতিদিন মনে করাব'), style: body(12.5, color: C.muted)),
+                    Text(label, style: body(11.5, color: C.muted)),
+                    Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15.5, weight: FontWeight.w600)),
                   ]),
                 ),
-                Switch(value: _med, onChanged: (v) => setState(() => _med = v)),
               ]),
             ),
           ),
+        );
+    return [
+      // Owner, 22 Nov: "ফর্মের ইউআই আরো সহজ" — the medicine form is one tab
+      // away instead of a big switch card on top.
+      if (widget.reminder == null) ...[
+        SegTabs<bool>(
+          key: const Key('rem-med'),
+          items: [(false, tr('সাধারণ রিমাইন্ডার')), (true, tr('ওষুধ খাওয়া'))],
+          value: _med,
+          onChanged: (v) => setState(() => _med = v),
         ),
-        _gap,
+        const SizedBox(height: 14),
       ],
       if (_med) ..._medForm(brain),
       if (!_med) ...[
-      TextFormField(textCapitalization: TextCapitalization.sentences, controller: _a, decoration: InputDecoration(labelText: tr('কী মনে করাব?'), hintText: tr('যেমন: বিদ্যুৎ বিল দেওয়া')), validator: _required),
-      _gap,
-      Row(children: [
-        Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () async {
-              final now = brain.services.now();
-              final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(now.year - 1), lastDate: DateTime(now.year + 30));
-              if (d != null) setState(() => _date = d);
-            },
-            child: InputDecorator(decoration: InputDecoration(labelText: tr('তারিখ')), child: Text(fullDate(_date), style: body(16), maxLines: 1, overflow: TextOverflow.ellipsis)),
-          ),
+        TextFormField(
+          textCapitalization: TextCapitalization.sentences,
+          controller: _a,
+          style: body(17),
+          decoration: InputDecoration(labelText: tr('কী মনে করাব?'), hintText: tr('যেমন: বিদ্যুৎ বিল দেওয়া')),
+          validator: _required,
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: () async {
-              final t = await showTimePicker(context: context, initialTime: _time);
-              if (t != null) setState(() => _time = t);
-            },
-            child: InputDecorator(decoration: InputDecoration(labelText: tr('সময়')), child: Text(bnTime(_time.hour, _time.minute), style: body(16))),
-          ),
+        FieldLabel(tr('কতবার')),
+        RepeatPicker(
+          repeat: _repeat,
+          days: _days,
+          onChanged: (r, d) => setState(() {
+            _repeat = r;
+            _days = d;
+          }),
         ),
-      ]),
-      _gap,
-      Text(tr('কতক্ষণ আগে মনে করাবে?'), style: body(14, weight: FontWeight.w600, color: C.muted)),
-      const SizedBox(height: 6),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(
-          flex: 2,
-          child: TextField(
-            key: const Key('before-number'),
-            controller: _beforeN,
-            keyboardType: TextInputType.number,
-            style: body(17),
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(hintText: tr('যেমন: ৩০')),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          flex: 3,
-          child: DropdownButtonFormField<BeforeUnit>(
-            key: const Key('before-unit'),
-            initialValue: _usableUnit,
-            items: [
-              for (final u in BeforeUnit.values)
-                if (_dayUnits || !u.days) DropdownMenuItem(value: u, child: Text(trf('{0} আগে', [tr(u.label)]), style: body(16))),
-            ],
-            onChanged: (u) => setState(() => _beforeUnit = u ?? BeforeUnit.minute),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 4),
-      Text(
-          (readInt(_beforeN.text) ?? 0) > 0
-              ? trf('ঠিক সময়ে বাজবে, আর {0} {1} আগে একবার মনে করাবে।', [bnDigits(readInt(_beforeN.text)!), tr(_usableUnit.label)])
-              : tr('খালি রাখলে শুধু ঠিক সময়ে বাজবে।'),
-          style: body(12.5, color: C.muted)),
-      _gap,
-      InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => setState(() => _showRepeat = !_showRepeat),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(children: [
-            Icon(Icons.repeat_rounded, size: 20, color: C.muted),
-            const SizedBox(width: 8),
-            Expanded(child: Text(trf('কতবার: {0}', [_repeatShown]), style: body(15))),
-            Text(_showRepeat ? tr('লুকান') : tr('বদলান'), style: body(14, weight: FontWeight.w600, color: C.green)),
-          ]),
-        ),
-      ),
-      if (_showRepeat) ...[
-        const SizedBox(height: 6),
-        Wrap(spacing: 8, children: [
-          for (final r in Repeat.values.where((x) => !x.spoken || x == _repeat))
-            ChoiceChip(
-              label: Text(tr(r.label), style: body(14, color: r == _repeat ? C.onInk : C.ink)),
-              selected: r == _repeat,
-              showCheckmark: false,
-              selectedColor: C.ink,
-              backgroundColor: C.surface,
-              side: BorderSide(color: r == _repeat ? C.ink : C.border),
-              shape: const StadiumBorder(),
-              onSelected: (_) => setState(() {
-                _repeat = r;
-                if (r == Repeat.weekly && _days.isEmpty) _days = {_date.weekday};
+        FieldLabel(_needsDay ? (_repeat == Repeat.none ? tr('কবে, কখন') : tr('শুরু কবে, কখন')) : (_repeat.isInterval ? tr('শুরু কখন') : tr('কখন'))),
+        Row(children: [
+          if (_needsDay) ...[
+            Expanded(
+              child: tile(tr('তারিখ'), fullDate(_date), Icons.event_outlined, () async {
+                final now = brain.services.now();
+                final d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(now.year - 1), lastDate: DateTime(now.year + 30));
+                if (d != null) setState(() => _date = d);
               }),
             ),
-        ]),
-        if (_repeat == Repeat.weekly || _repeat == Repeat.daily) ...[
-          const SizedBox(height: 10),
-          Text(_repeat == Repeat.weekly ? tr('কোন কোন দিন বাজবে?') : tr('কোনো দিন বাদ দেবেন? (যেমন শুক্রবার)'), style: body(13, color: C.muted)),
-          const SizedBox(height: 6),
-          Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final d in weekOrder)
-              FilterChip(
-                key: Key('rem-day-$d'),
-                label: Text(dayName(d), style: body(13.5)),
-                selected: _repeat == Repeat.weekly ? _days.contains(d) : _skip.contains(d),
-                onSelected: (on) => setState(() {
-                  final set = _repeat == Repeat.weekly ? _days : _skip;
-                  on ? set.add(d) : set.remove(d);
-                  // Never every day left out, never no day at all.
-                  if (_repeat == Repeat.daily && _skip.length == 7) _skip.remove(d);
-                  if (_repeat == Repeat.weekly && _days.isEmpty) _days.add(d);
-                }),
-              ),
-          ]),
-        ],
-      ],
-      _gap,
-      TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'))),
-      if (vault.isNotEmpty) ...[
-        _gap,
-        DropdownButtonFormField<String?>(
-          initialValue: vault.any((v) => v.id == _vaultLink) ? _vaultLink : null,
-          decoration: InputDecoration(labelText: tr('সাথে যুক্ত লগইন (ঐচ্ছিক)')),
-          items: [
-            DropdownMenuItem<String?>(value: null, child: Text(tr('কিছু না'), style: body(16))),
-            for (final v in vault) DropdownMenuItem<String?>(value: v.id, child: Text(v.name, style: body(16))),
+            const SizedBox(width: 10),
           ],
-          onChanged: (v) => setState(() => _vaultLink = v),
+          Expanded(
+            child: tile(tr('সময়'), bnTime(_time.hour, _time.minute), Icons.schedule_rounded, () async {
+              final t = await showTimePicker(context: context, initialTime: _time);
+              if (t != null) setState(() => _time = t);
+            }, key: const Key('rem-time')),
+          ),
+        ]),
+        if (!_repeat.isInterval)
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('rem-early'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 6),
+              initiallyExpanded: early > 0,
+              title: Text(early == 0 ? tr('আগাম মনে করানো: লাগবে না') : trf('আগাম মনে করানো: {0} আগে', [beforeLabel(early)]),
+                  style: body(14, weight: FontWeight.w600, color: C.muted2)),
+              children: [
+                EarlyPicker(
+                  days: _dayUnits ? _daysBefore : 0,
+                  minutes: _minutesBefore,
+                  showDays: _dayUnits,
+                  onChanged: (d, m) => setState(() {
+                    _daysBefore = d;
+                    _minutesBefore = m;
+                  }),
+                ),
+              ],
+            ),
+          ),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            key: const Key('rem-more'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: 6),
+            initiallyExpanded: extras,
+            title: Text(vault.isEmpty ? tr('নোট (ঐচ্ছিক)') : tr('নোট, যুক্ত লগইন (ঐচ্ছিক)'), style: body(14, weight: FontWeight.w600, color: C.muted2)),
+            children: [
+              TextFormField(textCapitalization: TextCapitalization.sentences, controller: _noteText, decoration: InputDecoration(labelText: tr('নোট (ঐচ্ছিক)'))),
+              if (vault.isNotEmpty) ...[
+                _gap,
+                DropdownButtonFormField<String?>(
+                  initialValue: vault.any((v) => v.id == _vaultLink) ? _vaultLink : null,
+                  decoration: InputDecoration(labelText: tr('সাথে যুক্ত লগইন (ঐচ্ছিক)')),
+                  items: [
+                    DropdownMenuItem<String?>(value: null, child: Text(tr('কিছু না'), style: body(16))),
+                    for (final v in vault) DropdownMenuItem<String?>(value: v.id, child: Text(v.name, style: body(16))),
+                  ],
+                  onChanged: (v) => setState(() => _vaultLink = v),
+                ),
+              ],
+            ],
+          ),
         ),
-      ],
+        const SizedBox(height: 4),
+        _whenLine(brain),
       ],
     ];
+  }
+
+  /// "শুক্র ও শনিবার বাদে প্রতিদিন বিকেল ৪:০০-এ বাজবে" — the whole thing in one line.
+  Widget _whenLine(Brain brain) {
+    final now = brain.services.now();
+    final at = DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
+    final t = bnTime(_time.hour, _time.minute);
+    final past = _repeat == Repeat.none && !at.isAfter(now);
+    final text = past
+        ? tr('এই সময় পার হয়ে গেছে — তারিখ বা সময় বদলান')
+        : _repeat == Repeat.none
+            ? trf('{0}-এ বাজবে', [sayWhen(at, now)])
+            : _repeat.isInterval
+                ? trf('{0} থেকে {1} বাজবে', [t, tr(_repeat.label)])
+                : trf('{0} {1}-এ বাজবে', [repeatSaid(_repeat, _days, _date), t]);
+    return Container(
+      key: const Key('rem-summary'),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(color: past ? C.orangeTint : C.greenTint, borderRadius: BorderRadius.circular(12)),
+      child: Row(children: [
+        Icon(past ? Icons.error_outline_rounded : Icons.notifications_active_outlined, size: 19, color: past ? C.orangeDark : C.green),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: body(13.5, weight: FontWeight.w600, color: past ? C.orangeDark : C.greenDark))),
+      ]),
+    );
   }
 }
 

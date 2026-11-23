@@ -12,6 +12,7 @@ export '../logic/day_plan.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/early_picker.dart';
+import '../ui/repeat_picker.dart';
 import '../ui/motion.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
@@ -373,8 +374,15 @@ class _AddSheetState extends State<_AddSheet> {
   DateTime? _picked;
   late TimeOfDay _time;
   Repeat _repeat = Repeat.none;
+
+  /// For প্রতিদিন: the days it rings (owner, 22 Nov: "শুক্রবার শনিবার ছাড়া প্রতিদিন").
+  Set<int> _days = {...weekOrder};
   int _earlyDays = 0;
   int _earlyMinutes = 0;
+
+  /// A one-time, monthly or yearly reminder needs its day; প্রতিদিন and the
+  /// short repeats start today.
+  bool get _needsDay => !_remind || _repeat == Repeat.none || _repeat == Repeat.monthly || _repeat == Repeat.yearly;
 
   static const _presets = [TimeOfDay(hour: 9, minute: 0), TimeOfDay(hour: 11, minute: 0), TimeOfDay(hour: 16, minute: 0), TimeOfDay(hour: 20, minute: 0)];
 
@@ -417,7 +425,7 @@ class _AddSheetState extends State<_AddSheet> {
       };
 
   DateTime _at(DateTime now) {
-    final d = _dayDate(now);
+    final d = _needsDay ? _dayDate(now) : dayOnly(now);
     return DateTime(d.year, d.month, d.day, _time.hour, _time.minute);
   }
 
@@ -427,8 +435,9 @@ class _AddSheetState extends State<_AddSheet> {
     }
     final at = _at(now);
     if (_repeat == Repeat.none && !at.isAfter(now)) return tr('এই সময় পার হয়ে গেছে — অন্য সময় বেছে নিন');
-    if (_repeat.isInterval) return trf('{0} থেকে {1} বাজবে', [sayWhen(at, now), _repeat.label]);
-    if (_repeat != Repeat.none) return trf('{0} {1}-এ বাজবে, প্রথম বার {2}', [_repeat.label, bnTime(at.hour, at.minute), sayWhen(at, now, withTime: false)]);
+    if (_repeat.isInterval) return trf('{0} থেকে {1} বাজবে', [sayWhen(at, now), tr(_repeat.label)]);
+    if (_repeat == Repeat.daily || _repeat == Repeat.weekly) return trf('{0} {1}-এ বাজবে', [repeatSaid(_repeat, _days, at), bnTime(at.hour, at.minute)]);
+    if (_repeat != Repeat.none) return trf('{0} {1}-এ বাজবে, প্রথম বার {2}', [tr(_repeat.label), bnTime(at.hour, at.minute), sayWhen(at, now, withTime: false)]);
     return trf('{0}-এ অ্যালার্মের মতো বাজবে', [sayWhen(at, now)]);
   }
 
@@ -451,18 +460,25 @@ class _AddSheetState extends State<_AddSheet> {
       return;
     }
     if (!await needPro(context, ProFeature.reminders, allowed: brain.canAddReminder) || !mounted) return;
+    final (repeat, weekdays) = keptRepeat(_repeat, _days);
     await brain.saveReminder(Reminder(
         title: title,
-        date: _dayDate(now),
+        date: _needsDay ? _dayDate(now) : dayOnly(now),
         hour: _time.hour,
         minute: _time.minute,
         daysBefore: _repeat.isInterval ? 0 : _earlyDays,
         minutesBefore: _repeat.isInterval ? 0 : _earlyMinutes,
-        repeat: _repeat));
+        repeat: repeat,
+        weekdays: weekdays));
     if (!mounted) return;
     toast(context, trf('রাখা হলো · {0}', [_summary(now)]));
     Navigator.of(context).pop(true);
   }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 8),
+        child: Text(text, style: body(13, weight: FontWeight.w600, color: C.muted2)),
+      );
 
   Widget _chip(String label, bool on, VoidCallback onTap) => ChoiceChip(
         label: Text(label, style: body(14, color: on ? C.onInk : C.muted2)),
@@ -491,61 +507,52 @@ class _AddSheetState extends State<_AddSheet> {
             decoration: InputDecoration(labelText: tr('কী করতে হবে'), hintText: tr('যেমন: ক্লায়েন্টকে কোটেশন পাঠানো')),
           ),
           const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-            decoration: BoxDecoration(color: C.soft, borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              Icon(Icons.notifications_active_outlined, color: C.green),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr('সময়মতো মনে করাবে'), style: body(15, weight: FontWeight.w600)),
-                  Text(tr('বন্ধ রাখলে শুধু কাজের তালিকায় থাকবে'), style: body(12, color: C.muted)),
-                ]),
-              ),
-              Switch(
-                key: const Key('add-remind'),
-                value: _remind,
-                onChanged: (v) => setState(() {
-                  _remind = v;
-                  if (v && _day == _Day.any) _day = _Day.today;
-                }),
-              ),
-            ]),
-          ),
-          const SizedBox(height: 14),
-          Text(tr('কবে'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
-          const SizedBox(height: 6),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            if (!_remind) _chip(tr('যেকোনো দিন'), _day == _Day.any, () => setState(() => _day = _Day.any)),
-            _chip(tr('আজ'), _day == _Day.today, () => setState(() => _day = _Day.today)),
-            _chip(tr('কাল'), _day == _Day.tomorrow, () => setState(() => _day = _Day.tomorrow)),
-            _chip(_day == _Day.pick && _picked != null ? shortDate(_picked!) : tr('তারিখ বেছে নিন'), _day == _Day.pick, () async {
-              final p = await showDatePicker(context: context, initialDate: _picked ?? now, firstDate: dayOnly(now), lastDate: DateTime(now.year + 10));
-              if (p != null) {
-                setState(() {
-                  _picked = p;
-                  _day = _Day.pick;
-                });
-              }
+          // Owner, 22 Nov: "ফর্মের ইউআই আরো সহজ" — one row picks what it is.
+          SegTabs<bool>(
+            key: const Key('add-remind'),
+            items: [(false, tr('শুধু কাজ')), (true, tr('সময়মতো মনে করাবে'))],
+            value: _remind,
+            onChanged: (v) => setState(() {
+              _remind = v;
+              if (v && _day == _Day.any) _day = _Day.today;
             }),
-          ]),
+          ),
           if (_remind) ...[
-            const SizedBox(height: 14),
-            Text(tr('কখন'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
-            const SizedBox(height: 6),
+            _label(tr('কতবার')),
+            RepeatPicker(
+              repeat: _repeat,
+              days: _days,
+              onChanged: (r, d) => setState(() {
+                _repeat = r;
+                _days = d;
+              }),
+            ),
+          ],
+          if (_needsDay) ...[
+            _label(_remind && _repeat != Repeat.none ? tr('শুরু কবে') : tr('কবে')),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              if (!_remind) _chip(tr('যেকোনো দিন'), _day == _Day.any, () => setState(() => _day = _Day.any)),
+              _chip(tr('আজ'), _day == _Day.today, () => setState(() => _day = _Day.today)),
+              _chip(tr('কাল'), _day == _Day.tomorrow, () => setState(() => _day = _Day.tomorrow)),
+              _chip(_day == _Day.pick && _picked != null ? shortDate(_picked!) : tr('তারিখ বেছে নিন'), _day == _Day.pick, () async {
+                final p = await showDatePicker(context: context, initialDate: _picked ?? now, firstDate: dayOnly(now), lastDate: DateTime(now.year + 10));
+                if (p != null) {
+                  setState(() {
+                    _picked = p;
+                    _day = _Day.pick;
+                  });
+                }
+              }),
+            ]),
+          ],
+          if (_remind) ...[
+            _label(_repeat.isInterval ? tr('শুরু কখন') : tr('কখন')),
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final p in _presets) _chip(bnTime(p.hour, p.minute), _time == p, () => setState(() => _time = p)),
               _chip(custom ? bnTime(_time.hour, _time.minute) : tr('অন্য সময়'), custom, () async {
                 final t = await showTimePicker(context: context, initialTime: _time);
                 if (t != null) setState(() => _time = t);
               }),
-            ]),
-            const SizedBox(height: 14),
-            Text(tr('বারবার'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
-            const SizedBox(height: 6),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final r in Repeat.values.where((x) => !x.spoken || x == _repeat)) _chip(r.label, _repeat == r, () => setState(() => _repeat = r)),
             ]),
             if (!_repeat.isInterval) ...[
               const SizedBox(height: 6),

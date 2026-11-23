@@ -24,6 +24,18 @@ Future<void> exportPdf(BuildContext context, Set<ReportPart> parts, {ReportScope
   final brain = BrainScope.read(context);
   final now = brain.services.now();
   final spec = reportSpec(data ?? brain.data, parts, now, userName: data == null ? brain.userName : (title ?? ''), scope: scope, title: title);
+  await _makeAndShow(context, spec, reportFileName(parts, now, extra: fileExtra));
+}
+
+/// A ready PDF spec made on the phone and shown (with ডাউনলোড and শেয়ার).
+/// For the দিনলিপি (owner, 22 Nov), which is not one of the report's parts.
+Future<void> exportSpecPdf(BuildContext context, Map<String, Object?> spec, String fileName) async {
+  if (!await needPro(context, ProFeature.pdf) || !context.mounted) return;
+  await _makeAndShow(context, spec, fileName);
+}
+
+Future<void> _makeAndShow(BuildContext context, Map<String, Object?> spec, String fileName) async {
+  final brain = BrainScope.read(context);
   final nav = Navigator.of(context);
   showDialog<void>(
     context: context,
@@ -46,7 +58,7 @@ Future<void> exportPdf(BuildContext context, Set<ReportPart> parts, {ReportScope
     toast(context, tr('PDF তৈরি করা গেল না। আবার চেষ্টা করুন।'));
     return;
   }
-  await viewFile(context, bytes, name: reportFileName(parts, now, extra: fileExtra), mime: 'application/pdf', title: '${spec['title']}');
+  await viewFile(context, bytes, name: fileName, mime: 'application/pdf', title: '${spec['title']}');
 }
 
 /// The PDF button for a page's top bar.
