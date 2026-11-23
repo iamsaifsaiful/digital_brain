@@ -1065,7 +1065,10 @@ void main() {
     await settle(t);
     final l = rig.services.launcher as FakeLauncher;
     expect(l.opened.single.toString(), 'tel:01712345678');
-    // WhatsApp and SMS open straight away; the message is written there.
+    // WhatsApp and SMS are on their card (a tap on the name); they open
+    // straight away and the message is written there.
+    await t.tap(find.text('রহিম'));
+    await settle(t);
     await t.tap(find.byTooltip('WhatsApp'));
     await settle(t);
     expect(l.opened.last.toString(), startsWith('https://wa.me/8801712345678'));
@@ -1270,7 +1273,7 @@ void main() {
       PhoneContact('Service', '121'),
     ];
     await openMenu(t, 'যোগাযোগ');
-    await t.tap(find.text('ফোনবুক থেকে নতুন নম্বর আনুন'));
+    await t.tap(find.text('ফোনবুক থেকে আনুন'));
     await settle(t);
     expect(rig.brain.data.contacts.map((c) => c.phone), ['01712345678', '01811223344']);
     expect(find.textContaining('১ জনের নম্বর আনা হলো'), findsOneWidget);

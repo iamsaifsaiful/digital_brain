@@ -6804,4 +6804,10 @@ const enStrings = <String, String>{
   '“{0}” অভ্যাসে যোগ হলো': '“{0}” added to habits',
   '“{0}” রাখা হলো': '“{0}” kept',
   'ধর্মচর্চা': 'Faith',
+  // Contacts, 22 Nov.
+  'কল': 'Call',
+  'মেসেজ দিন': 'Message',
+  'ফোনবুক থেকে আনুন': 'Import from phone book',
+  'ফোনের সব নম্বর এক বারে আনুন, অথবা বলুন “রহিমের নম্বর ০১৭… রাখো”।': 'Import all your phone’s contacts at once, or say “Save Rahim’s number 017…”.',
+  '{0} জন · এক ছোঁয়ায় কল, মেসেজ': '{0} people · call or message in one tap',
 };
