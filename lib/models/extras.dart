@@ -281,6 +281,8 @@ enum AccountKind {
   nagad('নগদ (মোবাইল)', 'Nagad'),
   rocket('রকেট', 'Rocket'),
   bank('ব্যাংক', 'Bank'),
+  // Owner, 22 Nov: credit cards too, so a purchase on the card is tracked.
+  card('ক্রেডিট কার্ড', 'Credit card'),
   other('অন্য', 'Other');
 
   const AccountKind(this.bn, this.en);
@@ -321,6 +323,74 @@ class Transfer {
   Map<String, Object?> toJson() => {'id': id, 'from': from, 'to': to, 'amount': amount, 'fee': fee, 'date': date.toIso8601String(), 'note': note};
   factory Transfer.fromJson(Map<String, Object?> j) =>
       Transfer(id: j['id'] as String?, from: _s(j['from']), to: _s(j['to']), amount: _i(j['amount']), fee: _i(j['fee']), date: _d(j['date']) ?? DateTime.now(), note: _s(j['note']));
+}
+
+// ───────────────────────── Subscriptions ─────────────────────────
+
+/// How often a subscription is paid.
+enum SubCycle {
+  monthly('মাসিক', 'Monthly'),
+  yearly('বাৎসরিক', 'Yearly');
+
+  const SubCycle(this.bn, this.en);
+  final String bn;
+  final String en;
+  static SubCycle parse(Object? v) => SubCycle.values.firstWhere((k) => k.name == v, orElse: () => SubCycle.monthly);
+}
+
+/// A payment that comes back every month or year (owner, 22 Nov): internet,
+/// Netflix, the gym, a phone package. [next] is the day it is due next; a
+/// payment moves it on by one [cycle].
+class Subscription {
+  Subscription({String? id, required this.name, required this.amount, this.cycle = SubCycle.monthly, required this.next, this.accountId, this.category = 'বিল', this.paused = false})
+      : id = id ?? newId();
+  final String id;
+  final String name;
+  final int amount;
+  final SubCycle cycle;
+  final DateTime next;
+
+  /// Where it is paid from (see [MoneyAccount]).
+  final String? accountId;
+  final String category;
+  final bool paused;
+
+  /// What it costs in a month (a yearly one spread over twelve).
+  int get perMonth => cycle == SubCycle.monthly ? amount : (amount / 12).round();
+
+  DateTime after(DateTime d) => cycle == SubCycle.monthly ? DateTime(d.year, d.month + 1, d.day) : DateTime(d.year + 1, d.month, d.day);
+
+  Subscription copyWith({String? name, int? amount, SubCycle? cycle, DateTime? next, String? accountId, String? category, bool? paused}) => Subscription(
+        id: id,
+        name: name ?? this.name,
+        amount: amount ?? this.amount,
+        cycle: cycle ?? this.cycle,
+        next: next ?? this.next,
+        accountId: accountId ?? this.accountId,
+        category: category ?? this.category,
+        paused: paused ?? this.paused,
+      );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'name': name,
+        'amount': amount,
+        'cycle': cycle.name,
+        'next': next.toIso8601String(),
+        if (accountId != null) 'accountId': accountId,
+        'category': category,
+        if (paused) 'paused': true,
+      };
+  factory Subscription.fromJson(Map<String, Object?> j) => Subscription(
+        id: j['id'] as String?,
+        name: _s(j['name']),
+        amount: _i(j['amount']),
+        cycle: SubCycle.parse(j['cycle']),
+        next: _d(j['next']) ?? DateTime.now(),
+        accountId: j['accountId'] as String?,
+        category: _s(j['category'], 'বিল'),
+        paused: j['paused'] == true,
+      );
 }
 
 // ───────────────────────── Savings and instalments ─────────────────────────
@@ -374,47 +444,152 @@ class GoalDeposit {
   factory GoalDeposit.fromJson(Map<String, Object?> j) => GoalDeposit(_i(j['amount']), _d(j['date']) ?? DateTime.now());
 }
 
+/// What a সঞ্চয় or a কিস্তি is (owner, 23 Nov: "সঞ্চয় কিসে করা হচ্ছে").
+/// The first six are savings; the rest are payments on a loan.
 enum InstallmentKind {
-  dps('DPS / সঞ্চয়', 'DPS / savings'),
-  loan('লোনের কিস্তি', 'Loan instalment'),
-  insurance('বীমার প্রিমিয়াম', 'Insurance premium'),
+  dps('DPS', 'DPS'),
+  fdr('FDR', 'FDR'),
+  sanchay('সঞ্চয়পত্র', 'Savings certificate'),
+  samity('সমিতি', 'Samity'),
+  insurance('বীমা', 'Insurance'),
+  savingOther('অন্য সঞ্চয়', 'Other savings'),
+  loan('ব্যাংক লোন', 'Bank loan'),
+  ngo('এনজিও লোন', 'NGO loan'),
+  emi('কার্ডের EMI', 'Card EMI'),
   other('অন্য কিস্তি', 'Other instalment');
 
   const InstallmentKind(this.bn, this.en);
   final String bn;
   final String en;
+  bool get saving => index <= InstallmentKind.savingOther.index;
   static InstallmentKind parse(Object? v) => InstallmentKind.values.firstWhere((k) => k.name == v, orElse: () => InstallmentKind.other);
 }
 
-/// A monthly payment with an end: DPS, a loan, insurance.
+/// How often it is paid.
+enum PayCycle {
+  monthly('মাসিক', 'Monthly', 1),
+  weekly('সাপ্তাহিক', 'Weekly', 0),
+  quarterly('তিন মাসে একবার', 'Quarterly', 3),
+  yearly('বাৎসরিক', 'Yearly', 12),
+  once('এককালীন', 'One time', 0);
+
+  const PayCycle(this.bn, this.en, this.months);
+  final String bn;
+  final String en;
+  final int months;
+  static PayCycle parse(Object? v) => PayCycle.values.firstWhere((k) => k.name == v, orElse: () => PayCycle.monthly);
+}
+
 class Installment {
-  Installment({String? id, required this.name, this.kind = InstallmentKind.dps, required this.amount, this.dayOfMonth = 5, this.months = 12, required this.start, List<String>? paid, this.reminderId})
+  Installment(
+      {String? id,
+      required this.name,
+      this.kind = InstallmentKind.dps,
+      required this.amount,
+      this.dayOfMonth = 5,
+      this.months = 12,
+      required this.start,
+      List<String>? paid,
+      this.reminderId,
+      this.place = '',
+      this.cycle = PayCycle.monthly,
+      this.lump = 0,
+      this.remind = true,
+      this.accountId})
       : id = id ?? newId(),
         paid = paid ?? [];
   final String id;
   final String name;
   final InstallmentKind kind;
+
+  /// Each payment.
   final int amount;
   final int dayOfMonth;
 
-  /// How many instalments in all.
+  /// How many payments in all (the term, মেয়াদ).
   final int months;
+
+  /// The first payment's month (a weekly one: its day).
   final DateTime start;
 
-  /// Months paid (see [monthKey]).
+  /// Payments made: a month key for monthly ones (see [monthKey]), the
+  /// day key of its due date otherwise (see [keyAt]).
   final List<String> paid;
   final String? reminderId;
 
+  /// Where (owner, 23 Nov): the bank, samity or company — "সোনালী ব্যাংক".
+  final String place;
+  final PayCycle cycle;
+
+  /// Savings: what comes back at the end (মেয়াদ শেষে পাবেন). A loan: what
+  /// was taken. 0 = not given.
+  final int lump;
+
+  /// A reminder the day before each payment.
+  final bool remind;
+
+  /// The account it is paid from.
+  final String? accountId;
+
+  bool get saving => kind.saving;
   int get paidCount => paid.length;
   int get left => (months - paid.length).clamp(0, months);
   int get paidTotal => paid.length * amount;
   int get total => months * amount;
-  bool paidFor(DateTime month) => paid.contains(monthKey(month));
 
-  /// The month the last instalment falls in.
-  DateTime get end => DateTime(start.year, start.month + months - 1, 1);
+  /// The [i]th payment's day (0 = the first).
+  DateTime dueAt(int i) => switch (cycle) {
+        PayCycle.weekly => DateTime(start.year, start.month, start.day + 7 * i),
+        PayCycle.once => DateTime(start.year, start.month, dayOfMonth),
+        _ => DateTime(start.year, start.month + i * cycle.months, dayOfMonth),
+      };
+  String keyAt(int i) => cycle == PayCycle.monthly ? monthKey(dueAt(i)) : dayKey(dueAt(i));
+  bool paidAt(int i) => paid.contains(keyAt(i));
 
-  Installment copyWith({String? name, InstallmentKind? kind, int? amount, int? dayOfMonth, int? months, DateTime? start, List<String>? paid, String? reminderId}) => Installment(
+  /// The first payment not made yet (null: all made).
+  int? get nextIndex {
+    for (var i = 0; i < months; i++) {
+      if (!paidAt(i)) return i;
+    }
+    return null;
+  }
+
+  DateTime? get nextDue => nextIndex == null ? null : dueAt(nextIndex!);
+
+  /// The payment that falls in [month], if one does.
+  int? indexIn(DateTime month) {
+    for (var i = 0; i < months; i++) {
+      final d = dueAt(i);
+      if (d.year == month.year && d.month == month.month) return i;
+      if (d.isAfter(DateTime(month.year, month.month + 1))) break;
+    }
+    return null;
+  }
+
+  bool paidFor(DateTime month) {
+    final i = indexIn(month);
+    return i != null && paidAt(i);
+  }
+
+  /// The last payment's day.
+  DateTime get end => dueAt(months - 1 < 0 ? 0 : months - 1);
+
+  Installment copyWith(
+          {String? name,
+          InstallmentKind? kind,
+          int? amount,
+          int? dayOfMonth,
+          int? months,
+          DateTime? start,
+          List<String>? paid,
+          String? reminderId,
+          bool clearReminder = false,
+          String? place,
+          PayCycle? cycle,
+          int? lump,
+          bool? remind,
+          String? accountId}) =>
+      Installment(
         id: id,
         name: name ?? this.name,
         kind: kind ?? this.kind,
@@ -423,7 +598,12 @@ class Installment {
         months: months ?? this.months,
         start: start ?? this.start,
         paid: paid ?? this.paid,
-        reminderId: reminderId ?? this.reminderId,
+        reminderId: clearReminder ? null : (reminderId ?? this.reminderId),
+        place: place ?? this.place,
+        cycle: cycle ?? this.cycle,
+        lump: lump ?? this.lump,
+        remind: remind ?? this.remind,
+        accountId: accountId ?? this.accountId,
       );
 
   Map<String, Object?> toJson() => {
@@ -436,6 +616,11 @@ class Installment {
         'start': start.toIso8601String(),
         'paid': paid,
         'reminderId': reminderId,
+        if (place.isNotEmpty) 'place': place,
+        if (cycle != PayCycle.monthly) 'cycle': cycle.name,
+        if (lump > 0) 'lump': lump,
+        if (!remind) 'remind': false,
+        if (accountId != null) 'accountId': accountId,
       };
   factory Installment.fromJson(Map<String, Object?> j) => Installment(
         id: j['id'] as String?,
@@ -447,6 +632,11 @@ class Installment {
         start: _d(j['start']) ?? DateTime.now(),
         paid: _ls(j['paid']),
         reminderId: j['reminderId'] as String?,
+        place: _s(j['place']),
+        cycle: PayCycle.parse(j['cycle']),
+        lump: _i(j['lump']),
+        remind: j['remind'] != false,
+        accountId: j['accountId'] as String?,
       );
 }
 

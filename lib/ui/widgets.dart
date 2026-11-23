@@ -325,6 +325,9 @@ class SegTabs<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = pages;
+    // Five or more (হিসাব, owner 22 Nov): pills in a row that slides, the
+    // chosen one dark — equal parts would squeeze the names.
+    if (items.length > 4) return _PillTabs<T>(items: items, value: value, onChanged: onChanged, pages: p);
     if (p == null) return _build(items.indexWhere((x) => x.$1 == value).toDouble(), animate: true);
     return AnimatedBuilder(
       animation: p,
@@ -379,6 +382,71 @@ class SegTabs<T> extends StatelessWidget {
           ]),
         ]),
       ),
+    );
+  }
+}
+
+class _PillTabs<T> extends StatefulWidget {
+  const _PillTabs({super.key, required this.items, required this.value, required this.onChanged, this.pages});
+  final List<(T, String)> items;
+  final T value;
+  final ValueChanged<T> onChanged;
+  final PageController? pages;
+
+  @override
+  State<_PillTabs<T>> createState() => _PillTabsState<T>();
+}
+
+class _PillTabsState<T> extends State<_PillTabs<T>> {
+  late final _keys = [for (final _ in widget.items) GlobalKey()];
+  int _shown = -1;
+
+  void _reveal(int i) {
+    if (i == _shown || i < 0 || i >= _keys.length) return;
+    _shown = i;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final c = _keys[i].currentContext;
+      if (c != null && c.mounted) Scrollable.ensureVisible(c, alignment: 0.5, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
+    });
+  }
+
+  Widget _row(int at) {
+    _reveal(at);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        for (final (i, (v, label)) in widget.items.indexed) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Semantics(
+            selected: i == at,
+            button: true,
+            child: Material(
+              key: _keys[i],
+              color: i == at ? C.fill : C.surface,
+              shape: StadiumBorder(side: BorderSide(color: i == at ? C.fill : C.border)),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => widget.onChanged(v),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                  child: Text(label, maxLines: 1, style: body(13.5, weight: i == at ? FontWeight.w600 : FontWeight.w500, color: i == at ? Colors.white : C.muted2)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ]),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.pages;
+    final chosen = widget.items.indexWhere((x) => x.$1 == widget.value);
+    if (p == null) return _row(chosen);
+    return AnimatedBuilder(
+      animation: p,
+      builder: (context, _) => _row(p.hasClients && p.position.haveDimensions ? (p.page ?? chosen.toDouble()).round() : chosen),
     );
   }
 }

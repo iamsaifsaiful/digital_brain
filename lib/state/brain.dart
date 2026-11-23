@@ -1850,6 +1850,8 @@ class Brain extends ChangeNotifier {
     'calendars', 'weather_places', 'temp_unit',
     // Owner, 20 Nov: the member's religion (optional, only on this phone).
     'religion',
+    // Owner, 22 Nov: money amounts hidden behind the eye in হিসাব and Home.
+    'money_hidden',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -3275,18 +3277,19 @@ class Brain extends ChangeNotifier {
 
   /// The business's money changed by hand: kept apart in its account when
   /// it was there before the business began in the app (see [_bizEdit]).
-  Future<void> saveCash(CashEntry e) async {
+  /// [noAccount]: left without an account on purpose (the form, owner 23 Nov).
+  Future<void> saveCash(CashEntry e, {bool noAccount = false}) async {
     final was = data.cash.where((x) => x.id == e.id).firstOrNull;
-    if (isBizCash(e) || (was != null && isBizCash(was))) return _bizEdit(tr('হিসাবের এন্ট্রি বদল'), () => _saveCash(e));
-    return _saveCash(e);
+    if (isBizCash(e) || (was != null && isBizCash(was))) return _bizEdit(tr('হিসাবের এন্ট্রি বদল'), () => _saveCash(e, noAccount: noAccount));
+    return _saveCash(e, noAccount: noAccount);
   }
 
-  Future<void> _saveCash(CashEntry e) async {
+  Future<void> _saveCash(CashEntry e, {bool noAccount = false}) async {
     // A new own entry with accounts kept goes into one (so "এখন আছে", their
     // total, follows it): the cash account, else the first.
     final isNew = !data.cash.any((x) => x.id == e.id);
     if (isNew) {
-      final a = e.projectId == null && e.accountId == null ? defaultAccountId(data) : e.accountId;
+      final a = e.projectId == null && e.accountId == null && !noAccount ? defaultAccountId(data) : e.accountId;
       e = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: a, shopId: e.shopId, linkId: e.linkId, addedAt: e.addedAt ?? services.now());
     } else {
       final was = data.cash.firstWhere((x) => x.id == e.id);

@@ -1157,6 +1157,7 @@ class AppData {
     List<Transfer>? transfers,
     List<SavingsGoal>? goals,
     List<Installment>? installments,
+    List<Subscription>? subscriptions,
     Map<String, List<String>>? tags,
     this.emergency = const EmergencyCard(),
     List<FamilyMember>? members,
@@ -1195,6 +1196,7 @@ class AppData {
         transfers = transfers ?? [],
         goals = goals ?? [],
         installments = installments ?? [],
+        subscriptions = subscriptions ?? [],
         tags = tags ?? {},
         docs = docs ?? [],
         cash = cash ?? [],
@@ -1222,6 +1224,9 @@ class AppData {
   final List<Transfer> transfers;
   final List<SavingsGoal> goals;
   final List<Installment> installments;
+
+  /// Monthly or yearly payments (owner, 22 Nov).
+  final List<Subscription> subscriptions;
 
   /// Tags on notes, documents and contacts, keyed "note:<id>", "doc:<id>", "contact:<id>".
   final Map<String, List<String>> tags;
@@ -1305,6 +1310,7 @@ class AppData {
         'transfers': transfers.map((e) => e.toJson()).toList(),
         'goals': goals.map((e) => e.toJson()).toList(),
         'installments': installments.map((e) => e.toJson()).toList(),
+        if (subscriptions.isNotEmpty) 'subscriptions': subscriptions.map((e) => e.toJson()).toList(),
         'tags': {for (final e in tags.entries) if (e.value.isNotEmpty) e.key: e.value},
         'emergency': emergency.toJson(),
         'members': members.map((e) => e.toJson()).toList(),
@@ -1345,6 +1351,7 @@ class AppData {
       transfers: list('transfers', Transfer.fromJson),
       goals: list('goals', SavingsGoal.fromJson),
       installments: list('installments', Installment.fromJson),
+      subscriptions: list('subscriptions', Subscription.fromJson),
       tags: {
         for (final e in ((j['tags'] as Map?) ?? const {}).entries)
           if (e.value is List) '${e.key}': [for (final t in e.value as List) '$t']

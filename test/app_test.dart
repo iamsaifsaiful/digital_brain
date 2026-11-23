@@ -31,6 +31,7 @@ import 'package:digital_brain/ui/pdf_export.dart';
 import 'package:digital_brain/screens/notes_screen.dart';
 import 'package:digital_brain/screens/health_screens.dart';
 import 'package:digital_brain/screens/home_shell.dart';
+import 'package:digital_brain/screens/ledger_screen.dart' show MoneyScreen, MoneyScreenState, MoneyPart;
 import 'package:digital_brain/screens/money_more_screens.dart';
 import 'package:digital_brain/screens/zakat_screen.dart';
 import 'package:digital_brain/screens/more_screen.dart';
@@ -153,6 +154,9 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai, AccountServer? se
 Future<void> openMenu(WidgetTester t, String item) async {
   if (item == 'হিসাব') {
     await t.tap(find.text('হিসাব').last);
+    await settle(t);
+    // Opens on আমার খাত since 22 Nov; these tests start on আয়-ব্যয়.
+    t.state<MoneyScreenState>(find.byType(MoneyScreen)).show(MoneyPart.cash);
   } else if (item == 'আমি' || item == 'সেটিংস') {
     await t.tap(find.byTooltip('প্রোফাইল'));
   } else {
@@ -1175,7 +1179,7 @@ void main() {
     await settle(t);
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
     expect(find.textContaining('বাজার', findRichText: true), findsWidgets);
-    await t.tap(find.text('ধার-দেনা'));
+    await t.tap(find.text('ধার-দেনা').first);
     await settle(t);
     expect(find.text('আমি পাব'), findsOneWidget);
     expect(find.text('আমি দেব'), findsOneWidget);
@@ -1188,7 +1192,7 @@ void main() {
           LedgerEntry(person: 'রহিম', phone: '01819876543', kind: LedgerKind.borrowed, amount: 4000, date: DateTime(2026, 10, 2)),
         ]));
     await openMenu(t, 'হিসাব');
-    await t.tap(find.text('ধার-দেনা'));
+    await t.tap(find.text('ধার-দেনা').first);
     await settle(t);
     expect(find.text('রহিম'), findsNWidgets(2));
     expect(find.textContaining('০১৭১২-৩৪৫৬৭৮'), findsOneWidget);

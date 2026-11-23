@@ -31,6 +31,6 @@ void main() {
     Navigator.of(t.element(find.byType(MedicinesScreen))).pop();
     await settle(t);
     await tap('হিসাব');
-    expect(find.text('আয়-ব্যয় আর ধার-দেনা'), findsWidgets);
+    expect(find.text('আয়-ব্যয়, ধার-দেনা আর অ্যাকাউন্ট'), findsWidgets);
   });
 }

@@ -30,6 +30,8 @@ void main() {
     final rig = await start(t);
     await t.tap(find.text('হিসাব').last);
     await settle(t);
+    await t.tap(find.text('আয়-ব্যয়').first);
+    await settle(t);
     expect(find.byKey(const Key('cash-now-ask')), findsOneWidget);
     await t.enterText(find.byKey(const Key('cash-now-field')), '১২০০০');
     await t.tap(find.byKey(const Key('cash-now-save')));
@@ -178,6 +180,8 @@ void main() {
       await b.saveCash(CashEntry(kind: CashKind.income, amount: 2000, category: 'বেতন', date: b.services.now()));
       await t.tap(find.text('হিসাব').last);
       await settle(t);
+      await t.tap(find.text('আয়-ব্যয়').first);
+      await settle(t);
       await t.tap(find.byKey(const Key('cash-now-open')));
       await settle(t);
       expect(find.byKey(const Key('cash-now-parts')), findsOneWidget);
@@ -206,7 +210,9 @@ void main() {
     await b.saveEntry(LedgerEntry(person: 'সেলিম', kind: LedgerKind.lent, amount: 7000, date: b.services.now(), projectId: p.id));
     await t.tap(find.text('হিসাব').last);
     await settle(t);
-    await t.tap(find.text('ধার-দেনা'));
+    await t.tap(find.text('আয়-ব্যয়').first);
+    await settle(t);
+    await t.tap(find.text('ধার-দেনা').first);
     await settle(t);
     expect(find.byKey(const Key('loans-dues-note')), findsNothing);
     expect(find.text('রহিম'), findsOneWidget);

@@ -50,6 +50,8 @@ void main() {
     await rig0(t);
     await t.tap(find.text('হিসাব').last);
     await settle(t);
+    await t.tap(find.text('আয়-ব্যয়').first);
+    await settle(t);
     await t.tap(find.text('ধার-দেনা').first);
     await settle(t);
     await snap(t, 'ledger');
@@ -91,6 +93,8 @@ void main() {
   testWidgets('promo: money by day and filters', (t) async {
     await rig0(t);
     await t.tap(find.text('হিসাব').last);
+    await settle(t);
+    await t.tap(find.text('আয়-ব্যয়').first);
     await settle(t);
     await t.tap(find.text('মাসিক'));
     await settle(t);

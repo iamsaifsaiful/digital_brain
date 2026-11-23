@@ -89,7 +89,7 @@ void main() {
     expect(first.dy < alarm.dy || first.dx < alarm.dx, isTrue);
     await t.tap(find.text('হিসাব').last);
     await settle(t);
-    expect(find.text('আলাদা হিসাব'), findsOneWidget);
+    expect(find.text('আলাদা হিসাব'), findsWidgets);
     expect(find.text('অন্যান্য হিসাব'), findsNothing);
   });
 
@@ -475,7 +475,7 @@ void main() {
     await settle(t);
     await t.tap(find.byKey(const Key('home-stat-spent')));
     await settle(t);
-    expect(find.text('আলাদা হিসাব'), findsOneWidget);
+    expect(find.text('আলাদা হিসাব'), findsWidgets);
   });
 
   testWidgets('report: spending without a খাত is split by its note, and can be given one', (t) async {

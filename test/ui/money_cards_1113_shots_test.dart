@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/home_shell.dart';
+import 'package:digital_brain/screens/ledger_screen.dart' show MoneyPart;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';
@@ -34,15 +35,12 @@ void main() {
     }
     rig.brain.data = d;
     await settle(t);
-    goToTab(t.element(find.byType(Scaffold).first), ShellTab.money);
+    goToTab(t.element(find.byType(Scaffold).first), ShellTab.money, money: MoneyPart.cash);
     await settle(t);
     if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/moneycards/$stage/day.png'));
-    await t.tap(find.text('সাপ্তাহিক').first);
-    await settle(t);
+    // No সাপ্তাহিক since 22 Nov.
+    expect(find.text('সাপ্তাহিক'), findsNothing);
     final list = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).hitTestable();
-    t.state<ScrollableState>(list.first).position.jumpTo(0);
-    await settle(t);
-    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/moneycards/$stage/week.png'));
     t.state<ScrollableState>(list.first).position.jumpTo(0);
     await settle(t);
     await t.tap(find.text('মাসিক').last);
