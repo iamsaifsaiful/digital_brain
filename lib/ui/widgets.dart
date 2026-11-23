@@ -641,9 +641,9 @@ class AddButton extends StatelessWidget {
         foregroundColor: C.onAccent,
         elevation: 0,
         highlightElevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(17)),
-        icon: Icon(icon),
-        label: Text(label, style: body(14.5, weight: FontWeight.w600, color: C.onAccent)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        icon: Icon(icon, size: 20),
+        label: Text(label, style: body(13.5, weight: FontWeight.w600, color: C.onAccent)),
       ),
       );
 }
