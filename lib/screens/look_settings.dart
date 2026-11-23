@@ -8,7 +8,8 @@ import 'settings_parts.dart' show pickAccentColor;
 
 /// আরও › থিম ও ভাষা (owner, 22 Nov: "চেহারা ও ভাষা" renamed, and the insides
 /// redone: "একদম ভাল লাগে না"). Picture tiles with a live sample on top
-/// (the owner's pick of two, 23 Nov).
+/// (the owner's pick of two, 23 Nov). No sample card on top
+/// (owner, 23 Nov: "ইউজার কিছুই করতে পারতেছে না") — the page itself changes at once.
 
 class LookSettings extends StatelessWidget {
   const LookSettings({super.key});
@@ -108,46 +109,6 @@ class _Choice extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: selected ? C.green : C.line, width: selected ? 1.6 : 1)),
           child: InkWell(borderRadius: BorderRadius.circular(14), onTap: onTap, child: Padding(padding: padding, child: child)),
         ),
-      );
-}
-
-/// What the app looks like with these choices: a reminder card.
-class _Sample extends StatelessWidget {
-  const _Sample();
-
-  @override
-  Widget build(BuildContext context) => Container(
-        key: const Key('look-sample'),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(18)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(tr('এমন দেখাবে'), style: body(12, color: C.muted, weight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.line)),
-            child: Row(children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(11)),
-                child: Icon(Icons.alarm_rounded, color: C.green, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr('মাকে ফোন করা'), style: body(15, weight: FontWeight.w600)),
-                  Text(tr('আজ সন্ধ্যা ৭টা'), style: body(12.5, color: C.muted)),
-                ]),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(20)),
-                child: Text(tr('হয়ে গেছে'), style: body(12.5, weight: FontWeight.w600, color: C.onAccent)),
-              ),
-            ]),
-          ),
-        ]),
       );
 }
 
@@ -275,8 +236,6 @@ class _LookTiles extends StatelessWidget {
         );
     final darkMatters = brain.look != Look.light;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const _Sample(),
-      const SizedBox(height: 14),
       Panel(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

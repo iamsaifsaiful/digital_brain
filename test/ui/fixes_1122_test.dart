@@ -133,7 +133,7 @@ void main() {
                   ),
                 )));
         await settle(t);
-        expect(find.byKey(const Key('look-sample')), findsOneWidget);
+        expect(find.byKey(const Key('look-sample')), findsNothing);
         // Six dark colours, three to a row, both rows edge to edge (owner, 23 Nov).
         if (!dark) {
           final a = t.getRect(find.byKey(const Key('dark-night'))), c = t.getRect(find.byKey(Key('dark-${darkSets[2].key}')));
