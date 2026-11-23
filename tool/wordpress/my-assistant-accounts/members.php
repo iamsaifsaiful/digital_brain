@@ -410,7 +410,7 @@ function ma_use_receive($user_id, $header) {
         }
         $n++;
     }
-    $wpdb->query($wpdb->prepare("DELETE FROM $t WHERE day < %s", gmdate('Y-m-d', time() - 60 * DAY_IN_SECONDS)));
+    $wpdb->query($wpdb->prepare("DELETE FROM $t WHERE day < %s", gmdate('Y-m-d', time() - 400 * DAY_IN_SECONDS)));
     return $n;
 }
 

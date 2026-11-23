@@ -25,6 +25,9 @@ function ma_reset_everything() {
         ma_err_table(), ma_tr_table(), ma_nlog_table(), ma_note_runs_table(), ma_play_table(),
         ma_bl_registry(), ma_bl_donors(), ma_bl_accepts(), ma_bl_reqs(),
         ma_nlu_table('samples'), ma_nlu_table('labels')];
+    if (function_exists('ma_st_table')) {
+        array_push($tables, ma_use_table(), ma_st_table('days'), ma_st_table('dev'), ma_st_table('count'));
+    }
     foreach (['keys', 'links', 'claims', 'packages', 'items', 'places', 'files'] as $t) {
         $tables[] = ma_fam_table($t);
     }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/foundation.dart' show kReleaseMode;
@@ -26,11 +27,14 @@ import 'services/error_log.dart';
 import 'services/phonebook.dart';
 import 'services/voice.dart';
 import 'state/brain.dart';
+import 'logic/app_stats.dart';
 import 'nlu/samples.dart' show nluAppVersion;
 import 'ui/secure.dart' show SecureScreens;
 import 'screens/more_screen.dart' show shownVersion;
 
 Future<void> main() async {
+  // কোম্পানির পরিসংখ্যান: how long until the first screen is up.
+  final launch = Stopwatch()..start();
   // Release builds write nothing to the phone's log (owner, 29 Oct: security
   // audit); the app's own problem log (Trace) is where problems are kept.
   if (kReleaseMode) debugPrint = (String? message, {int? wrapWidth}) {};
@@ -80,6 +84,7 @@ Future<void> main() async {
   // speaks English and only turns Bangla once বাংলা is picked (owner, 20 Nov).
   await brain.loadLook();
   runApp(DigitalBrainApp(brain: brain));
+  unawaited(WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) => AppStats.started(launch.elapsedMilliseconds)));
   await brain.load();
   // The window starts blocked from screenshots; once the first page is up,
   // only secret pages block them (lib/ui/secure.dart).

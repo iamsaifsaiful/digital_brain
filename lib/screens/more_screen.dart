@@ -629,6 +629,15 @@ class _MoreScreenState extends State<MoreScreen> {
                     .then((_) => _load())),
             linkRow(Icons.bug_report_outlined, tr('সমস্যা খোঁজার লগ'),
                 sub: Trace.enabled ? tr('চালু — মাইক কী শুনল, কী বুঝল') : tr('বন্ধ — ভয়েসে সমস্যা হলে চালু করুন'), onTap: () => push(const TraceScreen())),
+            // কোম্পানির পরিসংখ্যান (owner, 24 Nov): on unless turned off here.
+            Semantics(
+              container: true,
+              child: KeyedSubtree(
+                key: const Key('more-stats'),
+                child: switchRow(Icons.insights_outlined, tr('ব্যবহারের হিসাব পাঠান'),
+                    tr('কোন অংশ খোলা হয়, অ্যাপ খুলতে কত সময় — আপনার লেখা, টাকার অঙ্ক, স্বাস্থ্য বা লোকেশন যায় না'), brain.statsOn, (v) => brain.setStatsOn(v)),
+              ),
+            ),
             if (proTestSwitch)
               switchRow(Icons.science_outlined, tr('পরীক্ষা: প্রিমিয়াম চালু'), tr('শুধু প্রিভিউতে — ফ্রি আর প্রিমিয়াম ইউজার কী দেখবে দুটোই দেখে নিন'), brain.pro, (v) => brain.setProForTest(v)),
             linkRow(Icons.privacy_tip_outlined, tr('প্রাইভেসি পলিসি'), sub: tr('কোন তথ্য ফোনেই থাকে, কোনটা কেন সার্ভারে যায়'),

@@ -1,6 +1,7 @@
 // ফ্যামিলি (Pro): add family members by e-mail, choose what each may do for
 // you, send them to-dos, reminders, medicine reminders and notes, see where
 // they are (if they allow), and heirs (lib/state/family_state.dart).
+import '../logic/app_stats.dart';
 import 'dart:typed_data';
 import '../ui/secure.dart';
 
@@ -75,6 +76,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('family');
     final brain = BrainScope.of(context);
     final fam = brain.family;
     return ListenableBuilder(

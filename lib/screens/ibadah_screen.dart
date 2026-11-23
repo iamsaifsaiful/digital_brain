@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../logic/app_stats.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -132,6 +133,7 @@ class _IbadahScreenState extends State<IbadahScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('prayer');
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final place = placeNamed(brain.district);

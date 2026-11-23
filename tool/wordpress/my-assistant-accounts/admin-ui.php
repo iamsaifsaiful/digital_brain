@@ -178,6 +178,11 @@ function ma_acc_render_home($v) {
         </section>
     </div>
     <?php
+    // কোম্পানির পরিসংখ্যান (owner, 24 Nov): sections of the dashboard, no menu of its own.
+    if (function_exists('ma_ui_render_stats')) {
+        ma_st_styles();
+        ma_ui_render_stats($v);
+    }
 }
 
 // ── নোটিফিকেশন ──

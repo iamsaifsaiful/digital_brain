@@ -1,4 +1,5 @@
 import '../logic/repeat_text.dart';
+import '../logic/app_stats.dart';
 import 'package:flutter/material.dart';
 
 import '../logic/bn.dart';
@@ -64,6 +65,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('reminders');
     final highlightId = widget.highlightId;
     final brain = BrainScope.of(context);
     final now = brain.services.now();

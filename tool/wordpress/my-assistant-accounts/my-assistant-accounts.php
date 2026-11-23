@@ -2,7 +2,7 @@
 /**
  * Plugin Name: My Assistant Accounts
  * Description: My Assistant অ্যাপের সদস্য — Google লগইন যাচাই, প্রিমিয়াম, পেমেন্ট, নোটিফিকেশন আর মতামত। শুধু নাম, ইমেইল, ছবি আর প্রিমিয়ামের তথ্য রাখে; ইউজারের হিসাব, নোট, পাসওয়ার্ড বা ব্যাকআপ কখনো এখানে আসে না।
- * Version: 1.0.12
+ * Version: 1.0.14
  * Requires at least: 6.0
  * Requires PHP: 8.0
  * Author: My Assistant
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const MA_ACC_VERSION = '1.0.12';
+const MA_ACC_VERSION = '1.0.14';
 const MA_ACC_OPTION_CLIENTS = 'ma_acc_google_client_ids';
 const MA_ACC_PER_PAGE = 20;
 
@@ -36,6 +36,8 @@ require_once __DIR__ . '/errors.php';
 require_once __DIR__ . '/traces.php';
 require_once __DIR__ . '/bkash.php';
 require_once __DIR__ . '/members.php';
+require_once __DIR__ . '/stats.php';
+require_once __DIR__ . '/stats-view.php';
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/play.php';
 require_once __DIR__ . '/account-delete.php';
@@ -87,6 +89,7 @@ function ma_acc_install() {
     ma_bk_install();
     ma_play_install();
     ma_use_install();
+    ma_st_install();
     ma_acc_source_migrate();
     // Who may approve payments and manage members (the admin app signs in with these accounts).
     if (!get_role('ma_admin')) {
@@ -495,6 +498,7 @@ function ma_acc_admin() {
             'pay_month' => (int) $wpdb->get_var($wpdb->prepare("SELECT COALESCE(SUM(amount),0) FROM $pt WHERE status = 'approved' AND reviewed_at >= %s", gmdate('Y-m-01'))),
             'notes_total' => (int) ($nd['total'] ?? 0),
             'notes_people' => (int) ($nd['people'] ?? 0),
+            'stats' => ma_st_view((int) ($_GET['sp'] ?? 30)),
             'fb_last' => $first && !empty($first['last']['text']) ? ($first['name'] !== '' ? $first['name'] : $first['email']) . ': “' . mb_substr((string) $first['last']['text'], 0, 60) . '”' : '',
         ];
     }

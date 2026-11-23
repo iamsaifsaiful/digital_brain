@@ -3267,6 +3267,8 @@ const enStrings = <String, String>{
   'সময়মতো মনে করাবে': 'Remind me on time',
   'সমস্যা': 'Problem',
   'সমস্যা খোঁজার লগ': 'Diagnostic log',
+  'ব্যবহারের হিসাব পাঠান': 'Send usage counts',
+  'কোন অংশ খোলা হয়, অ্যাপ খুলতে কত সময় — আপনার লেখা, টাকার অঙ্ক, স্বাস্থ্য বা লোকেশন যায় না': 'Which parts are opened and how fast the app starts — never what you write, amounts, health or location',
   'সমস্যা বা নতুন সুবিধা': 'Feedback',
   'সম্পদ লিখলে যাকাতের হিসাব করে দেয়।': 'Enter your assets and it calculates your zakat.',
   'সম্পর্ক': 'Relationship',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../logic/app_stats.dart';
 import '../ui/secure.dart';
 
 import '../logic/bn.dart';
@@ -154,6 +155,7 @@ class _KindIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('passwords');
     final l = vaultLook(kind);
     return Container(
       width: 40,

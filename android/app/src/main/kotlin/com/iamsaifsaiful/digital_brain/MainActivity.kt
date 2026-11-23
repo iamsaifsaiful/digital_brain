@@ -490,6 +490,8 @@ class MainActivity : FlutterFragmentActivity() {
             }.start()
             // The country the phone's network is in (roaming abroad too) —
             // for that country's holidays (owner, 29 Oct). Stays on the phone.
+            // কোম্পানির পরিসংখ্যান (owner, 24 Nov): only the maker and Android version.
+            "device" -> result.success(mapOf("brand" to Build.MANUFACTURER.lowercase(), "sdk" to Build.VERSION.SDK_INT))
             "country" -> {
                 val tm = getSystemService(Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
                 val cc = (tm?.networkCountryIso?.takeIf { it.isNotBlank() } ?: tm?.simCountryIso ?: "").uppercase()

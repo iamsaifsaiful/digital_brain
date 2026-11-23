@@ -24,22 +24,79 @@ add_action('rest_api_init', function () {
 
 function ma_metal_price_route(WP_REST_Request $req) {
     $kept = get_option('ma_metal_price', null);
-    $fresh = is_array($kept) && (time() - (int) ($kept['fetched'] ?? 0)) < MA_METAL_FRESH;
-    if (!$fresh && !get_transient('ma_metal_trying')) {
-        set_transient('ma_metal_trying', 1, MA_METAL_RETRY);
-        $got = ma_metal_lookup();
-        if (is_array($got)) {
-            $got['fetched'] = time();
-            update_option('ma_metal_price', $got, false);
-            $kept = $got;
-            delete_transient('ma_metal_trying');
-        }
+    // Never look it up while the app waits: a web search takes longer than
+    // the app's 20 seconds, and the dropped request took the lookup with it,
+    // so the price stayed old (owner, 23 Nov). Answer with what is kept, and
+    // look up after the answer has gone.
+    if (!ma_metal_fresh($kept)) {
+        ma_metal_refresh_after_answer();
     }
     if (!is_array($kept)) {
         return new WP_Error('unavailable', 'price not available now', ['status' => 503]);
     }
     return rest_ensure_response(ma_metal_answer($kept));
 }
+
+function ma_metal_fresh($kept) {
+    return is_array($kept) && (time() - (int) ($kept['fetched'] ?? 0)) < MA_METAL_FRESH;
+}
+
+/** Look up a new price, unless one is fresh or a lookup ran in the last minutes. True when a new one was kept. */
+function ma_metal_refresh() {
+    if (ma_metal_fresh(get_option('ma_metal_price', null)) || get_transient('ma_metal_trying')) {
+        return false;
+    }
+    set_transient('ma_metal_trying', 1, MA_METAL_RETRY);
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(600);
+    }
+    $got = ma_metal_lookup();
+    if (!is_array($got)) {
+        return false;
+    }
+    $kept = get_option('ma_metal_price', null);
+    // An older announcement than the one kept is not taken over it.
+    if (is_array($kept) && strcmp((string) $got['date'], (string) ($kept['date'] ?? '')) < 0) {
+        $kept['fetched'] = time();
+        update_option('ma_metal_price', $kept, false);
+    } else {
+        $got['fetched'] = time();
+        update_option('ma_metal_price', $got, false);
+    }
+    delete_transient('ma_metal_trying');
+    return true;
+}
+
+/** Once per request: send the answer to the app first, then look up. */
+function ma_metal_refresh_after_answer() {
+    static $set = false;
+    if ($set || get_transient('ma_metal_trying')) {
+        return;
+    }
+    $set = true;
+    add_action('shutdown', function () {
+        ignore_user_abort(true);
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        } elseif (function_exists('litespeed_finish_request')) {
+            litespeed_finish_request();
+        }
+        ma_metal_refresh();
+    });
+}
+
+// Also kept fresh without anyone asking, so the first one to open যাকাত gets
+// today's price (BAJUS changes it often, sometimes twice a week).
+add_filter('cron_schedules', function ($s) {
+    $s['ma_three_hours'] = ['interval' => 3 * HOUR_IN_SECONDS, 'display' => 'Every 3 hours (My Assistant)'];
+    return $s;
+});
+add_action('init', function () {
+    if (!wp_next_scheduled('ma_metal_tick')) {
+        wp_schedule_event(time() + 120, 'ma_three_hours', 'ma_metal_tick');
+    }
+});
+add_action('ma_metal_tick', 'ma_metal_refresh');
 
 /** What the app gets: taka per vori (ভরি), the date the rate took effect, and where it came from. */
 function ma_metal_answer(array $k) {
@@ -63,19 +120,20 @@ function ma_metal_lookup() {
     }
     $today = wp_date('Y-m-d');
     $ask = "Today is $today. Find the gold and silver prices currently in force in Bangladesh, as last set by the Bangladesh Jewellers Association (BAJUS, bajus.org). "
+        . 'BAJUS changes the price often, sometimes several times a week, and news sites (bdnews24, Prothom Alo, The Daily Star, Dhaka Tribune, Jago News and others) report each change: search for the newest announcement and use the rate it says takes effect, not an older one. '
         . 'Use only what the search results say; never estimate. Give taka per vori (ভরি, 11.664 g). '
         . 'Answer with only this JSON and nothing else: '
         . '{"effective_date":"YYYY-MM-DD","gold":{"22k":0,"21k":0,"18k":0,"traditional":0},"silver":{"22k":0,"21k":0,"18k":0,"traditional":0},"source_url":"https://..."}';
     $messages = [['role' => 'user', 'content' => $ask]];
     $text = '';
     foreach (['claude-sonnet-5-5', 'claude-haiku-5-5'] as $model) {
-        for ($turn = 0; $turn < 3; $turn++) {
+        for ($turn = 0; $turn < 5; $turn++) {
             $res = wp_remote_post('https://api.anthropic.com/v1/messages', [
                 'timeout' => 90,
                 'headers' => ['content-type' => 'application/json', 'x-api-key' => $key, 'anthropic-version' => '2023-06-01'],
                 'body' => wp_json_encode([
                     'model' => $model,
-                    'max_tokens' => 1500,
+                    'max_tokens' => 4000,
                     'messages' => $messages,
                     'tools' => [['type' => 'web_search_20250305', 'name' => 'web_search', 'max_uses' => 5]],
                 ]),
@@ -122,7 +180,9 @@ function ma_metal_read($text, $today) {
         return null;
     }
     $num = function ($v) {
-        return (int) round((float) str_replace([',', ' '], '', (string) $v));
+        // Bangla digits and grouping (২,০৫,০০০) as well.
+        $v = strtr((string) $v, ['০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9', ',' => '', ' ' => '', '৳' => '']);
+        return (int) round((float) $v);
     };
     $gold = [];
     $silver = [];
