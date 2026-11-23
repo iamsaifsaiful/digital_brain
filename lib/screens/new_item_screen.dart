@@ -415,7 +415,7 @@ class _NewItemScreenState extends State<NewItemScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.editing ? trf('{0} বদলান', [_cat.label]) : (_cat == ItemCategory.reminder ? tr('নতুন রিমাইন্ডার') : widget.category == ItemCategory.note ? tr('নতুন নোট') : tr('নতুন তথ্য'));
+    final title = widget.editing ? trf('{0} বদলান', [_cat.label]) : (_cat == ItemCategory.reminder ? (widget.medicine ? tr('ওষুধের রিমাইন্ডার') : tr('নতুন রিমাইন্ডার')) : widget.category == ItemCategory.note ? tr('নতুন নোট') : tr('নতুন তথ্য'));
     return Scaffold(
       body: SafeArea(
         child: Form(
@@ -877,8 +877,9 @@ class _NewItemScreenState extends State<NewItemScreen> {
         );
     return [
       // Owner, 22 Nov: "ফর্মের ইউআই আরো সহজ" — the medicine form is one tab
-      // away instead of a big switch card on top.
-      if (widget.reminder == null) ...[
+      // away instead of a big switch card on top. Opened as the medicine
+      // reminder (owner, 23 Nov) it has no সাধারণ tab: that lives in রিমাইন্ডার.
+      if (widget.reminder == null && !widget.medicine) ...[
         SegTabs<bool>(
           key: const Key('rem-med'),
           items: [(false, tr('সাধারণ রিমাইন্ডার')), (true, tr('ওষুধ খাওয়া'))],
