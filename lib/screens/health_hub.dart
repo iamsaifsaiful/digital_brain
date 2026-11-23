@@ -1,4 +1,5 @@
 import 'health_connect_screen.dart';
+import '../logic/app_stats.dart';
 import '../ui/secure.dart';
 import '../logic/health_connect.dart' show hcTag;
 import 'package:flutter/material.dart';
@@ -353,6 +354,7 @@ class BmiGauge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('health');
     final (level, label) = bmiLevel(bmi);
     const lo = 15.0, hi = 35.0;
     final pos = ((bmi - lo) / (hi - lo)).clamp(0.0, 1.0);

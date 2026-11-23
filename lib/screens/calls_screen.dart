@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/app_stats.dart';
 import '../logic/bn.dart';
 import '../logic/ledger.dart' show showPhone;
 import '../logic/parser.dart';
@@ -128,6 +129,7 @@ class _CallsScreenState extends State<CallsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('contacts');
     final brain = BrainScope.of(context);
     final q = normalize(_q);
     final typed = findPhone(_q);

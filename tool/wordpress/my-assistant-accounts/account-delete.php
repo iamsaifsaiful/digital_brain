@@ -43,6 +43,12 @@ function ma_acc_delete_member($id) {
     if (function_exists('ma_nlog_table')) {
         $wpdb->delete(ma_nlog_table(), ['user_id' => $id]);
     }
+    if (function_exists('ma_st_forget_member')) {
+        ma_st_forget_member($id);
+    }
+    if (function_exists('ma_use_table')) {
+        $wpdb->delete(ma_use_table(), ['user_id' => $id]);
+    }
     if (function_exists('ma_play_table')) {
         $wpdb->delete(ma_play_table(), ['user_id' => $id]);
     }

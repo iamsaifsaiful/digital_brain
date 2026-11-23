@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../logic/app_stats.dart';
 import 'package:flutter/material.dart';
 
 import '../state/brain.dart';
@@ -111,6 +112,11 @@ class HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    // কোম্পানির পরিসংখ্যান: which tab was opened today (the tab's name only).
+    if (!BrainScope.of(context).businessMode) {
+      final part = const {ShellTab.diary: 'diary', ShellTab.money: 'money', ShellTab.store: 'files'}[_tab];
+      if (part != null) AppStats.open(part);
+    }
     final business = BrainScope.of(context).businessMode;
     if (_laidOutFor != null && _laidOutFor != business) {
       // Owner, 7 Nov: switching the mode jerked (a frame of the wrong page,

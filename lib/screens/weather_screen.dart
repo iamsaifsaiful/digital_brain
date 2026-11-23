@@ -6,6 +6,7 @@
 // ক্যালেন্ডার (the month, with the coming days' weather in it, and the
 // holidays). The date on Home opens the calendar tab, the weather the other.
 // Temperatures in °C or °F, the other shown small beside (owner, 19 Nov).
+import '../logic/app_stats.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -73,6 +74,7 @@ class _DaySkyScreenState extends State<DaySkyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('calendar');
     final brain = BrainScope.of(context);
     final keys = [brain.district, ...brain.weatherPlaces];
     final key = keys.contains(_key) ? _key! : brain.district;

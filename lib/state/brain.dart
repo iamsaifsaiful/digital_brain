@@ -37,6 +37,7 @@ import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/health.dart';
 import '../logic/daily_ask.dart';
+import '../logic/app_stats.dart';
 import '../logic/ledger.dart';
 import '../nlu/labels.dart';
 import 'family_state.dart';
@@ -778,6 +779,7 @@ class Brain extends ChangeNotifier {
     try {
       final info = await services.server.me(session, usage: usageDays());
       if (info != null) await _applyServer(info);
+      if (info != null) unawaited(sendStats().catchError((_) => false));
     } on SessionExpired {
       services.ai.session = '';
       serverAi = false;
@@ -1709,6 +1711,7 @@ class Brain extends ChangeNotifier {
   Future<void> usageStop() async {
     final from = _fgSince;
     _fgSince = null;
+    if (loaded && AppStats.on) await _put('stats_days', AppStats.save());
     if (from == null || !loaded) return;
     final now = services.now();
     var secs = now.difference(from).inSeconds;
@@ -1719,6 +1722,45 @@ class Brain extends ChangeNotifier {
     days[k] = (days[k] ?? 0) + secs;
     final keep = (days.keys.toList()..sort()).reversed.take(14).toSet();
     await setPref('usage_days', [for (final e in days.entries) if (keep.contains(e.key)) '${e.key}:${e.value}'].join(','));
+  }
+
+  // ── কোম্পানির পরিসংখ্যান (owner, 24 Nov) ──
+
+  /// Settings › "ব্যবহারের হিসাব পাঠান" (on unless turned off).
+  bool get statsOn => !flag('stats_off');
+
+  Future<void> setStatsOn(bool on) async {
+    AppStats.on = on;
+    if (!on) AppStats.clear();
+    await _put('stats_days', on ? AppStats.save() : '');
+    await setPref('stats_off', !on);
+  }
+
+  /// Anything kept in the app yet (yes or no only).
+  bool get hasAnyItem =>
+      data.tasks.isNotEmpty || data.reminders.isNotEmpty || data.ledger.isNotEmpty || data.cash.isNotEmpty || data.notes.isNotEmpty ||
+      data.medicines.isNotEmpty || data.docs.isNotEmpty || data.vault.isNotEmpty || data.contacts.isNotEmpty;
+
+  /// The days not sent yet, with the phone's maker, Android, language,
+  /// country and business mode. Signed in only; nothing when turned off.
+  Future<bool> sendStats() async {
+    final session = services.ai.session;
+    if (!AppStats.on || session.isEmpty || !loaded) return false;
+    final dev = await AppStats.device();
+    final ok = await services.server.stats(session, {
+      'days': AppStats.days(),
+      'brand': dev.brand,
+      'android': dev.android,
+      'lang': english ? 'en' : 'bn',
+      'country': await whereCountry(),
+      'biz': businessMode,
+      'items': hasAnyItem,
+    });
+    if (ok) {
+      AppStats.sent();
+      await _put('stats_days', AppStats.save());
+    }
+    return ok;
   }
 
   /// Seconds in front, per day (yyyy-mm-dd), the last 14 days that had any.
@@ -1860,6 +1902,8 @@ class Brain extends ChangeNotifier {
     'note_cats',
     // Owner, 22 Nov: the morning sleep and night water questions (logic/daily_ask.dart).
     'ask_sleep', 'ask_water', 'ask_done', 'ask_skips_sleep', 'ask_skips_water',
+    // Owner, 24 Nov: কোম্পানির পরিসংখ্যান — off switch, the days not sent yet, first open told.
+    'stats_off', 'stats_days', 'stats_first',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -1973,6 +2017,12 @@ class Brain extends ChangeNotifier {
       }
       _applyVoiceLang();
       tempF = prefs['temp_unit'] == 'f';
+      AppStats.on = prefs['stats_off'] != 'true';
+      if (AppStats.on) {
+        AppStats.restore(prefs['stats_days']);
+      } else {
+        AppStats.clear();
+      }
       // The diagnostic trace: on in development builds, or when the user turned it on.
       Trace.enabled = kDebugMode || prefs['trace_on'] == 'true';
       askZakat = zakatSaved;
@@ -2306,6 +2356,7 @@ class Brain extends ChangeNotifier {
   /// the message came); used only in the server's "on" mode (lib/nlu/router.dart).
   Future<(List<Command>, String?)> understandAll(String said,
       {List<AiTurn> history = const [], bool fast = false, String shown = '', Future<List<NluPiece>?>? model, String nluState = 'idle', String nluKind = 'none'}) async {
+    AppStats.open('voice');
     // One of the English app's own examples is understood as its Bangla original.
     said = exampleInBangla(said);
     final (cmds, problem, source) = await _understandAll(said, history: history, fast: fast, shown: shown, model: model, nluState: nluState, nluKind: nluKind);
@@ -2618,6 +2669,13 @@ class Brain extends ChangeNotifier {
     } catch (_) {}
     await loadLook();
     await _loadPrefs();
+    // A new install (never opened before): told once, with nothing about the phone.
+    if (prefs['stats_first'] == null) {
+      final fresh = prefs['last_open'] == null;
+      prefs['stats_first'] = '1';
+      await _put('stats_first', '1');
+      if (fresh && AppStats.on) unawaited(services.server.firstOpen().catchError((_) => false));
+    }
     await _loadSources();
     await _loadPro();
     await _loadAccount();

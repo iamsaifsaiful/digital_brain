@@ -344,6 +344,27 @@ class AccountServer {
 
   String get aiUrl => '$base/wp-json/my-assistant/v1/ai';
 
+  /// কোম্পানির পরিসংখ্যান (owner, 24 Nov): the parts opened per day and the
+  /// phone's maker, Android, language, country — no words, no amounts.
+  Future<bool> stats(String session, Map<String, Object?> body) async {
+    if (!configured || session.isEmpty) return false;
+    final r = await send('POST', '/stats', session, body);
+    return r.ok;
+  }
+
+  /// A new install opened for the first time (nothing about the phone goes).
+  Future<bool> firstOpen() async {
+    if (!configured) return false;
+    try {
+      final r = await _http
+          .post(Uri.parse('$base/wp-json/my-assistant/v1/stats/first-open'), headers: {'Content-Type': 'application/json'}, body: '{}')
+          .timeout(const Duration(seconds: 15));
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Tells the server where to send push for this phone.
   Future<bool> device(String session, String token) async {
     if (!configured || session.isEmpty) return false;

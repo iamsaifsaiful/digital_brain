@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../logic/app_stats.dart';
 import 'package:flutter/services.dart';
 
 import '../../logic/biz_account.dart';
@@ -51,6 +52,7 @@ class _BizHomeState extends State<BizHome> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('business');
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final b = brain.shop;

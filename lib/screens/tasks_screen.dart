@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../logic/app_stats.dart';
 import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/when.dart';
@@ -184,6 +185,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('tasks');
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final lists = {

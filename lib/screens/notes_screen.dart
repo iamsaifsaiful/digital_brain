@@ -1,4 +1,5 @@
 import 'will_screen.dart';
+import '../logic/app_stats.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/pro_gate.dart';
@@ -178,6 +179,7 @@ class _NotesScreenState extends State<NotesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('notes');
     final brain = BrainScope.of(context);
     final cats = brain.noteCats;
     final q = normalize(_q);

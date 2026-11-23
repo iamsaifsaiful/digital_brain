@@ -3,6 +3,7 @@
 // knows (accounts, savings, DPS, ধার-দেনা, loan instalments), shows every
 // line with where it came from and when it last changed, and lets the user
 // leave a line out or add one by hand.
+import '../logic/app_stats.dart';
 import 'dart:math' as math;
 import 'dart:math' show Random;
 
@@ -191,6 +192,7 @@ class _ZakatScreenState extends State<ZakatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    AppStats.open('zakat');
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final saved = brain.zakatSaved;
