@@ -6878,4 +6878,5 @@ const enStrings = <String, String>{
   'আয়-ব্যয়, ধার-দেনা আর আলাদা হিসাব': 'Income, loans and separate budgets',
   'অ্যাকাউন্টের হিসাব': 'Accounts',
   'জমেছে · {0}টি চলছে': 'Saved · {0} running',
+  'ঠিক আছে, আজ আর জিজ্ঞেস করব না। কাল আবার আসবে।': 'OK, no more asking today. It’ll be back tomorrow.',
 };

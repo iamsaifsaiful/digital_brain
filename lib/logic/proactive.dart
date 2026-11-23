@@ -414,7 +414,7 @@ List<PlannedNotice> _summaries(AppData d, DateTime now, AssistantPrefs p) {
         body: sleepAsked(d, day, now, p) ? '${morningText(d, day)}\n\n$sleepAskLine' : morningText(d, day),
         reminderId: morningTag,
         gentle: true,
-        asks: sleepAsked(d, day, now, p) ? [for (final h in sleepNoticeChoices) (askAction(DailyAsk.sleep, h), trf('{0} ঘণ্টা', [bnDigits(h)]))] : const [],
+        asks: sleepAsked(d, day, now, p) ? askButtons(DailyAsk.sleep) : const [],
       ));
     }
   }
@@ -469,7 +469,7 @@ bool sleepAsked(AppData d, DateTime day, DateTime now, AssistantPrefs p) =>
 
 bool waterAsked(DateTime day, AssistantPrefs p) => p.askWater && !p.askDone.contains('water:${dayKey(day)}');
 
-List<(String, String)> get _waterButtons => [for (final g in waterNoticeChoices) (askAction(DailyAsk.water, g), trf('{0} গ্লাস', [bnDigits(g)]))];
+List<(String, String)> get _waterButtons => askButtons(DailyAsk.water);
 
 List<PlannedNotice> _nudges(AppData d, DateTime now, AssistantPrefs p) {
   final out = <PlannedNotice>[];

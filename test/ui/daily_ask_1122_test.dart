@@ -58,7 +58,7 @@ void main() {
     // The morning notification carries the line and three buttons.
     final morning = assistantNotices(brain.data, DateTime(2026, 11, 22, 6), brain.assistantPrefs).firstWhere((n) => n.reminderId == morningTag);
     expect(morning.body, contains(sleepAskLine));
-    expect(morning.asks.map((a) => a.$1), [askAction(DailyAsk.sleep, 6), askAction(DailyAsk.sleep, 7), askAction(DailyAsk.sleep, 8)]);
+    expect(morning.asks.map((a) => a.$1), [askAction(DailyAsk.sleep, 7), askAction(DailyAsk.sleep, 8), askAction(DailyAsk.sleep, askSkip)]);
 
     await t.tap(find.byKey(const Key('ask-sleep-7')));
     await settle(t);
@@ -82,7 +82,7 @@ void main() {
     await settle(t);
     // The water notice: on its own night summary, or alone.
     final night = assistantNotices(brain.data, DateTime(2026, 11, 22, 20), brain.assistantPrefs).where((n) => n.asks.isNotEmpty && dayOnly(n.at) == DateTime(2026, 11, 22)).toList();
-    expect(night.single.asks.first.$1, askAction(DailyAsk.water, 4));
+    expect(night.single.asks.map((a) => a.$2), ['৬ গ্লাস', '৮ গ্লাস', 'আজ না']);
     expect(find.text('আজ কত গ্লাস পানি খেলেন?'), findsOneWidget);
     await t.tap(find.byKey(const Key('ask-water-6')));
     await settle(t);
@@ -152,6 +152,32 @@ void main() {
     await settle(t, 20);
     final chip = t.widget<ChoiceChip>(find.ancestor(of: find.text('রহিমা (মা)'), matching: find.byType(ChoiceChip)));
     expect(chip.selected, isTrue);
+    debugDisableShadows = true;
+  });
+
+  testWidgets('আজ না: gone for today, back the next day', (t) async {
+    final rig = await start(t);
+    final brain = rig.brain;
+    rig.nowAt = DateTime(2026, 11, 23, 20, 30);
+    brain.notifyListeners();
+    await settle(t);
+    expect(find.text('আজ কত গ্লাস পানি খেলেন?'), findsOneWidget);
+    await _shot(t, '8-skip-button');
+    await t.tap(find.byKey(const Key('ask-skip-water')));
+    await settle(t);
+    expect(find.byKey(const Key('home-daily-ask')), findsNothing);
+    expect(find.text('ঠিক আছে, আজ আর জিজ্ঞেস করব না। কাল আবার আসবে।'), findsOneWidget);
+    await _shot(t, '9-skipped');
+    // No water notice tonight, one tomorrow night.
+    final n = assistantNotices(brain.data, DateTime(2026, 11, 23, 20, 31), brain.assistantPrefs).where((x) => x.asks.isNotEmpty).toList();
+    expect(n.any((x) => dayOnly(x.at) == DateTime(2026, 11, 23)), isFalse);
+    expect(n.any((x) => dayOnly(x.at) == DateTime(2026, 11, 24)), isTrue);
+    rig.nowAt = DateTime(2026, 11, 24, 20, 30);
+    brain.notifyListeners();
+    await settle(t);
+    expect(find.text('আজ কত গ্লাস পানি খেলেন?'), findsOneWidget);
+    // The notification's own "আজ না" works the same.
+    expect(parseAskAction(askAction(DailyAsk.water, askSkip)), (DailyAsk.water, askSkip));
     debugDisableShadows = true;
   });
 }

@@ -34,17 +34,21 @@ const waterGoal = 8;
 
 /// The quick answers on the sleep card and the morning notification.
 const sleepChoices = [5, 6, 7, 8, 9];
-const sleepNoticeChoices = [6, 7, 8];
-const waterNoticeChoices = [4, 6, 8];
+/// Android shows three buttons: two answers and "আজ না" (owner, 23 Nov).
+const sleepNoticeChoices = [7, 8];
+const waterNoticeChoices = [6, 8];
+
+/// The "আজ না" button's value in [askAction].
+const askSkip = -1;
 
 /// A notification button's id: "ask:sleep:7", "ask:water:6".
-String askAction(DailyAsk k, int v) => 'ask:${k.name}:$v';
+String askAction(DailyAsk k, int v) => 'ask:${k.name}:${v == askSkip ? 'skip' : v}';
 
 (DailyAsk, int)? parseAskAction(String? id) {
   final p = (id ?? '').split(':');
   if (p.length != 3 || p[0] != 'ask') return null;
   final k = DailyAsk.values.where((x) => x.name == p[1]).firstOrNull;
-  final v = int.tryParse(p[2]);
+  final v = p[2] == 'skip' ? askSkip : int.tryParse(p[2]);
   return k == null || v == null ? null : (k, v);
 }
 
@@ -109,3 +113,9 @@ String waterWeekLine(List<double?> week) {
 
 /// The line added to the morning summary while the sleep question is on.
 String get sleepAskLine => tr('রাতে কত ঘণ্টা ঘুমালেন? নিচের বোতামে এক ট্যাপে জানান।');
+
+/// The notification buttons for [k]: two answers, then "আজ না".
+List<(String, String)> askButtons(DailyAsk k) => [
+      for (final v in k == DailyAsk.sleep ? sleepNoticeChoices : waterNoticeChoices) (askAction(k, v), trf(k == DailyAsk.sleep ? '{0} ঘণ্টা' : '{0} গ্লাস', [bnDigits(v)])),
+      (askAction(k, askSkip), tr('আজ না')),
+    ];

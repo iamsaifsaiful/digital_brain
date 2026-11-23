@@ -64,11 +64,23 @@ class _DailyAskCardState extends State<DailyAskCard> {
             Text(offerOff ? tr('কয়েক দিন উত্তর দেননি — প্রশ্নটা বন্ধ রাখব?') : sub, style: body(12, color: C.muted, height: 1.35)),
           ]),
         ),
-        TextButton(
+        // "আজ না" (owner, 23 Nov: a clear way to leave it for today; back tomorrow).
+        OutlinedButton.icon(
           key: Key('ask-skip-${k.name}'),
-          style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 30)),
-          onPressed: () => brain.skipAsk(k),
-          child: Text(tr('আজ না'), style: body(12.5, color: C.muted)),
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            foregroundColor: C.muted2,
+            side: BorderSide(color: C.line),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            minimumSize: const Size(0, 32),
+            shape: const StadiumBorder(),
+          ),
+          onPressed: () async {
+            await brain.skipAsk(k);
+            if (mounted) toast(context, tr('ঠিক আছে, আজ আর জিজ্ঞেস করব না। কাল আবার আসবে।'));
+          },
+          icon: Icon(Icons.close_rounded, size: 16, color: C.muted2),
+          label: Text(tr('আজ না'), style: body(12.5, weight: FontWeight.w600, color: C.muted2)),
         ),
       ]),
       if (offerOff)
