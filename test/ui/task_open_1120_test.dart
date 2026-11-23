@@ -40,6 +40,9 @@ void main() {
     await settle(t);
     await _shot(t, '1-home');
 
+    // The sleep question on Home (22 Nov) pushes the list down: scroll to it.
+    await t.ensureVisible(find.text('ব্যাংকে চেক জমা দেওয়া'));
+    await settle(t);
     await t.tap(find.text('ব্যাংকে চেক জমা দেওয়া'));
     await settle(t);
     expect(find.text('এডিট করুন'), findsOneWidget);
@@ -56,6 +59,9 @@ void main() {
     await settle(t);
     expect(rig.brain.data.tasks.any((x) => x.title == 'ব্যাংকে দুটো চেক জমা দেওয়া' && x.note.contains('সই')), isTrue);
 
+    // The sleep question on Home (22 Nov) pushes the list down: scroll to it.
+    await t.ensureVisible(find.text('আম্মাকে ফোন করা'));
+    await settle(t);
     await t.tap(find.text('আম্মাকে ফোন করা'));
     await settle(t);
     expect(find.text('এডিট করুন'), findsOneWidget);
