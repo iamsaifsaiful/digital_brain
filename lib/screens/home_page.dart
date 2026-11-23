@@ -96,11 +96,6 @@ class HomePage extends StatelessWidget {
           const HomeAttention(),
           const TodaySections(),
           const _MoneyCard(),
-          // Owner, 22 Nov: what is coming to pay, then the month's report.
-          const SizedBox(height: 4),
-          const HomeUpcoming(),
-          const SizedBox(height: 4),
-          const HomeReport(),
           // আজকের অর্থ-কথা right under the money (owner, 24 Oct night).
           const SizedBox(height: 16),
           AppCard(
@@ -117,6 +112,12 @@ class HomePage extends StatelessWidget {
               ),
             ]),
           ),
+          // Owner, 22 Nov: what is coming to pay, then the month's report
+          // (under the quote, which stays right under the money).
+          const SizedBox(height: 4),
+          const HomeUpcoming(),
+          const SizedBox(height: 4),
+          const HomeReport(),
           const HomeHolidays(),
           const SizedBox(height: 20),
           const ToolsCard(),

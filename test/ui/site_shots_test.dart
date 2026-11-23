@@ -17,6 +17,7 @@ import 'home_final_shots_test.dart' show icons, sample, shots;
 import 'english_1112_shots_test.dart' show englishSample;
 import 'package:digital_brain/logic/lang.dart' show tr;
 import 'package:digital_brain/screens/home_shell.dart' show goToTab, ShellTab;
+import 'package:digital_brain/screens/ledger_screen.dart' show MoneyPart;
 
 Future<Rig> _ready(WidgetTester t, Look look, {bool en = false}) async {
   if (shots) {
@@ -77,7 +78,7 @@ void main() {
 
     testWidgets('site ${look.name}$x: money', (t) async {
       await _ready(t, look, en: en);
-      goToTab(t.element(find.byType(Scaffold).first), ShellTab.money);
+      goToTab(t.element(find.byType(Scaffold).first), ShellTab.money, money: MoneyPart.cash);
       await settle(t);
       await t.tap(find.text(tr('মাসিক')).first);
       await settle(t);
