@@ -542,10 +542,11 @@ class _LockScreenState extends State<LockScreen> {
             left: 0,
             right: 0,
             height: upper,
-            // The home's Cox's Bazar sea at night behind the mark (owner,
-            // 19 Nov), a little darker at the top for the clock and bar.
+            // The home's Cox's Bazar sea behind the mark (owner, 19 Nov), by
+            // day the day picture and at night the night one, as on Home
+            // (owner, 23 Nov); a little darker at the top for the clock and bar.
             child: Stack(fit: StackFit.expand, children: [
-              Image.asset('assets/sky/cox_night.webp', key: const Key('lock-scene'), fit: BoxFit.cover, alignment: const Alignment(0, 0.55), filterQuality: FilterQuality.medium),
+              Image.asset(lockScene(brain.services.now()), key: const Key('lock-scene'), fit: BoxFit.cover, alignment: const Alignment(0, 0.55), filterQuality: FilterQuality.medium),
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -592,6 +593,9 @@ class _LockScreenState extends State<LockScreen> {
     return Scaffold(backgroundColor: p.sheet, body: bodyW);
   }
 }
+
+/// The sign-in picture for the hour: day 6 AM–6 PM, night otherwise.
+String lockScene(DateTime now) => now.hour >= 6 && now.hour < 18 ? 'assets/sky/cox_day.webp' : 'assets/sky/cox_night.webp';
 
 /// English | বাংলা (owner, 19 Nov). Big on the sign-up page: two halves of
 /// one pill, the chosen one filled. Small on the PIN pages: two words at the
