@@ -6,10 +6,20 @@ import 'package:digital_brain/logic/money_more.dart' show totalBalance;
 import 'package:digital_brain/screens/calendar_screen.dart';
 import 'package:digital_brain/screens/ledger_form_screen.dart';
 import 'package:digital_brain/state/brain.dart' show BrainMore;
+import 'package:digital_brain/screens/money_hub.dart' show MoneyTopView;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'app_test.dart' show settle, start, openTyping, sendTyped;
+
+/// আয়-ব্যয় has the accounts on top (owner, 23 Nov): bring [key] to the
+/// middle of the screen, clear of the add button and the bars.
+Future<void> _toDay(WidgetTester t, Key key) async {
+  final list = find.ancestor(of: find.byType(MoneyTopView), matching: find.byType(Scrollable)).first;
+  await t.scrollUntilVisible(find.byKey(key), 300, scrollable: list);
+  await Scrollable.ensureVisible(t.element(find.byKey(key)), alignment: 0.4);
+  await settle(t);
+}
 
 void main() {
   test('money now (2.49.1 data): the offset kept then still gives the same amount', () {
@@ -32,10 +42,13 @@ void main() {
     await settle(t);
     await t.tap(find.text('আয়-ব্যয়').first);
     await settle(t);
+    await _toDay(t, const Key('cash-now-ask'));
     expect(find.byKey(const Key('cash-now-ask')), findsOneWidget);
     await t.enterText(find.byKey(const Key('cash-now-field')), '১২০০০');
     await t.tap(find.byKey(const Key('cash-now-save')));
     await settle(t);
+    // আয়-ব্যয় has the accounts on top now (owner, 23 Nov): scroll to the day.
+    await _toDay(t, const Key('cash-now'));
     expect(find.byKey(const Key('cash-now')), findsOneWidget);
     expect(find.descendant(of: find.byKey(const Key('cash-now')), matching: find.textContaining('১২,০০০')), findsOneWidget);
     await rig.brain.saveCash(CashEntry(kind: CashKind.expense, amount: 450, category: 'বাজার', date: rig.brain.services.now()));
@@ -183,6 +196,7 @@ void main() {
       await settle(t);
       await t.tap(find.text('আয়-ব্যয়').first);
       await settle(t);
+      await _toDay(t, const Key('cash-now-open'));
       await t.tap(find.byKey(const Key('cash-now-open')));
       await settle(t);
       expect(find.byKey(const Key('cash-now-parts')), findsOneWidget);

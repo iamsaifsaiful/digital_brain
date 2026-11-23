@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart' show cashOnHand, monthSums;
 import '../logic/lang.dart';
-import '../logic/ledger.dart' show totals;
 import '../logic/money_more.dart';
 import '../logic/upcoming.dart';
 import '../models/models.dart';
@@ -17,7 +16,7 @@ import '../ui/kit.dart' show AppCard;
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'home_shell.dart' show goToTab, ShellTab;
-import 'ledger_screen.dart' show MoneyPart, MoneyScreenState;
+import 'ledger_screen.dart' show MoneyPart;
 import 'money_more_screens.dart';
 
 void _push(BuildContext context, Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
@@ -74,12 +73,13 @@ IconData accountIcon(AccountKind k) => switch (k) {
       _ => (C.rose, C.roseTint),
     };
 
-// ───────────────────────── আমার খাত ─────────────────────────
+// ───────────────────────── আয়-ব্যয়, top and bottom ─────────────────────────
 
-/// Every part of the money on one page: the balance on top, a card for
-/// each খাত (a tap opens it), what is coming to pay, and the other tools.
-class MoneyHubView extends StatelessWidget {
-  const MoneyHubView({super.key});
+/// Owner, 23 Nov: no আমার খাত or অ্যাকাউন্ট tab — both live on আয়-ব্যয়.
+/// The top of that tab: all the money and where it sits (each account,
+/// a tap opens them all), then সাবস্ক্রিপশন and সঞ্চয় ও কিস্তি.
+class MoneyTopView extends StatelessWidget {
+  const MoneyTopView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -87,23 +87,18 @@ class MoneyHubView extends StatelessWidget {
     final d = brain.data;
     final now = brain.services.now();
     final month = monthSums(d.cash, now);
-    final owe = totals(d.ledger.where((e) => e.projectId == null));
     final hasAccounts = d.accounts.isNotEmpty;
     final total = hasAccounts ? totalBalance(d) : (cashOnHand(d) ?? month.balance);
-    final subs = d.subscriptions.where((s) => !s.paused).toList()..sort((a, b) => a.next.compareTo(b.next));
+    final subs = d.subscriptions.where((s) => !s.paused).toList();
     final subMonth = subs.fold(0, (a, s) => a + s.perMonth);
-    final saved = d.goals.fold(0, (a, g) => a + g.saved);
+    final saved = d.goals.fold<int>(0, (a, g) => a + g.saved) + d.installments.where((i) => i.saving).fold<int>(0, (a, i) => a + i.paidTotal);
     final inst = d.installments.where((i) => i.left > 0).toList();
-    final openProjects = d.projects.where((p) => !p.closed).length;
-    final up = upcomingCosts(d, now, days: 30);
-    void tab(MoneyPart p) => context.findAncestorStateOfType<MoneyScreenState>()?.show(p);
-    final spentShare = month.income <= 0 ? (month.expense > 0 ? 1.0 : 0.0) : (month.expense / month.income).clamp(0.0, 1.0).toDouble();
+    void accounts() => _push(context, const AccountsScreen());
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // The balance (approved look of Home's money card, in the accent tint).
       Container(
         key: const Key('hub-balance'),
-        padding: const EdgeInsets.fromLTRB(18, 12, 8, 16),
+        padding: const EdgeInsets.fromLTRB(18, 12, 8, 14),
         decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(22)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
@@ -115,54 +110,40 @@ class MoneyHubView extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(hid(context, '${total < 0 ? '−' : ''}${taka(total.abs())}'), style: display(32, weight: 700, color: total < 0 ? C.red : C.ink, height: 1.2)),
           ),
-          const SizedBox(height: 4),
-          InkWell(
-            onTap: () => tab(MoneyPart.accounts),
-            child: Text(
-              hasAccounts ? trf('{0}টি অ্যাকাউন্ট · দেখুন', [bnDigits(d.accounts.length)]) : tr('ব্যাংক, বিকাশ, কার্ড যোগ করুন'),
-              style: body(12.5, weight: FontWeight.w600, color: C.greenDark),
-            ),
-          ),
           const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: Row(children: [
-              Expanded(child: _MiniFig(label: tr('এ মাসে আয়'), value: hid(context, taka(month.income)), icon: Icons.south_west_rounded, color: C.blue)),
-              Expanded(child: _MiniFig(label: tr('এ মাসে খরচ'), value: hid(context, taka(month.expense)), icon: Icons.north_east_rounded, color: C.red)),
+          // Each account: where the money sits.
+          SizedBox(
+            key: const Key('hub-accounts'),
+            height: 74,
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(right: 10), children: [
+              for (final acc in d.accounts) ...[
+                _AccountChip(account: acc, balance: accountBalance(d, acc), onTap: accounts),
+                const SizedBox(width: 8),
+              ],
+              _AddChip(key: const Key('hub-account-add'), onTap: () => editAccount(context, null)),
             ]),
           ),
+          const SizedBox(height: 6),
+          Row(children: [
+            TextButton.icon(
+              key: const Key('hub-accounts-all'),
+              onPressed: accounts,
+              icon: const Icon(Icons.account_balance_outlined, size: 18),
+              label: Text(tr('অ্যাকাউন্টের হিসাব')),
+            ),
+            const Spacer(),
+            if (d.accounts.length >= 2)
+              TextButton.icon(
+                key: const Key('hub-move'),
+                onPressed: () => moveMoney(context),
+                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                label: Text(tr('টাকা সরান')),
+              ),
+          ]),
         ]),
-      ),
-      const SizedBox(height: 20),
-      SectionTitle(tr('আমার খাত')),
-      _KhatCard(
-        key: const Key('khat-cash'),
-        icon: Icons.swap_vert_rounded,
-        fg: C.green,
-        bg: C.greenTint,
-        title: tr('আয়-ব্যয়'),
-        value: hid(context, taka(month.expense)),
-        sub: month.income > 0 ? trf('আয়ের {0}% খরচ হয়েছে', [bnDigits((spentShare * 100).round())]) : trf('{0}-এর খরচ', [monthName(now.month)]),
-        bar: month.income > 0 || month.expense > 0 ? spentShare : null,
-        barColor: spentShare > 0.9 ? C.red : C.green,
-        wide: true,
-        onTap: () => tab(MoneyPart.cash),
       ),
       const SizedBox(height: 10),
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(
-          child: _KhatCard(
-            key: const Key('khat-loans'),
-            icon: Icons.handshake_outlined,
-            fg: C.blue,
-            bg: C.blueTint,
-            title: tr('ধার-দেনা'),
-            value: owe.receivable == 0 && owe.payable == 0 ? tr('কিছু নেই') : trf('পাব {0}', [hid(context, taka(owe.receivable))]),
-            sub: owe.receivable == 0 && owe.payable == 0 ? tr('কেউ টাকা পাবে না') : trf('দেব {0}', [hid(context, taka(owe.payable))]),
-            onTap: () => tab(MoneyPart.loans),
-          ),
-        ),
-        const SizedBox(width: 10),
         Expanded(
           child: _KhatCard(
             key: const Key('khat-subs'),
@@ -175,9 +156,7 @@ class MoneyHubView extends StatelessWidget {
             onTap: () => _push(context, const SubscriptionsScreen()),
           ),
         ),
-      ]),
-      const SizedBox(height: 10),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(width: 10),
         Expanded(
           child: _KhatCard(
             key: const Key('khat-savings'),
@@ -185,26 +164,29 @@ class MoneyHubView extends StatelessWidget {
             fg: C.teal,
             bg: C.tealTint,
             title: tr('সঞ্চয় ও কিস্তি'),
-            value: d.goals.isEmpty && inst.isEmpty ? tr('যোগ করুন') : hid(context, taka(saved)),
-            sub: inst.isEmpty ? (d.goals.isEmpty ? tr('লক্ষ্য, DPS, লোন') : tr('জমেছে')) : trf('জমেছে · {0}টি কিস্তি চলছে', [bnDigits(inst.length)]),
+            value: d.goals.isEmpty && d.installments.isEmpty ? tr('যোগ করুন') : hid(context, taka(saved)),
+            sub: inst.isEmpty ? (d.goals.isEmpty ? tr('লক্ষ্য, DPS, লোন') : tr('জমেছে')) : trf('জমেছে · {0}টি চলছে', [bnDigits(inst.length)]),
             onTap: () => _push(context, const SavingsScreen()),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _KhatCard(
-            key: const Key('khat-projects'),
-            icon: Icons.folder_special_outlined,
-            fg: C.ochre,
-            bg: C.ochreTint,
-            title: tr('আলাদা হিসাব'),
-            value: openProjects == 0 ? tr('যোগ করুন') : trf('{0}টি চলছে', [bnDigits(openProjects)]),
-            sub: tr('বিয়ে, বাড়ি, ভ্রমণ'),
-            onTap: () => tab(MoneyPart.projects),
           ),
         ),
       ]),
       const SizedBox(height: 20),
+    ]);
+  }
+}
+
+/// The bottom of আয়-ব্যয়, after the লেনদেন: what is coming to pay, the
+/// month's report, and the other tools.
+class MoneyBottomView extends StatelessWidget {
+  const MoneyBottomView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final up = upcomingCosts(brain.data, now, days: 30);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const SizedBox(height: 22),
       SectionTitle(tr('সামনের খরচ'), action: tr('সাবস্ক্রিপশন'), onAction: () => _push(context, const SubscriptionsScreen())),
       UpcomingList(items: up.take(4).toList(), now: now),
       const SizedBox(height: 20),
@@ -222,35 +204,72 @@ class MoneyHubView extends StatelessWidget {
   }
 }
 
-class _MiniFig extends StatelessWidget {
-  const _MiniFig({required this.label, required this.value, required this.icon, required this.color});
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
+/// One account in the strip on top: its icon, name and what it holds.
+class _AccountChip extends StatelessWidget {
+  const _AccountChip({required this.account, required this.balance, required this.onTap});
+  final MoneyAccount account;
+  final int balance;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Row(children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9)),
-          child: Icon(icon, size: 16, color: color),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted2)),
-            FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: body(15, weight: FontWeight.w700))),
+  Widget build(BuildContext context) {
+    final (fg, bg) = accountColors(account.kind);
+    return Material(
+      key: Key('hub-account-${account.id}'),
+      color: C.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          width: 148,
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+          child: Row(children: [
+            Container(width: 34, height: 34, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)), child: Icon(accountIcon(account.kind), size: 18, color: fg)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text(accountLabel(account), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted2)),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(hid(context, '${balance < 0 ? '−' : ''}${taka(balance.abs())}'), style: body(15, weight: FontWeight.w700, color: balance < 0 ? C.red : C.ink)),
+                ),
+              ]),
+            ),
           ]),
         ),
-      ]);
+      ),
+    );
+  }
 }
 
-/// One খাত on আমার খাত: its icon, name, main figure and a line under it.
+class _AddChip extends StatelessWidget {
+  const _AddChip({super.key, required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: C.surface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: SizedBox(
+            width: 96,
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.add_rounded, color: C.greenDark),
+              Text(tr('অ্যাকাউন্ট'), style: body(12, weight: FontWeight.w600, color: C.greenDark)),
+            ]),
+          ),
+        ),
+      );
+}
+
+/// One খাত card: its icon, name, main figure and a line under it.
 class _KhatCard extends StatelessWidget {
   const _KhatCard(
-      {super.key, required this.icon, required this.fg, required this.bg, required this.title, required this.value, required this.sub, required this.onTap, this.bar, this.barColor, this.wide = false});
+      {super.key, required this.icon, required this.fg, required this.bg, required this.title, required this.value, required this.sub, required this.onTap});
   final IconData icon;
   final Color fg;
   final Color bg;
@@ -258,9 +277,6 @@ class _KhatCard extends StatelessWidget {
   final String value;
   final String sub;
   final VoidCallback onTap;
-  final double? bar;
-  final Color? barColor;
-  final bool wide;
 
   @override
   Widget build(BuildContext context) {
@@ -275,18 +291,10 @@ class _KhatCard extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-          child: wide
-              ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Row(children: [tile, const SizedBox(width: 12), Expanded(child: texts), Icon(Icons.chevron_right_rounded, color: C.muted)]),
-                  if (bar != null) ...[
-                    const SizedBox(height: 10),
-                    ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: bar, minHeight: 6, color: barColor, backgroundColor: C.surface2)),
-                  ],
-                ])
-              : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [tile, const Spacer(), Icon(Icons.chevron_right_rounded, color: C.muted, size: 20)]),
-                  const SizedBox(height: 10),
-                  texts,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [tile, const Spacer(), Icon(Icons.chevron_right_rounded, color: C.muted, size: 20)]),
+            const SizedBox(height: 10),
+            texts,
                 ]),
         ),
       ),
@@ -521,7 +529,7 @@ class AccountsView extends StatelessWidget {
         ),
       ],
       const SizedBox(height: 10),
-      Text(tr('প্রতিটা লেনদেন কোনো না কোনো অ্যাকাউন্ট থেকে হয় — নগদ সবসময় থাকে। ক্রেডিট কার্ডে খরচ করলে কার্ডের দেনা বাড়ে।'), style: body(12.5, color: C.muted, height: 1.5)),
+      Text(tr('লেনদেনে অ্যাকাউন্ট বেছে নিলে তার ব্যালেন্স নিজে মিলে যায়। ক্রেডিট কার্ডে খরচ করলে কার্ডের দেনা বাড়ে।'), style: body(12.5, color: C.muted, height: 1.5)),
     ]);
   }
 }

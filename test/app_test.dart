@@ -152,6 +152,16 @@ Future<Rig> start(WidgetTester t, {AppData? data, AiRoute? ai, AccountServer? se
 
 /// Goes to a page the way a user would: হিসাব from the bottom menu, আমি
 /// from the home's profile button, the rest from সংরক্ষণ.
+/// আয়-ব্যয় has the accounts, সাবস্ক্রিপশন and সঞ্চয় on top (owner, 23 Nov):
+/// scroll so the দৈনিক/মাসিক card sits at the top of the screen.
+Future<void> toCashList(WidgetTester t) async {
+  if (find.byKey(const Key('hub-balance')).evaluate().isEmpty) return;
+  final list = find.ancestor(of: find.byKey(const Key('hub-balance')), matching: find.byType(Scrollable)).first;
+  await t.scrollUntilVisible(find.byKey(const Key('cash-swipe')), 300, scrollable: list);
+  await Scrollable.ensureVisible(t.element(find.byKey(const Key('cash-swipe'))), alignment: 0.05);
+  await settle(t);
+}
+
 Future<void> openMenu(WidgetTester t, String item) async {
   if (item == 'হিসাব') {
     await t.tap(find.text('হিসাব').last);
@@ -440,11 +450,9 @@ void main() {
     final rig = await start(t, data: AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 9))]));
     unawaited(openPlace(t.element(find.byType(HomeShell)), 'money'));
     await settle(t);
+    await toCashList(t);
     final more = find.byTooltip('বদলান বা মুছুন');
     expect(more, findsOneWidget);
-    await t.ensureVisible(more);
-    await t.drag(find.ancestor(of: more, matching: find.byType(Scrollable)).first, const Offset(0, -300));
-    await settle(t);
     await t.tap(more);
     await settle(t);
     await t.tap(find.text('মুছুন').last);
@@ -1176,12 +1184,15 @@ void main() {
   testWidgets('হিসাব tab opens on আয়-ব্যয়, then ধার-দেনা and প্রজেক্ট', (t) async {
     await start(t, data: AppData(cash: [CashEntry(kind: CashKind.expense, amount: 500, category: 'বাজার', date: DateTime(2026, 10, 5))]));
     await openMenu(t, 'হিসাব');
+    await toCashList(t);
     // Opens on দৈনিক (owner, 26 Oct); মাসিক one tap away.
     expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
     await t.tap(find.text('মাসিক'));
     await settle(t);
     expect(find.text('এই মাসের ব্যালেন্স'), findsOneWidget);
     expect(find.textContaining('বাজার', findRichText: true), findsWidgets);
+    await t.drag(find.byKey(const Key('cash-swipe')), const Offset(0, 2000));
+    await settle(t);
     await t.tap(find.text('ধার-দেনা').first);
     await settle(t);
     expect(find.text('আমি পাব'), findsOneWidget);

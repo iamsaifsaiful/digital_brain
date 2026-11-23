@@ -14,7 +14,6 @@ import 'new_item_screen.dart';
 import '../logic/pro.dart' show ProFeature;
 import '../models/models.dart';
 import 'money_screens.dart';
-import 'money_more_screens.dart';
 import 'money_search_screen.dart';
 import 'money_hub.dart';
 import 'person_screen.dart';
@@ -22,15 +21,15 @@ import 'transactions_screen.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-/// Which part of হিসাব is open (owner, 22 Nov): আমার খাত first — every part
-/// on one page — then own income and spending, loans, the other হিসাব and
-/// the accounts the money sits in.
-enum MoneyPart { hub, cash, loans, projects, accounts }
+/// Which part of হিসাব is open (owner, 23 Nov): আয়-ব্যয় first — with the
+/// accounts, সাবস্ক্রিপশন, সঞ্চয়, সামনের খরচ and the report in it — then
+/// loans, then the other হিসাব.
+enum MoneyPart { cash, loans, projects }
 
 /// The হিসাব tab: আয়-ব্যয়, ধার-দেনা and প্রজেক্ট, each with its own totals
 /// so they never mix.
 class MoneyScreen extends StatefulWidget {
-  const MoneyScreen({super.key, this.initial = MoneyPart.hub});
+  const MoneyScreen({super.key, this.initial = MoneyPart.cash});
   final MoneyPart initial;
 
   @override
@@ -52,36 +51,31 @@ class MoneyScreenState extends State<MoneyScreen> {
 
     // One add button at the bottom, by the thumb, as on দিনলিপি (approved design, 3 Nov).
     final add = switch (_part) {
-      MoneyPart.hub || MoneyPart.cash => AddButton(key: const Key('cash-add'), label: tr('লেনদেন যোগ করুন'), onPressed: () => push(const CashFormScreen(kind: CashKind.expense))),
+      MoneyPart.cash => AddButton(key: const Key('cash-add'), label: tr('লেনদেন যোগ করুন'), onPressed: () => push(const CashFormScreen(kind: CashKind.expense))),
       MoneyPart.loans => AddButton(key: const Key('loan-add'), label: tr('নতুন লেনদেন'), onPressed: () => push(const LedgerFormScreen())),
       // Owner, 22 Nov: one floating button instead of the two at the top.
       MoneyPart.projects => AddButton(key: const Key('project-add'), label: tr('আলাদা হিসাব যোগ করুন'), onPressed: () => createProject(context)),
-      MoneyPart.accounts => AddButton(key: const Key('account-add'), label: tr('অ্যাকাউন্ট যোগ করুন'), onPressed: () => editAccount(context, null)),
     };
     return Stack(children: [
       TabPages<MoneyPart>(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
       items: [
-        (MoneyPart.hub, tr('আমার খাত')),
         (MoneyPart.cash, tr('আয়-ব্যয়')),
         (MoneyPart.loans, tr('ধার-দেনা')),
         (MoneyPart.projects, tr('আলাদা হিসাব')),
-        (MoneyPart.accounts, tr('অ্যাকাউন্ট')),
       ],
       value: _part,
       onChanged: show,
       top: (tabs) => [
         TabTitle(tr('হিসাব'),
-            sub: tr('আয়-ব্যয়, ধার-দেনা আর অ্যাকাউন্ট'),
+            sub: tr('আয়-ব্যয়, ধার-দেনা আর আলাদা হিসাব'),
             // Owner, 22 Nov: no ⋮ here (its pages are on আমার খাত), and a
             // rounder search.
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               PdfButton(switch (_part) {
-                MoneyPart.hub => const {ReportPart.money, ReportPart.ledger, ReportPart.accounts},
-                MoneyPart.cash => const {ReportPart.money},
+                MoneyPart.cash => const {ReportPart.money, ReportPart.accounts},
                 MoneyPart.loans => const {ReportPart.ledger},
                 MoneyPart.projects => const {ReportPart.projects},
-                MoneyPart.accounts => const {ReportPart.accounts},
               }),
               if (_part == MoneyPart.loans) IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.list_alt_rounded)),
               const SizedBox(width: 4),
@@ -93,11 +87,10 @@ class MoneyScreenState extends State<MoneyScreen> {
       ],
       page: (part) => [
         ...switch (part) {
-          MoneyPart.hub => [const MoneyHubView()],
-          MoneyPart.cash => [const CashView()],
+          // Owner, 23 Nov: আমার খাত and অ্যাকাউন্ট folded in here.
+          MoneyPart.cash => [const MoneyTopView(), const CashView(), const MoneyBottomView()],
           MoneyPart.loans => _loans(context, brain, push),
           MoneyPart.projects => [const ProjectsView()],
-          MoneyPart.accounts => [const AccountsView()],
         },
         const AdSlot(padding: EdgeInsets.only(top: 16)),
       ],

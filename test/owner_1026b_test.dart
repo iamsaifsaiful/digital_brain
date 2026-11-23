@@ -5,7 +5,7 @@ import 'package:digital_brain/models/models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'app_test.dart' show settle, start;
+import 'app_test.dart' show settle, start, toCashList;
 
 void main() {
   test('periods: a week starts on Saturday; months and years roll over', () {
@@ -33,6 +33,7 @@ void main() {
     await settle(t);
     await t.tap(find.text('আয়-ব্যয়').first);
     await settle(t);
+    await toCashList(t);
     String total() => (t.widget<Text>(find.byKey(const Key('cash-filter-total'))).data ?? '');
 
     // Opens on দৈনিক.
@@ -70,9 +71,12 @@ void main() {
     await t.tap(find.text('বাৎসরিক'));
     await settle(t);
     expect(find.text('এই বছরের ব্যালেন্স'), findsOneWidget);
+    // Twice: the first can land while the list is still changing size.
     Future<void> show(Finder f) async {
-      await Scrollable.ensureVisible(t.element(f), alignment: 0.3);
-      await settle(t);
+      for (var i = 0; i < 2; i++) {
+        await Scrollable.ensureVisible(t.element(f), alignment: 0.3);
+        await settle(t);
+      }
     }
 
     // The filters are behind ⋮ on the লেনদেন heading (owner, 13 Nov).
