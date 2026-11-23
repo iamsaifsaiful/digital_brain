@@ -1,1 +1,1 @@
-1.0.14 (code 10019): login logo below the Cox picture; intro in English after install; Home task open/edit; মুসলিম টাইম mosque pictures and swipe tabs; all UN countries for holidays/location/weather; religion in profile; My Files redesign with bank accounts and sharing
+1.0.15 (code 10020): new business mode; হিসাব in 3 tabs with সঞ্চয় ও কিস্তি; simpler forms; sign-in sea by hour; phone book contacts; notes by category; daily sleep/water questions; medicine reminder tabs; theme & language page; all UN country codes; backups carry settings and profile; usage counts
