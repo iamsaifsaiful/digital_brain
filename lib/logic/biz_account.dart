@@ -4,6 +4,7 @@
 // the same capital, so the app can say "সব হিসাব মিলেছে" — or show where not.
 import '../models/models.dart';
 import 'bn.dart' show dayOnly;
+import 'lang.dart' show tr;
 import 'shop_logic.dart';
 
 /// How much of sale [saleId]'s line [l] has been brought back already.
@@ -332,24 +333,172 @@ List<BizTx> bizTransactions(ShopBook b, Iterable<CashEntry> cash) {
   return out;
 }
 
-/// A customer's memos still (partly) unpaid, oldest first: the memo numbers
-/// a new memo's "আগের বকেয়া" came from (payments clear the oldest first).
-List<int> openMemos(ShopBook b, Customer c, {String? before}) {
-  final sales = [for (final s in b.sales) if (s.customerId == c.id && s.due > 0 && s.id != before) s]..sort((a, x) => a.at.compareTo(x.at));
-  var paid = [
-    for (final p in b.collections) if (p.party == c.id) p.amount,
-    for (final r in b.customerReturns) if (r.customerId == c.id && !r.cash) r.refund,
-  ].fold(0, (s, x) => s + x);
-  // The old due written in by hand is paid first.
-  paid -= c.opening;
-  final out = <int>[];
-  for (final s in sales) {
-    if (paid >= s.due) {
-      paid -= s.due;
-      continue;
-    }
-    paid = paid > 0 ? 0 : paid;
-    out.add(s.no);
-  }
-  return out;
+/// What a customer owed when memo [s] was made, and from which earlier
+/// memos (owner, 23 Nov: "আগের বকেয়া এবং তার মেমো নাম্বার, আপডেট মোট
+/// বকেয়া"): everything charged and paid before it, payments clearing the
+/// oldest first (the due written in at the start before any memo).
+class MemoDue {
+  const MemoDue({this.before = 0, this.memos = const [], this.opening = false, this.now = 0});
+
+  /// Owed before this memo.
+  final int before;
+
+  /// The earlier memos (numbers) still open then, oldest first.
+  final List<int> memos;
+
+  /// Part of [before] is the old due written in at the start.
+  final bool opening;
+
+  /// This memo's own unpaid part.
+  final int now;
+
+  int get after => before + now;
 }
+
+MemoDue memoDue(ShopBook b, Sale s) {
+  if (s.customerId.isEmpty) return MemoDue(now: s.due);
+  final c = b.customers.where((x) => x.id == s.customerId).firstOrNull;
+  if (c == null) return MemoDue(now: s.due);
+  bool earlier(DateTime at, String id) => at.isBefore(s.at);
+  final owed = <(int no, int left)>[
+    if (c.opening > 0) (0, c.opening),
+    for (final x in [for (final x in b.sales) if (x.customerId == c.id && x.id != s.id && x.due > 0 && (x.at.isBefore(s.at) || (x.at == s.at && x.no < s.no))) x]..sort((a, z) => a.at.compareTo(z.at))) (x.no, x.due),
+  ];
+  var paid = [
+    for (final p in b.collections) if (p.party == c.id && earlier(p.at, p.id)) p.amount,
+    for (final r in b.customerReturns) if (r.customerId == c.id && !r.cash && earlier(r.at, r.id)) r.refund,
+  ].fold<int>(0, (a, x) => a + x);
+  final left = <(int, int)>[];
+  for (final (no, due) in owed) {
+    final off = paid >= due ? due : paid;
+    paid -= off;
+    if (due - off > 0) left.add((no, due - off));
+  }
+  return MemoDue(
+    before: left.fold(0, (a, x) => a + x.$2),
+    memos: [for (final (no, _) in left) if (no > 0) no],
+    opening: left.any((x) => x.$1 == 0),
+    now: s.due,
+  );
+}
+
+String _dt(DateTime d, String Function(String) digits) =>
+    digits('${d.day}/${d.month}/${d.year}  ${d.hour % 12 == 0 ? 12 : d.hour % 12}:${'${d.minute}'.padLeft(2, '0')} ${d.hour < 12 ? 'AM' : 'PM'}');
+
+String _memoList(List<int> nos, String Function(String) digits) => nos.length <= 4 ? nos.map((n) => '#${digits('$n')}').join(', ') : '${nos.take(3).map((n) => '#${digits('$n')}').join(', ')} +${digits('${nos.length - 3}')}';
+
+/// The memo as a PDF (owner, 23 Nov: "প্রতিটি লেনদেনের সুন্দর PDF মেমো,
+/// আগের বকেয়া ও তার মেমো নম্বর, আপডেট মোট বকেয়া"): the shop on top, the
+/// buyer, the goods with rate, the sum, what was paid, then the customer's
+/// due — before (with the memos it came from), this memo's, and the total.
+Map<String, Object?> memoSpec(Sale s, ShopProfile profile, MemoDue d, {required String Function(int) taka, required String Function(String) digits, Customer? customer, Object? logo}) {
+  final paidLabel = switch (s.pay) {
+    SalePay.cash => 'নগদ',
+    SalePay.qr => 'বিকাশ/QR',
+    SalePay.credit => s.paidNow > 0 ? 'আংশিক' : 'বাকি',
+  };
+  return {
+    'title': profile.name.isEmpty ? 'ক্যাশ মেমো' : profile.name,
+    'subtitle': [
+      if (profile.address.isNotEmpty) profile.address,
+      if (profile.phone.isNotEmpty) 'মোবাইল: ${digits(profile.phone)}',
+    ].join('\n'),
+    if (logo != null) 'logo': logo,
+    'page': [420, 595],
+    'footer': profile.receiptNote.isNotEmpty ? profile.receiptNote : 'আবার আসবেন · ধন্যবাদ',
+    'pageWord': 'পাতা',
+    'bnDigits': true,
+    'blocks': [
+      {'t': 'h2', 'text': 'ক্যাশ মেমো  #${digits('${s.no}')}'},
+      {
+        't': 'kv',
+        'rows': [
+          ['তারিখ', _dt(s.at, digits)],
+          if (s.customer.isNotEmpty) ['গ্রাহক', s.customer],
+          if (customer != null && customer.phone.isNotEmpty) ['মোবাইল', digits(customer.phone)],
+          ['পরিশোধ', paidLabel],
+        ],
+      },
+      {
+        't': 'table',
+        'cols': ['#', 'পণ্য', 'পরিমাণ', 'দর', 'টাকা'],
+        'w': [0.7, 4.2, 2.2, 1.6, 2.2],
+        'a': ['l', 'l', 'r', 'r', 'r'],
+        'rows': [
+          for (final (i, l) in s.lines.indexed)
+            [digits('${i + 1}'), l.name, '${digits(qtyText(l.qty))} ${tr(l.unit)}', l.qty > 0 ? digits('${(l.amount / l.qty).round()}') : '', taka(l.amount)],
+          if (s.amountOnly > 0) [digits('1'), 'বিক্রি', '', '', taka(s.amountOnly)],
+          ['', {'s': 'মোট', 'c': 'm'}, '', '', taka(s.subtotal)],
+          if (s.discount > 0) ['', {'s': discountLabel(s, digits), 'c': 'g'}, '', '', {'s': '− ${taka(s.discount)}', 'c': 'g'}],
+          ['', {'s': 'এই মেমো', 'b': true}, '', '', {'s': taka(s.total), 'b': true}],
+          ['', {'s': 'পরিশোধ ($paidLabel)', 'c': 'm'}, '', '', taka(s.paidNow)],
+          if (s.due > 0) ['', {'s': 'এই মেমোর বাকি', 'c': 'o'}, '', '', {'s': taka(s.due), 'c': 'o'}],
+        ],
+      },
+      if (s.customerId.isNotEmpty && (d.before > 0 || d.now > 0))
+        {
+          't': 'table',
+          'cols': ['বকেয়ার হিসাব', 'টাকা'],
+          'w': [7, 3],
+          'a': ['l', 'r'],
+          'rows': [
+            [
+              d.before <= 0
+                  ? 'আগের বকেয়া'
+                  : 'আগের বকেয়া (${[if (d.opening) 'শুরুর বকেয়া', if (d.memos.isNotEmpty) 'মেমো ${_memoList(d.memos, digits)}'].join(' + ')})',
+              taka(d.before),
+            ],
+            ['এই মেমোর বাকি', taka(d.now)],
+            [
+              {'s': 'মোট বকেয়া', 'b': true, 'c': 'o'},
+              {'s': taka(d.after), 'b': true, 'c': 'o'},
+            ],
+          ],
+        },
+      {'t': 'p', 'text': '\n_______________                                   _______________\nগ্রাহকের সই                                              বিক্রেতার সই', 'muted': true},
+    ],
+  };
+}
+
+/// A return's memo ("#১২৬-ফ"): what came back, what it was worth, and how
+/// it was settled.
+Map<String, Object?> returnMemoSpec(CustomerReturn r, ShopProfile profile, {required String Function(int) taka, required String Function(String) digits, int? dueAfter, Object? logo}) => {
+      'title': profile.name.isEmpty ? 'ফেরত মেমো' : profile.name,
+      'subtitle': [
+        if (profile.address.isNotEmpty) profile.address,
+        if (profile.phone.isNotEmpty) 'মোবাইল: ${digits(profile.phone)}',
+      ].join('\n'),
+      if (logo != null) 'logo': logo,
+      'page': [420, 595],
+      'footer': profile.receiptNote.isNotEmpty ? profile.receiptNote : 'ধন্যবাদ',
+      'pageWord': 'পাতা',
+      'bnDigits': true,
+      'blocks': [
+        {'t': 'h2', 'text': 'ফেরত মেমো  #${digits('${r.saleNo}')}-ফ'},
+        {
+          't': 'kv',
+          'rows': [
+            ['তারিখ', _dt(r.at, digits)],
+            ['মূল মেমো', '#${digits('${r.saleNo}')}'],
+            if (r.customer.isNotEmpty) ['গ্রাহক', r.customer],
+            ['মালের অবস্থা', r.damaged ? 'নষ্ট' : 'ভালো'],
+            if (r.note.isNotEmpty) ['কারণ', r.note],
+          ],
+        },
+        {
+          't': 'table',
+          'cols': ['পণ্য', 'পরিমাণ', 'টাকা'],
+          'w': [5, 2.4, 2.6],
+          'a': ['l', 'r', 'r'],
+          'rows': [
+            for (final l in r.lines) [l.name, '${digits(qtyText(l.qty))} ${tr(l.unit)}', taka(l.amount)],
+            [
+              {'s': r.cash ? 'নগদ ফেরত দেওয়া হলো' : 'বকেয়া থেকে কাটা হলো', 'b': true},
+              '',
+              {'s': taka(r.refund), 'b': true, 'c': 'g'},
+            ],
+            if (dueAfter != null) [{'s': 'এখন মোট বকেয়া', 'c': 'o', 'b': true}, '', {'s': taka(dueAfter), 'c': 'o', 'b': true}],
+          ],
+        },
+      ],
+    };

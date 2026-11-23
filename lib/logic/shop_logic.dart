@@ -294,12 +294,13 @@ String receiptText(Sale s, String Function(int) taka, String Function(String) di
     if (profile.address.isNotEmpty) profile.address,
     if (profile.phone.isNotEmpty) 'মোবাইল: ${digits(profile.phone)}',
     if (!profile.isEmpty && (profile.name.isNotEmpty || profile.phone.isNotEmpty)) '',
-    'রসিদ #${digits('${s.no}')} · ${digits('${s.at.day}/${s.at.month}/${s.at.year}')}',
+    'মেমো #${digits('${s.no}')} · ${digits('${s.at.day}/${s.at.month}/${s.at.year}')}',
     if (s.customer.isNotEmpty) 'ক্রেতা: ${s.customer}',
     for (final l in s.lines) '${l.name} ${digits(qtyText(l.qty))} ${tr(l.unit)} — ${taka(l.amount)}',
     if (s.amountOnly > 0) 'মোট বিক্রি — ${taka(s.amountOnly)}',
     if (s.discount > 0) '${discountLabel(s, digits)} — ${taka(s.discount)}',
-    'মোট: ${taka(s.total)} (${s.pay.label})',
+    'মোট: ${taka(s.total)} (${s.pay != SalePay.credit ? s.pay.label : (s.paidNow > 0 ? 'আংশিক' : 'বাকি')})',
+    if (s.pay == SalePay.credit && s.paidNow > 0) 'পরিশোধ: ${taka(s.paidNow)} · বাকি: ${taka(s.due)}',
     profile.receiptNote.isNotEmpty ? profile.receiptNote : 'ধন্যবাদ!',
   ];
   return lines.join('\n');

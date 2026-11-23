@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../logic/biz_account.dart';
 import '../../logic/bn.dart';
 import '../../logic/lang.dart';
 import '../../logic/shop_logic.dart';
@@ -256,10 +257,22 @@ Future<void> showReceiptPdf(BuildContext context, Sale s) async {
   final brain = BrainScope.read(context);
   final p = brain.shop.profile;
   final c = s.customerId.isEmpty ? null : customerById(brain.shop, s.customerId);
-  final due = c == null ? null : customerAccount(brain.shop, c).due;
-  final spec = receiptSpec(s, p, taka: taka, digits: bnDigits, logo: p.logo.isEmpty ? null : base64Decode(p.logo), due: due);
+  final spec = memoSpec(s, p, memoDue(brain.shop, s), taka: taka, digits: bnDigits, customer: c, logo: p.logo.isEmpty ? null : base64Decode(p.logo));
   final bytes = await brain.services.files.pdfMake(spec);
   if (!context.mounted) return;
   if (bytes == null) return toast(context, tr('PDF তৈরি করা গেল না। আবার চেষ্টা করুন।'));
-  await viewFile(context, bytes, name: 'receipt-${s.no}.pdf', mime: 'application/pdf', title: trf('রসিদ #{0}', [bnDigits(s.no)]));
+  await viewFile(context, bytes, name: 'memo-${s.no}.pdf', mime: 'application/pdf', title: trf('মেমো #{0}', [bnDigits(s.no)]));
+}
+
+/// A return's memo as a PDF ("#১২৬-ফ").
+Future<void> showReturnPdf(BuildContext context, CustomerReturn r) async {
+  if (!await needPro(context, ProFeature.pdf) || !context.mounted) return;
+  final brain = BrainScope.read(context);
+  final p = brain.shop.profile;
+  final c = r.customerId.isEmpty ? null : customerById(brain.shop, r.customerId);
+  final spec = returnMemoSpec(r, p, taka: taka, digits: bnDigits, dueAfter: c == null ? null : customerAccount(brain.shop, c).due, logo: p.logo.isEmpty ? null : base64Decode(p.logo));
+  final bytes = await brain.services.files.pdfMake(spec);
+  if (!context.mounted) return;
+  if (bytes == null) return toast(context, tr('PDF তৈরি করা গেল না। আবার চেষ্টা করুন।'));
+  await viewFile(context, bytes, name: 'memo-${r.saleNo}-return.pdf', mime: 'application/pdf', title: trf('ফেরত মেমো #{0}-ফ', [bnDigits(r.saleNo)]));
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../logic/biz_account.dart' show memoDue;
 import '../../logic/bn.dart';
 import '../../logic/lang.dart';
 import '../../logic/shop_logic.dart';
@@ -162,13 +163,26 @@ Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
       isScrollControlled: true,
       builder: (ctx) {
         final brain = BrainScope.read(ctx);
-        final text = receiptText(s, taka, bnDigits, profile: brain.shop.profile);
+        final d = memoDue(brain.shop, s);
+        final base = receiptText(s, taka, bnDigits, profile: brain.shop.profile).split('\n');
+        final from = [if (d.opening) tr('শুরুর বকেয়া'), if (d.memos.isNotEmpty) '${tr('মেমো')} ${d.memos.map((n) => '#${bnDigits(n)}').join(', ')}'].join(' + ');
+        final text = [
+          ...base.take(base.length - 1),
+          if (s.customerId.isNotEmpty && (d.before > 0 || d.now > 0)) ...[
+            '',
+            from.isEmpty ? trf('আগের বকেয়া: {0}', [taka(d.before)]) : trf('আগের বকেয়া ({0}): {1}', [from, taka(d.before)]),
+            trf('এই মেমোর বাকি: {0}', [taka(d.now)]),
+            trf('মোট বকেয়া: {0}', [taka(d.after)]),
+            '',
+          ],
+          base.last,
+        ].join('\n');
         final c = s.customerId.isEmpty ? null : customerById(brain.shop, s.customerId);
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
-              Expanded(child: Text(trf('রসিদ #{0}', [bnDigits(s.no)]), style: display(19, weight: 600))),
+              Expanded(child: Text(trf('মেমো #{0}', [bnDigits(s.no)]), style: display(19, weight: 600))),
               if (c != null)
                 TextButton(
                   onPressed: () {
@@ -185,7 +199,7 @@ Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
               child: Text(text, key: const Key('biz-receipt-text'), style: body(13.5, height: 1.6)),
             ),
             const SizedBox(height: 12),
-            PrimaryButton(key: const Key('biz-receipt-pdf'), label: tr('PDF রসিদ'), icon: Icons.picture_as_pdf_outlined, height: 46, onPressed: () => showReceiptPdf(ctx, s)),
+            PrimaryButton(key: const Key('biz-receipt-pdf'), label: tr('PDF মেমো'), icon: Icons.picture_as_pdf_outlined, height: 46, onPressed: () => showReceiptPdf(ctx, s)),
             const SizedBox(height: 8),
             Row(children: [
               Expanded(child: SmallButton(label: tr('লেখা শেয়ার'), icon: Icons.share_outlined, onTap: () => brain.services.files.shareText(text))),

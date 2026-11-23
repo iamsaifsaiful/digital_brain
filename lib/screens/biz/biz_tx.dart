@@ -10,6 +10,7 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import 'biz_parts.dart';
 import 'biz_sales.dart' show showReceipt;
+import 'biz_shop.dart' show showReturnPdf;
 
 /// The colour and the icon of a kind of entry.
 (IconData, Color, Color) txLook(TxKind k) => switch (k) {
@@ -111,6 +112,10 @@ Future<void> openTx(BuildContext context, BizTx x) async {
             if (x.cashOut > 0) (Icons.upload_rounded, tr('ক্যাশ থেকে গেলো'), taka(x.cashOut)),
             if (x.left > 0) (Icons.hourglass_bottom_rounded, tr('বাকি থাকল'), taka(x.left)),
           ]),
+          if (ref is CustomerReturn) ...[
+            const SizedBox(height: 14),
+            SizedBox(width: double.infinity, child: SmallButton(key: const Key('biz-tx-return-pdf'), label: trf('ফেরত মেমো #{0}-ফ · PDF', [bnDigits(ref.saleNo)]), icon: Icons.picture_as_pdf_outlined, primary: true, onTap: () => showReturnPdf(ctx, ref))),
+          ],
           if (undoable) ...[
             const SizedBox(height: 14),
             SizedBox(
