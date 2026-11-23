@@ -13,6 +13,9 @@ import 'package:digital_brain/screens/biz/biz_account_page.dart';
 import 'package:digital_brain/screens/biz/biz_home.dart';
 import 'package:digital_brain/screens/biz/biz_money.dart';
 import 'package:digital_brain/screens/biz/biz_sales.dart';
+import 'package:digital_brain/screens/biz/biz_returns.dart';
+import 'package:digital_brain/screens/biz/biz_customers.dart';
+import 'package:digital_brain/screens/biz/biz_more.dart';
 import 'package:digital_brain/screens/biz/biz_setup.dart';
 import 'package:digital_brain/screens/biz/biz_stock.dart';
 import 'package:digital_brain/logic/shop_logic.dart' show customerAccount, dealerAccount;
@@ -325,6 +328,79 @@ void main() {
     expect(b.shop.products.firstWhere((p) => p.id == oil5.id).stock, 46);
     expect(b.bizAcc.adds, isTrue);
     await _shot(t, '21-sell-memo');
+    debugDisableShadows = true;
+  });
+
+  testWidgets('customers, the business আরও, goods back from a customer and to a supplier', (t) async {
+    final rig = await start(t);
+    rig.nowAt = DateTime(2026, 11, 23, 18, 30);
+    final b = rig.brain;
+    await b.setProForTest(true);
+    await _fill(b);
+    await b.setPref('business_mode', true);
+    await settle(t);
+    final ctx = t.element(find.byType(HomeShell));
+    goToTab(ctx, ShellTab.people);
+    await settle(t);
+    expect(find.byType(BizCustomers), findsOneWidget);
+    await _shot(t, '22-customers');
+    goToTab(ctx, ShellTab.more);
+    await settle(t);
+    expect(find.byType(BizMore), findsOneWidget);
+    expect(find.text('দিনলিপি'), findsNothing);
+    expect(find.byKey(const Key('more-business')), findsOneWidget, reason: 'the way back is near the top');
+    await _shot(t, '23-more');
+    if (shots) {
+      t.view.physicalSize = const Size(1170, 3600);
+      await settle(t);
+      await _shot(t, '24-more-full');
+      t.view.physicalSize = const Size(1170, 2532);
+      await settle(t);
+    }
+
+    // A customer brings back 1 of 3 eggs (good): off their due, back on the shelf.
+    final nav = Navigator.of(ctx);
+    final eggSale = b.shop.sales.firstWhere((x) => x.lines.isNotEmpty && x.lines.first.name == 'ডিম');
+    final salma = b.shop.customers.firstWhere((c) => c.name == 'সালমা আপা');
+    final due0 = customerAccount(b.shop, salma).due;
+    final egg0 = b.shop.products.firstWhere((p) => p.name == 'ডিম').stock;
+    nav.push(MaterialPageRoute(builder: (_) => ReturnsPage(saleId: eggSale.id)));
+    await settle(t);
+    await t.tap(find.byKey(const Key('ret-line-0')));
+    await settle(t);
+    expect(t.widget<Text>(find.byKey(const Key('ret-refund'))).data, '৳৫২');
+    await _shot(t, '25-return-customer');
+    await t.tap(find.byKey(const Key('ret-save')));
+    await settle(t);
+    expect(customerAccount(b.shop, salma).due, due0 - 52);
+    expect(b.shop.products.firstWhere((p) => p.name == 'ডিম').stock, egg0 + 1);
+    expect(b.bizAcc.adds, isTrue);
+
+    // 3 litres of oil back to the supplier: off what is owed them.
+    final karim = b.shop.dealers.firstWhere((d) => d.name == 'করিম ট্রেডার্স');
+    final owe0 = dealerAccount(b.shop, karim).due;
+    final oil = b.shop.products.firstWhere((p) => p.name == 'সয়াবিন তেল');
+    nav.push(MaterialPageRoute(builder: (_) => ReturnsPage(supplier: true, dealerId: karim.id)));
+    await settle(t);
+    await t.tap(find.byKey(const Key('ret-add-product')));
+    await settle(t);
+    await t.tap(find.byKey(Key('ret-p-${oil.id}')));
+    await settle(t);
+    await t.tap(find.byKey(Key('ret-sq-${oil.id}-inc')));
+    await t.pump(const Duration(milliseconds: 400));
+    await t.tap(find.byKey(Key('ret-sq-${oil.id}-inc')));
+    await t.pump(const Duration(milliseconds: 400));
+    await t.tap(find.byKey(const Key('ret-reason-মেয়াদ শেষ')));
+    await settle(t);
+    final worth = b.shop.products.firstWhere((p) => p.id == oil.id).costOf(3);
+    await t.pump(const Duration(seconds: 5)); // the last toast gone
+    await settle(t);
+    await _shot(t, '26-return-supplier');
+    await t.tap(find.byKey(const Key('ret-send')));
+    await settle(t);
+    expect(dealerAccount(b.shop, karim).due, owe0 - worth);
+    expect(b.bizAcc.adds, isTrue);
+    expect(b.bizAcc.flows.supplierReturnGain, 0, reason: 'at cost: the capital does not move');
     debugDisableShadows = true;
   });
 }

@@ -37,6 +37,7 @@ import '../logic/pro.dart';
 import '../ui/pro_gate.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
+import 'biz/biz_more.dart';
 
 const appVersion = '1.0.14';
 
@@ -492,6 +493,40 @@ class _MoreScreenState extends State<MoreScreen> {
               .push(MaterialPageRoute(builder: (_) => _SettingsPage(key: Key('settings-$part'), title: title, changed: _changed, parts: () => _parts[part]!())))
               .then((_) => _load()),
         );
+
+    // ব্যবসায়ী মোড (owner, 23 Nov): only what the shop needs.
+    if (brain.businessMode) {
+      return BizMore(
+        settings: [
+          ListRow(
+            key: const Key('more-set-backup'),
+            leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(11)), child: Icon(Icons.cloud_upload_outlined, color: C.blue, size: 20)),
+            title: tr('ব্যাকআপ'),
+            subtitle: brain.driveOn
+                ? (brain.lastDrive == null ? tr('Drive-এ এখনো হয়নি') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(brain.lastDrive!, now)]))
+                : (last == null ? tr('এখনো নেওয়া হয়নি — ফোন হারালে সব হারাবে') : trf('শেষ ব্যাকআপ {0}', [daysLeftLabel(last, now)])),
+            subtitleColor: (last == null || backupOld) && !brain.driveOn ? C.orange : null,
+            trailing: Icon(Icons.chevron_right_rounded, color: C.muted),
+            onTap: () => push(const BackupScreen()),
+          ),
+          setRow(const Key('more-set-safety'), Icons.lock_outline_rounded, C.teal, C.tealTint, tr('তালা ও নিরাপত্তা'), tr('PIN, আঙুলের ছাপ, নিজে থেকে লক'), 'safety'),
+          setRow(const Key('more-set-look'), Icons.palette_outlined, C.green, C.greenTint, tr('চেহারা ও ভাষা'), tr('আলো-আঁধার, রং, বাংলা/English'), 'look'),
+        ],
+        others: [
+          const _PremiumCard(),
+          const SizedBox(height: 10),
+          Panel(
+            child: Rows(children: [
+              if (brain.supportWhatsapp.isNotEmpty) SupportWhatsapp(number: brain.supportWhatsapp),
+              linkRow(Icons.forum_outlined, tr('সমস্যা বা পরামর্শ দিন'), key: const Key('more-feedback'), sub: brain.feedbackUnread > 0 ? trf('{0}টি নতুন উত্তর', [bnDigits(brain.feedbackUnread)]) : tr('লিখুন, উত্তর এখানেই'), onTap: () => push(const FeedbackScreen())),
+              linkRow(Icons.delete_outline_rounded, tr('রিসাইকেল বিন'), key: const Key('more-trash'), sub: trf('{0}টি', [bnDigits(brain.data.trash.length)]), onTap: () => push(const TrashScreen())),
+            ]),
+          ),
+          const SizedBox(height: 18),
+          Center(child: Text('My Assistant ${bnDigits(shownVersion)}', style: body(12.5, weight: FontWeight.w600, color: C.muted))),
+        ],
+      );
+    }
 
     return ListView(
       // Keeps its place when the mode switches (the page is built again).

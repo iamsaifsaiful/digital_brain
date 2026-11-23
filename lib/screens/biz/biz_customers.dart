@@ -10,6 +10,7 @@ import '../../ui/kit.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import 'biz_parts.dart';
+import 'biz_returns.dart' show ReturnsPage;
 import 'biz_sales.dart' show SellPage, showReceipt;
 import 'biz_shop.dart' show TagadaPage;
 
@@ -23,7 +24,8 @@ class BizCustomers extends StatefulWidget {
 
 class _BizCustomersState extends State<BizCustomers> {
   final _find = TextEditingController();
-  String _part = 'all';
+  String? _pick; // null: বকেয়া বেশি when anyone owes, else সবাই
+  String _part = 'due';
 
   @override
   void dispose() {
@@ -39,28 +41,53 @@ class _BizCustomersState extends State<BizCustomers> {
     final accounts = {for (final c in b.customers) c.id: customerAccount(b, c)};
     final owingN = accounts.values.where((a) => a.due > 0).length;
     final dueSum = accounts.values.fold<int>(0, (s, a) => s + (a.due > 0 ? a.due : 0));
-    final longN = accounts.values.where((a) => a.daysOwed(now) > 30).length;
-    // Owner, 7 Nov: the inner tabs slide with the finger.
-    return TabPages<String>(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
-      items: [('all', tr('সবাই')), ('due', owingN == 0 ? tr('বাকি আছে') : trf('বাকি আছে · {0}', [bnDigits(owingN)])), ('long', longN == 0 ? tr('৩০ দিন+') : trf('৩০ দিন+ · {0}', [bnDigits(longN)]))],
-      value: _part,
-      onChanged: (v) => setState(() => _part = v),
-      top: (tabs) => [
-        TabTitle(trm('গ্রাহক'),
-            sub: trf('{0} জন · বাকি {1}', [bnDigits(b.customers.length), taka(dueSum)]),
-            trailing: IconButton(key: const Key('biz-customer-add'), tooltip: tr('নতুন গ্রাহক'), onPressed: () => pushPage(context, const CustomerForm()), icon: const Icon(Icons.person_add_alt_outlined))),
-        const BizFreeBanner(),
-        const SizedBox(height: 12),
-        Panel(
-          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+    final long = accounts.values.where((a) => a.due > 0 && a.daysOwed(now) > 30).toList();
+    final longSum = long.fold<int>(0, (s, a) => s + a.due);
+    final monthAgo = now.subtract(const Duration(days: 30));
+    final buys = <String, int>{};
+    final memos = <String, int>{};
+    for (final x in b.sales) {
+      if (x.customerId.isEmpty) continue;
+      if (x.at.isAfter(monthAgo)) buys[x.customerId] = (buys[x.customerId] ?? 0) + 1;
+      if (x.due > 0) memos[x.customerId] = (memos[x.customerId] ?? 0) + 1;
+    }
+    _part = _pick ?? (owingN > 0 ? 'due' : 'all');
+    final q = _find.text.trim().toLowerCase();
+    var shown = b.customers.where((c) => q.isEmpty || c.name.toLowerCase().contains(q) || asciiDigits(c.phone).contains(asciiDigits(q))).toList();
+    shown = switch (_part) {
+      'due' => shown.where((c) => accounts[c.id]!.due > 0).toList(),
+      'long' => shown.where((c) => accounts[c.id]!.due > 0 && accounts[c.id]!.daysOwed(now) > 30).toList(),
+      'regular' => shown.where((c) => (buys[c.id] ?? 0) >= 3).toList(),
+      _ => shown,
+    };
+    shown.sort((a, c) {
+      if (_part == 'regular') return (buys[c.id] ?? 0).compareTo(buys[a.id] ?? 0);
+      final x = accounts[c.id]!.due.compareTo(accounts[a.id]!.due);
+      return x != 0 ? x : a.name.compareTo(c.name);
+    });
+    Widget chip(String key, String label) => Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: ChoiceChip(
+            key: Key('biz-cust-chip-$key'),
+            label: Text(label, style: body(13, weight: FontWeight.w600, color: _part == key ? C.onAccent : C.ink)),
+            selected: _part == key,
+            selectedColor: C.green,
+            showCheckmark: false,
+            onSelected: (_) => setState(() => _pick = key),
+          ),
+        );
+    return Stack(children: [
+      ListView(key: const PageStorageKey('biz-customers'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 110), children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
           child: Row(children: [
-            Expanded(child: Figure(label: trf('পাব · {0} জনের কাছে', [bnDigits(owingN)]), amount: taka(dueSum), color: C.green, size: 20)),
-            Expanded(child: Figure(label: tr('৩০ দিনের বেশি বাকি'), amount: trf('{0} জন', [bnDigits(longN)]), color: longN > 0 ? C.warn : C.ink, size: 20)),
+            Expanded(child: Text(trm('গ্রাহক'), style: display(24, weight: 700))),
+            if (owingN > 0) IconButton(key: const Key('biz-customer-tagada-all'), tooltip: tr('সবাইকে তাগাদা'), onPressed: () => _remindAll(context), icon: const Icon(Icons.campaign_outlined)),
+            IconButton(key: const Key('biz-customer-add'), tooltip: tr('নতুন গ্রাহক'), onPressed: () => pushPage(context, const CustomerForm()), icon: const Icon(Icons.person_add_alt_outlined)),
           ]),
         ),
-        const SizedBox(height: 12),
-        TextField(textCapitalization: TextCapitalization.sentences, 
+        TextField(
+          textCapitalization: TextCapitalization.sentences,
           key: const Key('biz-customer-find'),
           controller: _find,
           onChanged: (_) => setState(() {}),
@@ -68,69 +95,78 @@ class _BizCustomersState extends State<BizCustomers> {
           decoration: InputDecoration(hintText: tr('নাম বা মোবাইল দিয়ে খুঁজুন'), prefixIcon: const Icon(Icons.search_rounded), isDense: true),
         ),
         const SizedBox(height: 10),
-        tabs,
-      ],
-      page: (part) => _page(context, b, part, accounts, now, owingN),
-    );
-  }
-
-  List<Widget> _page(BuildContext context, ShopBook b, String part, Map<String, Account> accounts, DateTime now, int owingN) {
-    final q = _find.text.trim().toLowerCase();
-    var shown = b.customers.where((c) => q.isEmpty || c.name.toLowerCase().contains(q) || asciiDigits(c.phone).contains(asciiDigits(q))).toList();
-    shown = switch (part) {
-      'due' => shown.where((c) => accounts[c.id]!.due > 0).toList(),
-      'long' => shown.where((c) => accounts[c.id]!.daysOwed(now) > 30).toList(),
-      _ => shown,
-    };
-    shown.sort((a, c) {
-      final x = accounts[c.id]!.due.compareTo(accounts[a.id]!.due);
-      return x != 0 ? x : a.name.compareTo(c.name);
-    });
-    return [
-      if (b.customers.isEmpty)
-        EmptyState(
-          icon: Icons.people_outline_rounded,
-          title: tr('এখনো কোনো গ্রাহক নেই'),
-          text: tr('নাম, মোবাইল আর হোয়াটসঅ্যাপ রাখুন — বাকিতে বিক্রি, তাগাদা আর রিমাইন্ডার সব তাঁর পাতায় থাকবে।'),
-          action: tr('গ্রাহক যোগ করুন'),
-          onAction: () => pushPage(context, const CustomerForm()),
-        )
-      else
-        ListCard(
-          empty: tr('মেলেনি।'),
-          rows: [for (final c in shown) _row(context, c, accounts[c.id]!, now)],
-          foot: CardFoot(
-            left: tr('+ নতুন গ্রাহক'),
-            leftKey: const Key('biz-customer-add-foot'),
-            onLeft: () => pushPage(context, const CustomerForm()),
-            right: owingN == 0 ? null : tr('সবাইকে তাগাদা'),
-            onRight: () => _remindAll(context),
+        const BizFreeBanner(),
+        Panel(
+          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+          child: IntrinsicHeight(
+            child: Row(children: [
+              Expanded(child: Figure(label: tr('বাজারে বকেয়া'), amount: taka(dueSum), color: C.green, size: 21, sub: trf('{0} জনের কাছে', [bnDigits(owingN)]))),
+              VerticalDivider(color: C.border, width: 20),
+              Expanded(child: Figure(label: tr('৩০ দিনের বেশি'), amount: taka(longSum), color: longSum > 0 ? C.warn : C.ink, size: 21, sub: trf('{0} জন', [bnDigits(long.length)]))),
+            ]),
           ),
         ),
-    ];
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 38,
+          child: ListView(scrollDirection: Axis.horizontal, children: [
+            chip('due', tr('বকেয়া বেশি')),
+            chip('all', trf('সবাই {0}', [bnDigits(b.customers.length)])),
+            chip('long', tr('পুরোনো বকেয়া')),
+            chip('regular', tr('নিয়মিত')),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        if (b.customers.isEmpty)
+          EmptyState(
+            icon: Icons.people_outline_rounded,
+            title: tr('এখনো কোনো গ্রাহক নেই'),
+            text: tr('নাম, মোবাইল আর হোয়াটসঅ্যাপ রাখুন — বাকিতে বিক্রি, তাগাদা আর রিমাইন্ডার সব তাঁর পাতায় থাকবে।'),
+            action: tr('গ্রাহক যোগ করুন'),
+            onAction: () => pushPage(context, const CustomerForm()),
+          )
+        else
+          ListCard(
+            empty: _part == 'due' ? tr('কারো কাছে বকেয়া নেই।') : tr('মেলেনি।'),
+            rows: [for (final c in shown) _row(context, c, accounts[c.id]!, now, memos[c.id] ?? 0)],
+          ),
+      ]),
+      Positioned(
+        right: 16,
+        bottom: 16,
+        child: FloatingActionButton.extended(
+          key: const Key('biz-customer-add-fab'),
+          heroTag: 'biz-customer-add',
+          backgroundColor: C.green,
+          foregroundColor: C.onAccent,
+          onPressed: () => pushPage(context, const CustomerForm()),
+          icon: const Icon(Icons.person_add_alt_1_rounded),
+          label: Text(tr('নতুন গ্রাহক'), style: body(15, weight: FontWeight.w700, color: C.onAccent)),
+        ),
+      ),
+    ]);
   }
 
-  Widget _row(BuildContext context, Customer c, Account a, DateTime now) {
+  Widget _row(BuildContext context, Customer c, Account a, DateTime now, int memos) {
     final days = a.daysOwed(now);
     final sub = [
       if (c.phone.isNotEmpty) bnDigits(c.phone),
-      if (a.due > 0 && days > 0) trf('{0} ধরে বাকি', [owedFor(days)]),
-      // Owed since today: say so, not an empty line (owner, 13 Nov).
-      if (a.due > 0 && days <= 0) tr('আজ বাকিতে নিলেন'),
-      if (a.due <= 0 && a.last != null) trf('শেষ কেনা {0}', [shortDate(a.last!)]),
+      if (a.due > 0 && c.dueDay != null) trf('আদায়ের দিন {0}', [shortDate(c.dueDay!)]) else if (a.due > 0 && days > 0) owedFor(days),
+      if (a.due > 0 && days <= 0 && c.dueDay == null) tr('আজ বাকিতে নিলেন'),
+      if (a.due <= 0 && a.last != null) trf('শেষ কেনা {0}', [relativeDay(a.last!, now)]),
     ].join(' · ');
     return ListRow(
       key: Key('biz-customer-${c.id}'),
-      leading: Avatar(name: c.name, size: 40),
+      leading: Avatar(name: c.name, size: 40, fg: days > 30 && a.due > 0 ? C.warn : null, bg: days > 30 && a.due > 0 ? C.warnBg : null),
       title: c.name,
       subtitle: sub.isEmpty ? null : sub,
-      subtitleColor: days > 30 ? C.warn : null,
+      subtitleColor: days > 30 && a.due > 0 ? C.warn : null,
       trailing: a.due > 0
           ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text(taka(a.due), style: body(15, weight: FontWeight.w700, color: days > 30 ? C.warn : C.green)),
-              Text(tr('বাকি'), style: body(11.5, color: C.muted)),
+              Text(memos > 0 ? trf('{0}টি মেমো', [bnDigits(memos)]) : tr('বাকি'), style: body(11.5, color: C.muted)),
             ])
-          : Icon(Icons.chevron_right_rounded, color: C.muted),
+          : Text(tr('বকেয়া নেই'), style: body(12.5, color: C.muted)),
       onTap: () => pushPage(context, CustomerPage(id: c.id)),
     );
   }
@@ -363,6 +399,14 @@ class CustomerPage extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(child: SmallButton(key: const Key('biz-customer-credit'), label: tr('বাকিতে বিক্রি'), icon: Icons.add_shopping_cart_rounded, onTap: () => pushPage(context, SellPage(customerId: c.id)))),
                   ]),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SmallButton(key: const Key('biz-customer-return'), label: tr('মাল ফেরত দিল'), icon: Icons.undo_rounded, onTap: () {
+                      final last = (brain.shop.sales.where((x) => x.customerId == c.id && x.lines.isNotEmpty).toList()..sort((a, x) => x.at.compareTo(a.at))).firstOrNull;
+                      pushPage(context, ReturnsPage(saleId: last?.id));
+                    }),
+                  ),
                 ]),
               ),
               SectionHeading(tr('বাকির রিমাইন্ডার')),

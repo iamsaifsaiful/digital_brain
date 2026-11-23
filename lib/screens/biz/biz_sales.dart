@@ -12,6 +12,7 @@ import '../../ui/widgets.dart';
 import '../home_shell.dart' show openVoice;
 import 'biz_customers.dart' show pickCustomer, CustomerPage;
 import 'biz_parts.dart';
+import 'biz_returns.dart' show ReturnsPage;
 import 'biz_shop.dart' show showReceiptPdf;
 
 /// বিক্রি (business mode tab; My Assistant's "দিনলিপি" in its place).
@@ -191,6 +192,15 @@ Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
               const SizedBox(width: 8),
               Expanded(child: SmallButton(key: const Key('biz-receipt-wa'), label: tr('হোয়াটসঅ্যাপে'), icon: Icons.chat_outlined, onTap: () => brain.services.launcher.open(Via.whatsapp, c?.whatsappNumber ?? '', text: text))),
             ]),
+            if (s.lines.isNotEmpty)
+              TextButton(
+                key: const Key('biz-sale-return'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  pushPage(context, ReturnsPage(saleId: s.id));
+                },
+                child: Text(tr('মাল ফেরত নিন'), style: body(14, color: C.green, weight: FontWeight.w600)),
+              ),
             TextButton(
               key: const Key('biz-sale-delete'),
               onPressed: () async {
