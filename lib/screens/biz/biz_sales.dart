@@ -24,7 +24,11 @@ class BizSales extends StatefulWidget {
 }
 
 class _BizSalesState extends State<BizSales> {
+  // Owner, 23 Nov: "বিক্রি মেনুতে, আজ মাসিক, বার্ষিক তারিখ এভাবে ফিল্টার হবে".
   String _when = 'today';
+  DateTime? _month; // first day of the month shown under মাসিক
+  int? _year;
+  DateTime? _day; // the day picked under তারিখ
 
   @override
   Widget build(BuildContext context) {
@@ -37,11 +41,15 @@ class _BizSalesState extends State<BizSales> {
     // Owner, 7 Nov: the inner tabs slide with the finger like everywhere
     // else, and the page reads in the order it is used: sell first, then
     // today's money, then the list.
-    return TabPages<String>(
+    return Stack(children: [
+      TabPages<String>(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
-      items: [('today', tr('আজ')), ('yesterday', tr('গতকাল')), ('week', tr('এই সপ্তাহ')), ('best', tr('বেশি বিক্রি'))],
+      items: [('today', tr('আজ')), ('month', tr('মাসিক')), ('year', tr('বার্ষিক')), ('date', tr('তারিখ'))],
       value: _when,
-      onChanged: (v) => setState(() => _when = v),
+      onChanged: (v) {
+        setState(() => _when = v);
+        if (v == 'date' && _day == null) _pickDay(context, today);
+      },
       top: (tabs) => [
         TabTitle(trm('বিক্রি'), sub: trf('আজ {0}টি বিক্রি · {1}', [bnDigits(todaySum.count), taka(todaySum.total)])),
         const BizFreeBanner(),
@@ -95,47 +103,155 @@ class _BizSalesState extends State<BizSales> {
         const SizedBox(height: 4),
       ],
       page: (when) => _page(context, brain, when, today),
-    );
+    ),
+      Positioned(right: 16, bottom: 16, child: AddButton(key: const Key('biz-sell-fab'), label: tr('নতুন বিক্রি'), icon: Icons.add_shopping_cart_rounded, onPressed: () => pushPage(context, const SellPage()))),
+    ]);
+  }
+
+  bool _picking = false;
+  Future<void> _pickDay(BuildContext context, DateTime today) async {
+    if (_picking) return; // the tab tap and the page settling both report the change
+    _picking = true;
+    final d = await showDatePicker(context: context, initialDate: _day ?? today, firstDate: DateTime(2000), lastDate: today);
+    _picking = false;
+    if (mounted) setState(() => _day = d ?? _day ?? today);
+  }
+
+  /// "‹ label ›": step back or forward through months, years or days.
+  Widget _stepper(String key, String label, {required VoidCallback onBack, VoidCallback? onNext, VoidCallback? onLabel}) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(children: [
+          IconButton(key: Key('$key-back'), tooltip: tr('আগের'), onPressed: onBack, icon: const Icon(Icons.chevron_left_rounded)),
+          Expanded(
+            child: InkWell(
+              key: Key('$key-label'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: onLabel,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  if (onLabel != null) ...[Icon(Icons.calendar_month_outlined, size: 18, color: C.green), const SizedBox(width: 6)],
+                  Text(label, style: body(15.5, weight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ),
+          IconButton(key: Key('$key-next'), tooltip: tr('পরের'), onPressed: onNext, icon: const Icon(Icons.chevron_right_rounded)),
+        ]),
+      );
+
+  List<Widget> _best(List<Sale> list, String title) {
+    final by = <String, (String, double, String, int)>{};
+    for (final s in list) {
+      for (final l in s.lines) {
+        final k = l.productId ?? l.name;
+        final was = by[k];
+        by[k] = (l.name, (was?.$2 ?? 0) + l.qty, l.unit, (was?.$4 ?? 0) + l.amount);
+      }
+    }
+    final best = by.values.toList()..sort((a, b) => b.$4.compareTo(a.$4));
+    if (best.isEmpty) return const [];
+    return [
+      SectionHeading(title),
+      ListCard(
+        key: const Key('biz-best'),
+        rows: [
+          for (final (name, qty, unit, amount) in best.take(10))
+            ListRow(leading: LetterTile(name), title: name, subtitle: '${bnDigits(qtyText(qty))} ${tr(unit)}', trailing: Text(taka(amount), style: body(14, weight: FontWeight.w600, color: C.green))),
+        ],
+      ),
+    ];
   }
 
   List<Widget> _page(BuildContext context, Brain brain, String when, DateTime today) {
     final b = brain.shop;
-    if (when == 'best') {
+    String part(DateTime t) => t.hour < 12 ? tr('সকাল') : (t.hour < 16 ? tr('দুপুর') : (t.hour < 18 ? tr('বিকাল') : (t.hour < 20 ? tr('সন্ধ্যা') : tr('রাত'))));
+    String dayLabel(DateTime d) => sameDay(d, today) ? tr('আজ') : '${weekdayName(d)}, ${shortDate(d)}';
+    final tail = [Padding(padding: const EdgeInsets.only(top: 10), child: Text(tr('রসিদ দেখতে, PDF বা হোয়াটসঅ্যাপে পাঠাতে বিক্রিতে চাপুন।'), textAlign: TextAlign.center, style: body(12, color: C.muted)))];
+
+    List<Widget> grouped(String heading, List<Sale> list, String Function(Sale) key) {
+      final sum = DaySum(list);
+      final groups = <String, List<Sale>>{};
+      for (final s in list) {
+        groups.putIfAbsent(key(s), () => []).add(s);
+      }
       return [
-        SectionHeading(tr('গত ৩০ দিনে বেশি বিক্রি')),
-        ListCard(
-          key: const Key('biz-best'),
-          empty: tr('পণ্য বেছে বিক্রি করলে এখানে দেখা যাবে।'),
-          rows: [
-            for (final (name, qty, unit, amount) in bestSellers(b, brain.services.now()).take(15))
-              ListRow(leading: LetterTile(name), title: name, subtitle: '${bnDigits(qtyText(qty))} ${tr(unit)}', trailing: Text(taka(amount), style: body(14, weight: FontWeight.w600, color: C.green))),
+        SectionHeading(heading, counter: trf('{0}টি · {1}', [bnDigits(sum.count), taka(sum.total)])),
+        if (list.isEmpty)
+          ListCard(rows: const [], empty: tr('এই সময়ে কোনো বিক্রি নেই।'))
+        else
+          for (final MapEntry(key: g, value: ss) in groups.entries) ...[
+            Padding(padding: const EdgeInsets.fromLTRB(4, 6, 4, 6), child: Text(g, style: body(12.5, weight: FontWeight.w600, color: C.muted))),
+            ListCard(rows: [for (final s in ss) saleRow(context, s)]),
           ],
-        ),
       ];
     }
-    final list = switch (when) {
-      'yesterday' => salesOn(b, today.subtract(const Duration(days: 1))),
-      'week' => salesSince(b, today.subtract(const Duration(days: 6))),
-      _ => salesOn(b, today),
-    };
-    final sum = DaySum(list);
-    String part(DateTime t) => t.hour < 12 ? tr('সকাল') : (t.hour < 16 ? tr('দুপুর') : (t.hour < 18 ? tr('বিকাল') : (t.hour < 20 ? tr('সন্ধ্যা') : tr('রাত'))));
-    final groups = <String, List<Sale>>{};
-    for (final s in list) {
-      final k = when == 'week' ? (sameDay(s.at, today) ? tr('আজ') : '${weekdayName(s.at)}, ${shortDate(s.at)}') : part(s.at);
-      groups.putIfAbsent(k, () => []).add(s);
+
+    switch (when) {
+      case 'month':
+        final m = _month ?? DateTime(today.year, today.month);
+        final next = DateTime(m.year, m.month + 1);
+        final list = [for (final s in b.sales) if (!s.at.isBefore(m) && s.at.isBefore(next)) s]..sort((x, y) => y.at.compareTo(x.at));
+        final label = '${monthName(m.month)} ${bnDigits(m.year)}';
+        return [
+          _stepper('biz-sales-month', label,
+              onBack: () => setState(() => _month = DateTime(m.year, m.month - 1)),
+              onNext: next.isAfter(today) ? null : () => setState(() => _month = next)),
+          ...grouped(trf('{0}-এর বিক্রি', [label]), list, (s) => dayLabel(s.at)),
+          ..._best(list, tr('এ মাসে বেশি বিক্রি')),
+          if (list.isNotEmpty) ...tail,
+        ];
+      case 'year':
+        final y = _year ?? today.year;
+        final list = [for (final s in b.sales) if (s.at.year == y) s];
+        final sum = DaySum(list);
+        final months = <int, List<Sale>>{};
+        for (final s in list) {
+          months.putIfAbsent(s.at.month, () => []).add(s);
+        }
+        final keys = months.keys.toList()..sort((a, b) => b.compareTo(a));
+        return [
+          _stepper('biz-sales-year', bnDigits(y), onBack: () => setState(() => _year = y - 1), onNext: y >= today.year ? null : () => setState(() => _year = y + 1)),
+          SectionHeading(trf('{0} সালের বিক্রি', [bnDigits(y)]), counter: trf('{0}টি · {1}', [bnDigits(sum.count), taka(sum.total)])),
+          ListCard(
+            key: const Key('biz-sales-months'),
+            empty: tr('এই সময়ে কোনো বিক্রি নেই।'),
+            rows: [
+              for (final mo in keys)
+                ListRow(
+                  key: Key('biz-sales-m-$mo'),
+                  leading: DateBlock(top: monthShort(mo), bottom: bnDigits(y)),
+                  title: monthName(mo),
+                  subtitle: [trf('{0}টি বিক্রি', [bnDigits(months[mo]!.length)]), if (DaySum(months[mo]!).by(SalePay.credit) > 0) trf('বাকিতে {0}', [taka(DaySum(months[mo]!).by(SalePay.credit))])].join(' · '),
+                  trailing: Text(taka(DaySum(months[mo]!).total), style: body(14.5, weight: FontWeight.w600, color: C.green)),
+                  onTap: () => setState(() {
+                    _month = DateTime(y, mo);
+                    _when = 'month';
+                  }),
+                ),
+            ],
+          ),
+          ..._best(list, trf('{0} সালে বেশি বিক্রি', [bnDigits(y)])),
+        ];
+      case 'date':
+        final d = _day ?? today;
+        final list = salesOn(b, d);
+        return [
+          _stepper('biz-sales-day', dayLabel(d),
+              onBack: () => setState(() => _day = d.subtract(const Duration(days: 1))),
+              onNext: sameDay(d, today) ? null : () => setState(() => _day = d.add(const Duration(days: 1))),
+              onLabel: () => _pickDay(context, today)),
+          ...grouped(trf('{0}-এর বিক্রি', [shortDate(d)]), list, (s) => part(s.at)),
+          if (list.isNotEmpty) ...tail,
+        ];
+      default:
+        final list = salesOn(b, today);
+        return [
+          ...grouped(tr('আজকের বিক্রি'), list, (s) => part(s.at)),
+          if (list.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr('এখনো কোনো বিক্রি নেই। ওপরের “নতুন বিক্রি” চাপুন।'), textAlign: TextAlign.center, style: body(12.5, color: C.muted))),
+          if (list.isNotEmpty) ...tail,
+        ];
     }
-    return [
-      SectionHeading(when == 'today' ? tr('আজকের বিক্রি') : (when == 'yesterday' ? tr('গতকালের বিক্রি') : tr('এই সপ্তাহের বিক্রি')), counter: trf('{0}টি · {1}', [bnDigits(sum.count), taka(sum.total)])),
-      if (list.isEmpty)
-        ListCard(rows: const [], empty: tr('এখনো কোনো বিক্রি নেই। ওপরের “নতুন বিক্রি” চাপুন।'))
-      else
-        for (final MapEntry(key: g, value: ss) in groups.entries) ...[
-          Padding(padding: const EdgeInsets.fromLTRB(4, 6, 4, 6), child: Text(g, style: body(12.5, weight: FontWeight.w600, color: C.muted))),
-          ListCard(rows: [for (final s in ss) saleRow(context, s)]),
-        ],
-      if (list.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 10), child: Text(tr('রসিদ দেখতে, PDF বা হোয়াটসঅ্যাপে পাঠাতে বিক্রিতে চাপুন।'), textAlign: TextAlign.center, style: body(12, color: C.muted))),
-    ];
   }
 }
 
@@ -191,6 +307,7 @@ Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
                   },
                   child: Text(c.name, style: body(13.5, color: C.green, weight: FontWeight.w600)),
                 ),
+              IconButton(key: const Key('biz-receipt-close'), tooltip: tr('বন্ধ করুন'), icon: Icon(Icons.close_rounded, color: C.ink), onPressed: () => Navigator.pop(ctx)),
             ]),
             const SizedBox(height: 10),
             Container(

@@ -160,16 +160,7 @@ class _BizStockState extends State<BizStock> {
       Positioned(
         right: 16,
         bottom: 16,
-        child: FloatingActionButton.extended(
-          key: const Key('biz-stock-in'),
-          heroTag: 'biz-stock-in',
-          backgroundColor: C.green,
-          foregroundColor: C.onAccent,
-          onPressed: () => pushPage(context, const StockInPage()),
-          icon: const Icon(Icons.add_rounded),
-          label: Text(tr('স্টক যোগ'), style: body(15, weight: FontWeight.w700, color: C.onAccent)),
-          extendedPadding: const EdgeInsets.symmetric(horizontal: 18),
-        ),
+        child: AddButton(key: const Key('biz-stock-in'), label: tr('স্টক যোগ'), onPressed: () => pushPage(context, const StockInPage())),
       ),
     ]);
   }

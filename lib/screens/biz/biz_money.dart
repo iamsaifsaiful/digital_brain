@@ -378,6 +378,7 @@ class SupplierListPage extends StatelessWidget {
     final accounts = [for (final d in b.dealers) dealerAccount(b, d)]..sort((x, y) => y.due != x.due ? y.due.compareTo(x.due) : x.name.compareTo(y.name));
     final due = accounts.fold<int>(0, (s, a) => s + (a.due > 0 ? a.due : 0));
     return Scaffold(
+      floatingActionButton: AddButton(key: const Key('biz-dealer-fab'), label: tr('নতুন সাপ্লায়ার'), icon: Icons.person_add_alt_1_rounded, onPressed: () => pushPage(context, const DealerForm())),
       body: SafeArea(
         bottom: false,
         child: Column(children: [

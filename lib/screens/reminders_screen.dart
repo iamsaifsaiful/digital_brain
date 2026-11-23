@@ -114,6 +114,9 @@ class _RemindersScreenState extends State<RemindersScreen> {
         if (!did) _picks.clear();
       },
       child: Scaffold(
+        floatingActionButton: picking
+            ? null
+            : AddButton(key: const Key('reminder-fab'), label: tr('নতুন রিমাইন্ডার'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.reminder)))),
         bottomNavigationBar: picking ? PickBar(picks: _picks, all: all.map((r) => r.id), actions: _actions(brain)) : null,
         body: SafeArea(
           child: Column(
@@ -123,7 +126,7 @@ class _RemindersScreenState extends State<RemindersScreen> {
               ]),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
                   children: [
                     if (highlighted != null) _Highlight(reminder: highlighted, onEdit: () => edit(highlighted)),
                     if (all.isEmpty)
@@ -138,15 +141,6 @@ class _RemindersScreenState extends State<RemindersScreen> {
                   ],
                 ),
               ),
-              if (!picking)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: PrimaryButton(
-                    label: tr('নতুন রিমাইন্ডার'),
-                    icon: Icons.add_rounded,
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.reminder))),
-                  ),
-                ),
             ],
           ),
         ),

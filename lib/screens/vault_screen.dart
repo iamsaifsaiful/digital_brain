@@ -48,8 +48,9 @@ class _VaultScreenState extends State<VaultScreen> {
       return normalize('${v.name} ${v.address} ${v.kind.label}').contains(q);
     }).toList();
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+    return Stack(children: [
+      ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
       children: [
         Row(
           children: [
@@ -74,12 +75,6 @@ class _VaultScreenState extends State<VaultScreen> {
                   ]),
                 ],
               ),
-            ),
-            RoundIconButton(
-              icon: Icons.add_rounded,
-              tooltip: tr('নতুন পাসওয়ার্ড যোগ করুন'),
-              dark: true,
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.password))),
             ),
           ],
         ),
@@ -132,7 +127,13 @@ class _VaultScreenState extends State<VaultScreen> {
             ]),
           ),
       ],
-    );
+    ),
+      Positioned(
+        right: 16,
+        bottom: 16,
+        child: AddButton(key: const Key('vault-fab'), label: tr('পাসওয়ার্ড যোগ'), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.password)))),
+      ),
+    ]);
   }
 
   Widget _chip(String label, bool on, VoidCallback tap) => ChoiceChip(

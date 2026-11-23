@@ -134,15 +134,7 @@ class _BizCustomersState extends State<BizCustomers> {
       Positioned(
         right: 16,
         bottom: 16,
-        child: FloatingActionButton.extended(
-          key: const Key('biz-customer-add-fab'),
-          heroTag: 'biz-customer-add',
-          backgroundColor: C.green,
-          foregroundColor: C.onAccent,
-          onPressed: () => pushPage(context, const CustomerForm()),
-          icon: const Icon(Icons.person_add_alt_1_rounded),
-          label: Text(tr('নতুন গ্রাহক'), style: body(15, weight: FontWeight.w700, color: C.onAccent)),
-        ),
+        child: AddButton(key: const Key('biz-customer-add-fab'), label: tr('নতুন গ্রাহক'), icon: Icons.person_add_alt_1_rounded, onPressed: () => pushPage(context, const CustomerForm())),
       ),
     ]);
   }

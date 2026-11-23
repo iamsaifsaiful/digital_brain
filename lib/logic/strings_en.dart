@@ -6866,4 +6866,13 @@ const enStrings = <String, String>{
   'এই নামে বা কোডে কোনো দেশ পাইনি': 'No country with that name or code',
   '{0} · {1} অঙ্ক': '{0} · {1} digits',
   '{0}টি দেশ': '{0} countries',
+  'বার্ষিক': 'Yearly',
+  'আগের': 'Previous',
+  'পরের': 'Next',
+  'এ মাসে বেশি বিক্রি': 'Top sellers this month',
+  '{0} সালের বিক্রি': 'Sales in {0}',
+  '{0} সালে বেশি বিক্রি': 'Top sellers in {0}',
+  'এই সময়ে কোনো বিক্রি নেই।': 'No sales in this period.',
+  'বাকিতে {0}': '{0} on credit',
+  'পাসওয়ার্ড যোগ': 'Add password',
 };

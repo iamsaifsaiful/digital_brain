@@ -25,13 +25,12 @@ class BankAccountsScreen extends StatelessWidget {
     final list = [...brain.data.bankAccounts]..sort((a, b) => a.bank.compareTo(b.bank));
     void add() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BankAccountForm()));
     return Scaffold(
+      floatingActionButton: AddButton(key: const Key('acct-add'), label: tr('নতুন একাউন্ট'), onPressed: add),
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('ব্যাংক একাউন্ট'), trailing: [Padding(padding: const EdgeInsets.only(right: 8), child: Icon(Icons.lock_outline_rounded, color: C.green))]),
           Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(16, 0, 16, 24), children: [
-              PrimaryButton(key: const Key('acct-add'), label: tr('নতুন একাউন্ট'), icon: Icons.add_rounded, onPressed: add),
-              const SizedBox(height: 14),
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 96), children: [
               if (list.isEmpty)
                 EmptyState(
                   icon: Icons.account_balance_outlined,

@@ -9,7 +9,9 @@ import '../../ui/kit.dart';
 import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import 'biz_parts.dart';
-import 'biz_sales.dart' show showReceipt;
+import 'biz_money.dart' show moneyOut;
+import 'biz_sales.dart' show showReceipt, SellPage;
+import 'biz_stock_in.dart' show StockInPage;
 import 'biz_shop.dart' show showReturnPdf;
 
 /// The colour and the icon of a kind of entry.
@@ -179,7 +181,14 @@ class _BizTxPageState extends State<BizTxPage> {
     for (final x in list) {
       days.putIfAbsent(DateTime(x.at.year, x.at.month, x.at.day), () => []).add(x);
     }
+    final k = widget.kinds;
+    final fab = k != null && k.contains(TxKind.purchase)
+        ? AddButton(key: const Key('biz-tx-fab'), label: tr('স্টক যোগ'), onPressed: () => pushPage(context, const StockInPage()))
+        : k != null && k.contains(TxKind.expense)
+            ? AddButton(key: const Key('biz-tx-fab'), label: tr('খরচ'), onPressed: () => moneyOut(context))
+            : AddButton(key: const Key('biz-tx-fab'), label: tr('নতুন বিক্রি'), onPressed: () => pushPage(context, const SellPage()));
     return Scaffold(
+      floatingActionButton: fab,
       body: SafeArea(
         bottom: false,
         child: Column(children: [
