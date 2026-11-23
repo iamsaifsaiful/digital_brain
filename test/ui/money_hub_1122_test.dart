@@ -26,7 +26,7 @@ Future<void> _shot(WidgetTester t, String name) async {
 }
 
 AppData seed(DateTime now) {
-  final cash = MoneyAccount(name: '', kind: AccountKind.cash, opening: 4500);
+  final cash = MoneyAccount(name: '', kind: AccountKind.cash, opening: 12500);
   final bkash = MoneyAccount(name: '', kind: AccountKind.bkash, opening: 12300);
   final bank = MoneyAccount(name: 'ডাচ-বাংলা সেভিংস', kind: AccountKind.bank, opening: 85000);
   final card = MoneyAccount(name: 'সিটি ব্যাংক কার্ড', kind: AccountKind.card, opening: -6200);
@@ -156,6 +156,7 @@ void main() {
     expect(rig.brain.data.cash.length, before + 1);
     expect(rig.brain.data.subscriptions.firstWhere((s) => s.id == net.id).next, DateTime(2026, 12, 25));
     expect(find.byType(SubscriptionsScreen), findsOneWidget);
+    debugDisableShadows = true;
   });
 
   testWidgets('Home: সামনের খরচ and রিপোর্ট under the money', (t) async {
@@ -173,11 +174,12 @@ void main() {
     await t.drag(list.first, const Offset(0, -260));
     await settle(t);
     await _shot(t, '8-home-upcoming');
-    await t.drag(list.first, const Offset(0, -700));
+    await t.drag(list.first, const Offset(0, -420));
     await settle(t);
     await _shot(t, '9-home-report');
     await t.tap(find.byKey(const Key('home-report-open')));
     await settle(t);
     expect(find.text('মাসের রিপোর্ট'), findsWidgets);
+    debugDisableShadows = true;
   });
 }

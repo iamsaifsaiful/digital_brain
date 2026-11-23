@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/home_shell.dart';
+import 'package:digital_brain/screens/ledger_screen.dart' show MoneyPart;
 import 'package:digital_brain/screens/money_screens.dart' show ProjectScreen;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
@@ -57,7 +58,7 @@ void main() {
     await t.tap(find.text('মাসিক').first);
     await settle(t);
     await shot(t, '2-month');
-    goToTab(ctx, ShellTab.money);
+    goToTab(ctx, ShellTab.money, money: MoneyPart.cash);
     await settle(t);
     await shot(t, '3-money');
     await down(t, 500);

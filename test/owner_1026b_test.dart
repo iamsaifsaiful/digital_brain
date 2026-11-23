@@ -18,7 +18,8 @@ void main() {
     expect(spanShift(CashSpan.year, DateTime(2026), -1), DateTime(2025));
   });
 
-  testWidgets('হিসাব: দৈনিক, সাপ্তাহিক, মাসিক, বাৎসরিক and filters by kind and খাত', (t) async {
+  // Owner, 22 Nov: no সাপ্তাহিক any more; হিসাব opens on আমার খাত.
+  testWidgets('হিসাব: দৈনিক, মাসিক, বাৎসরিক and filters by kind and খাত', (t) async {
     // The rig's day: Friday 9 Oct 2026.
     final rig = await start(t,
         data: AppData(cash: [
@@ -30,14 +31,14 @@ void main() {
         ]));
     await t.tap(find.text('হিসাব').last);
     await settle(t);
+    await t.tap(find.text('আয়-ব্যয়').first);
+    await settle(t);
     String total() => (t.widget<Text>(find.byKey(const Key('cash-filter-total'))).data ?? '');
 
     // Opens on দৈনিক.
     expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
-    // A swipe on the period moves দৈনিক → সাপ্তাহিক → মাসিক (the আয়-ব্যয় tab stays).
-    await t.fling(find.byKey(const Key('cash-swipe')), const Offset(-300, 0), 1200);
-    await settle(t);
-    expect(find.text('এই সপ্তাহের ব্যালেন্স'), findsOneWidget);
+    expect(find.text('সাপ্তাহিক'), findsNothing);
+    // A swipe on the period moves দৈনিক → মাসিক (the আয়-ব্যয় tab stays).
     await t.fling(find.byKey(const Key('cash-swipe')), const Offset(-300, 0), 1200);
     await settle(t);
     // Monthly: October only, day by day.
@@ -64,12 +65,6 @@ void main() {
     await t.tap(find.byKey(const Key('cash-next')));
     await settle(t);
     expect(find.text('আজকের ব্যালেন্স'), findsOneWidget);
-
-    // Weekly (Sat 3 – Fri 9 Oct): not the salary on the 1st.
-    await t.tap(find.text('সাপ্তাহিক'));
-    await settle(t);
-    expect(find.text('এই সপ্তাহের ব্যালেন্স'), findsOneWidget);
-    expect(find.text('৳১,০০০'), findsWidgets);
 
     // Yearly, then the filters.
     await t.tap(find.text('বাৎসরিক'));
@@ -108,7 +103,7 @@ void main() {
     await t.tap(find.byKey(const Key('cash-kind-income')));
     await settle(t);
     expect(total(), contains('আয় ৳৩০,০০০'));
-    expect(find.text('খাত অনুযায়ী আয়'), findsOneWidget);
+    expect(find.text('খাত অনুযায়ী আয়'), findsNothing, reason: 'gone (owner, 22 Nov)');
     expect(rig.brain.data.cash.length, 5, reason: 'filters only look');
     // Past বাৎসরিক, a swipe moves on to ধার-দেনা.
     await show(find.byKey(const Key('cash-swipe')));

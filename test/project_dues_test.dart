@@ -155,19 +155,19 @@ void main() {
     expect(find.textContaining('করিমের রিকশা ভাড়া'), findsOneWidget);
   });
 
-  testWidgets('বকেয়া from the অন্যান্য হিসাব tab itself, and all of them listed there', (t) async {
+  // Owner, 22 Nov: the tab's own বকেয়া button is gone; a বকেয়া is added
+  // inside its হিসাব, and every one is still listed on the tab.
+  testWidgets('বকেয়া of a হিসাব listed on the আলাদা হিসাব tab', (t) async {
     final rig = await start(t);
     final b = rig.brain;
+    final shopP = await b.projectNamed('দোকান');
+    await b.setProjectMain(shopP.id, false);
     await t.pumpWidget(BrainScope(brain: b, child: MaterialApp(theme: buildTheme(), home: Scaffold(body: ListView(children: const [ProjectsView()])))));
     await settle(t);
-    await t.tap(find.byKey(const Key('due-add-top')));
-    await settle(t);
-    await t.tap(find.text('ঠিক আছে')); // the name, দোকান, is filled in
-    await settle(t);
-    // A new হিসাব: "মূল হিসাবেও যোগ হবে?" must be answered (owner, 27 Oct).
-    await t.tap(find.byKey(const Key('main-no')));
-    await t.pump();
-    await t.tap(find.byKey(const Key('main-ok')));
+    expect(find.byKey(const Key('due-add-top')), findsNothing);
+    final ctx = t.element(find.byType(ProjectsView));
+    // ignore: unawaited_futures
+    dueForm(ctx, shopP);
     await settle(t);
     await t.enterText(find.byKey(const Key('due-person')), 'করিম');
     await t.enterText(find.byKey(const Key('due-amount')), '৪০০');

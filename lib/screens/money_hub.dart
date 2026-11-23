@@ -127,8 +127,8 @@ class MoneyHubView extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 10),
             child: Row(children: [
-              Expanded(child: _MiniFig(label: trf('{0}-এ আয়', [monthName(now.month)]), value: hid(context, taka(month.income)), icon: Icons.south_west_rounded, color: C.blue)),
-              Expanded(child: _MiniFig(label: trf('{0}-এ খরচ', [monthName(now.month)]), value: hid(context, taka(month.expense)), icon: Icons.north_east_rounded, color: C.red)),
+              Expanded(child: _MiniFig(label: tr('এ মাসে আয়'), value: hid(context, taka(month.income)), icon: Icons.south_west_rounded, color: C.blue)),
+              Expanded(child: _MiniFig(label: tr('এ মাসে খরচ'), value: hid(context, taka(month.expense)), icon: Icons.north_east_rounded, color: C.red)),
             ]),
           ),
         ]),
@@ -157,8 +157,8 @@ class MoneyHubView extends StatelessWidget {
             fg: C.blue,
             bg: C.blueTint,
             title: tr('ধার-দেনা'),
-            value: owe.receivable == 0 && owe.payable == 0 ? tr('কিছু নেই') : hid(context, taka(owe.receivable)),
-            sub: owe.receivable == 0 && owe.payable == 0 ? tr('কেউ টাকা পাবে না') : trf('পাব · দেব {0}', [hid(context, taka(owe.payable))]),
+            value: owe.receivable == 0 && owe.payable == 0 ? tr('কিছু নেই') : trf('পাব {0}', [hid(context, taka(owe.receivable))]),
+            sub: owe.receivable == 0 && owe.payable == 0 ? tr('কেউ টাকা পাবে না') : trf('দেব {0}', [hid(context, taka(owe.payable))]),
             onTap: () => tab(MoneyPart.loans),
           ),
         ),
@@ -197,7 +197,7 @@ class MoneyHubView extends StatelessWidget {
             icon: Icons.folder_special_outlined,
             fg: C.ochre,
             bg: C.ochreTint,
-            title: tr('অন্যান্য হিসাব'),
+            title: tr('আলাদা হিসাব'),
             value: openProjects == 0 ? tr('যোগ করুন') : trf('{0}টি চলছে', [bnDigits(openProjects)]),
             sub: tr('বিয়ে, বাড়ি, ভ্রমণ'),
             onTap: () => tab(MoneyPart.projects),
@@ -779,7 +779,7 @@ class HomeUpcoming extends StatelessWidget {
     final now = brain.services.now();
     final up = upcomingCosts(brain.data, now, days: 30);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SectionHeading(tr('সামনের খরচ'), link: up.isEmpty ? tr('যোগ করুন') : tr('সাবস্ক্রিপশন'), onLink: () => _push(context, const SubscriptionsScreen())),
+      SectionHeading(tr('সামনের খরচ'), link: tr('সাবস্ক্রিপশন'), onLink: () => _push(context, const SubscriptionsScreen())),
       UpcomingList(items: up.take(4).toList(), now: now, home: true),
     ]);
   }

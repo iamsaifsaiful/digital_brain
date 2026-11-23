@@ -45,29 +45,27 @@ void main() {
 
         await t.tap(find.text('হিসাব').last);
         await settle(t);
+        // Opens on আমার খাত since 22 Nov.
+        await t.tap(find.text('আয়-ব্যয়').first);
+        await settle(t);
         expect(find.byKey(const Key('cash-now')), findsOneWidget);
         expect(find.byKey(const Key('cash-add')), findsOneWidget);
         await shot('day');
         await t.tap(find.text('মাসিক'));
         await settle(t);
-        expect(find.byKey(const Key('cash-cats')), findsOneWidget);
+        // খাত অনুযায়ী খরচ is gone from here (owner, 22 Nov).
+        expect(find.byKey(const Key('cash-cats')), findsNothing);
         await shot('month');
-        await t.tap(find.byKey(const Key('cash-cats')));
-        await settle(t);
-        await shot('cats');
-        await t.tap(find.byKey(const Key('cats-বাজার')));
-        await settle(t);
-        expect(find.byKey(const Key('cash-cat-on')), findsOneWidget);
         await t.tap(find.byKey(const Key('cash-add')));
         await settle(t);
         await shot('add');
         await t.tap(find.byTooltip('ফিরে যান').first);
         await settle(t);
-        await t.tap(find.text('ধার-দেনা'));
+        await t.tap(find.text('ধার-দেনা').first);
         await settle(t);
         expect(find.byKey(const Key('loans-net')), findsOneWidget);
         await shot('loans');
-        await t.tap(find.text('আলাদা হিসাব'));
+        await t.tap(find.text('আলাদা হিসাব').first);
         await settle(t);
         expect(find.byKey(const Key('project-p1')), findsOneWidget);
         await shot('projects');
