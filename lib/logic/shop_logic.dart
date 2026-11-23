@@ -158,9 +158,13 @@ class Account {
 Account customerAccount(ShopBook b, Customer c) {
   final owed = <(DateTime, int)>[
     if (c.opening > 0) (c.added, c.opening),
-    for (final s in b.sales) if (s.customerId == c.id && s.pay == SalePay.credit) (s.at, s.total),
+    for (final s in b.sales) if (s.customerId == c.id && s.due > 0) (s.at, s.due),
   ];
-  final pays = [for (final p in b.collections) if (p.party == c.id) p];
+  // Goods brought back and taken off the due count as paid.
+  final pays = [
+    for (final p in b.collections) if (p.party == c.id) p,
+    for (final r in b.customerReturns) if (r.customerId == c.id && !r.cash) ShopPayment(id: r.id, at: r.at, party: c.id, amount: r.refund),
+  ];
   final paid = pays.fold<int>(0, (s, p) => s + p.amount);
   final (due, since) = _fifo(owed, paid);
   final times = [...owed.map((x) => x.$1), ...pays.map((p) => p.at)]..sort();
@@ -172,7 +176,10 @@ Account dealerAccount(ShopBook b, Dealer d) {
     if (d.opening > 0) (DateTime(2000), d.opening),
     for (final p in b.purchases) if (p.dealerId == d.id && p.owed > 0) (p.at, p.owed),
   ];
-  final pays = [for (final p in b.payouts) if (p.party == d.id) p];
+  final pays = [
+    for (final p in b.payouts) if (p.party == d.id) p,
+    for (final r in b.supplierReturns) if (r.dealerId == d.id && r.pay != ReturnPay.cash) ShopPayment(id: r.id, at: r.at, party: d.id, amount: r.credit),
+  ];
   final paid = pays.fold<int>(0, (s, p) => s + p.amount);
   final (due, since) = _fifo(owed, paid);
   final times = [for (final p in b.purchases) if (p.dealerId == d.id) p.at, ...pays.map((p) => p.at)]..sort();

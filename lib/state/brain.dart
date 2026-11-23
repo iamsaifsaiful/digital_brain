@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 
 import '../logic/examples.dart' show exampleInBangla;
 import '../logic/shop_logic.dart';
+import '../logic/biz_account.dart';
 import '../logic/vault_age.dart';
 import '../logic/world_calendars.dart' show parseCalendars;
 import '../logic/steps.dart' show StepBook, stepDay;
@@ -2848,7 +2849,9 @@ class Brain extends ChangeNotifier {
   }
 
   /// Brings a deleted thing back, with what went with it.
-  Future<void> restoreTrash(TrashItem t) async {
+  Future<void> restoreTrash(TrashItem t) => _bizEdit(trf('{0} ফিরিয়ে আনা', [t.title]), () => _restoreTrash(t));
+
+  Future<void> _restoreTrash(TrashItem t) async {
     final j = data.toJson();
     for (final (k, item) in t.items) {
       // The shop's products, customers and dealers sit one level down (owner, 6 Nov: ব্যবসায়ী মোড).
@@ -3270,7 +3273,15 @@ class Brain extends ChangeNotifier {
 
   List<Task> openTasks() => openTasksOf(data, services.now());
 
+  /// The business's money changed by hand: kept apart in its account when
+  /// it was there before the business began in the app (see [_bizEdit]).
   Future<void> saveCash(CashEntry e) async {
+    final was = data.cash.where((x) => x.id == e.id).firstOrNull;
+    if (isBizCash(e) || (was != null && isBizCash(was))) return _bizEdit(tr('হিসাবের এন্ট্রি বদল'), () => _saveCash(e));
+    return _saveCash(e);
+  }
+
+  Future<void> _saveCash(CashEntry e) async {
     // A new own entry with accounts kept goes into one (so "এখন আছে", their
     // total, follows it): the cash account, else the first.
     final isNew = !data.cash.any((x) => x.id == e.id);
@@ -3289,6 +3300,11 @@ class Brain extends ChangeNotifier {
   }
 
   Future<void> deleteCash(String id) async {
+    if (data.cash.any((e) => e.id == id && isBizCash(e))) return _bizEdit(tr('হিসাবের এন্ট্রি মুছে ফেলা'), () => _deleteCash(id));
+    return _deleteCash(id);
+  }
+
+  Future<void> _deleteCash(String id) async {
     // Another হিসাব's entry takes its main-account copy with it (one undo).
     final copy = data.cash.where((e) => e.linkId == id && e.projectId == null && e.id != id).firstOrNull;
     for (final e in data.cash.where((e) => e.id == id)) {
