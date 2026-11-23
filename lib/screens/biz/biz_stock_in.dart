@@ -141,10 +141,10 @@ class _StockInPageState extends State<StockInPage> {
                 Row(children: [
                   Expanded(child: NumField(controller: _buy, fieldKey: const Key('stockin-buy'), label: trf('কেনা দাম / {0}', [tr(_unit)]), onChanged: (_) => setState(() {}))),
                   const SizedBox(width: 10),
-                  Expanded(child: NumField(controller: _sell, fieldKey: const Key('stockin-sell'), label: trf('বেচা দাম / {0}', [tr(_unit)]))),
+                  Expanded(child: NumField(controller: _sell, fieldKey: const Key('stockin-sell'), label: trf('বিক্রি দাম / {0}', [tr(_unit)]))),
                 ]),
                 if (_unitBuy > 0 && (readNum(_sell.text) ?? 0) > 0 && (readNum(_sell.text) ?? 0) < _unitBuy)
-                  Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr('বেচা দাম কেনা দামের চেয়ে কম — বিক্রিতে ক্ষতি হবে'), style: body(12, color: C.red))),
+                  Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr('বিক্রি দাম কেনা দামের চেয়ে কম — বিক্রিতে ক্ষতি হবে'), style: body(12, color: C.red))),
                 const SizedBox(height: 12),
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   Expanded(child: NumField(controller: _weight, fieldKey: const Key('stockin-weight'), label: tr('প্রতিটির ওজন (ঐচ্ছিক)'), decimal: true, hint: tr('যেমন ৫'))),

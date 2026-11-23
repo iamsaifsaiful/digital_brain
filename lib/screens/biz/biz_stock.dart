@@ -87,7 +87,7 @@ class _BizStockState extends State<BizStock> {
             ]),
             const SizedBox(height: 4),
             Row(children: [
-              Expanded(child: Text(trf('বেচলে প্রায় {0}', [taka(sellWorth)]), style: body(12.5, color: C.green, weight: FontWeight.w600))),
+              Expanded(child: Text(trf('বিক্রি করলে প্রায় {0}', [taka(sellWorth)]), style: body(12.5, color: C.green, weight: FontWeight.w600))),
               if (low.isNotEmpty) Text(trf('{0}টি কম আছে', [bnDigits(low.length)]), style: body(12.5, color: C.red, weight: FontWeight.w600)),
             ]),
           ]),
@@ -120,7 +120,7 @@ class _BizStockState extends State<BizStock> {
           EmptyState(
             icon: Icons.inventory_2_outlined,
             title: tr('এখনো কোনো পণ্য নেই'),
-            text: tr('স্টক যোগ করুন — কত এলো, কেনা-বেচার দাম। বিক্রি করলে স্টক নিজে থেকে কমবে, কম হলে অর্ডার তালিকায় উঠবে।'),
+            text: tr('স্টক যোগ করুন — কত এলো, কেনা-বিক্রির দাম। বিক্রি করলে স্টক নিজে থেকে কমবে, কম হলে অর্ডার তালিকায় উঠবে।'),
             action: tr('স্টক যোগ করুন'),
             onAction: () => pushPage(context, const StockInPage()),
           ),
@@ -205,7 +205,7 @@ class _BizStockState extends State<BizStock> {
               const SizedBox(height: 2),
               Text(
                 [
-                  trf('কেনা {0} · বেচা {1} / {2}', [taka(p.avgCost.round()), taka(p.sell), tr(p.unit)]),
+                  trf('কেনা {0} · বিক্রি {1} / {2}', [taka(p.avgCost.round()), taka(p.sell), tr(p.unit)]),
                   if (exp != null) trf('মেয়াদ {0}', [shortDate(exp)]),
                 ].join(' · '),
                 maxLines: 1,

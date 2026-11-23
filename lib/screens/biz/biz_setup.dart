@@ -342,7 +342,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
             ]),
           ),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            Text(tr('বেচলে প্রায়'), style: body(12.5, color: C.muted)),
+            Text(tr('বিক্রি করলে প্রায়'), style: body(12.5, color: C.muted)),
             Text(taka(sell), style: body(15, weight: FontWeight.w600, color: C.green)),
           ]),
         ]),
@@ -380,7 +380,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
           Row(children: [
             Expanded(child: TextField(key: const Key('setup-p-buy'), controller: _pBuy, keyboardType: TextInputType.number, style: body(15), decoration: InputDecoration(hintText: tr('কেনা দাম ৳'), isDense: true, fillColor: C.surface, filled: true))),
             const SizedBox(width: 6),
-            Expanded(child: TextField(key: const Key('setup-p-sell'), controller: _pSell, keyboardType: TextInputType.number, style: body(15), decoration: InputDecoration(hintText: tr('বেচা দাম ৳'), isDense: true, fillColor: C.surface, filled: true))),
+            Expanded(child: TextField(key: const Key('setup-p-sell'), controller: _pSell, keyboardType: TextInputType.number, style: body(15), decoration: InputDecoration(hintText: tr('বিক্রি দাম ৳'), isDense: true, fillColor: C.surface, filled: true))),
           ]),
           const SizedBox(height: 10),
           SecondaryButton(key: const Key('setup-p-add'), label: tr('তালিকায় যোগ করুন'), icon: Icons.add_rounded, onPressed: _addItem),
@@ -394,7 +394,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
   Widget _itemRow(String name, double qty, String unit, int buy, int sell, int worth, VoidCallback? remove) => ListRow(
         leading: LetterTile(name),
         title: name,
-        subtitle: trf('{0} {1} · কেনা {2} · বেচা {3}', [bnDigits(qtyText(qty)), tr(unit), taka(buy), taka(sell)]),
+        subtitle: trf('{0} {1} · কেনা {2} · বিক্রি {3}', [bnDigits(qtyText(qty)), tr(unit), taka(buy), taka(sell)]),
         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
           Text(taka(worth), style: body(14, weight: FontWeight.w600)),
           if (remove != null) IconButton(tooltip: tr('বাদ দিন'), onPressed: remove, icon: Icon(Icons.close_rounded, size: 18, color: C.muted)),
