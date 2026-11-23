@@ -874,7 +874,7 @@ void main() {
     // A new phone (new key, empty storage).
     final fresh = Rig();
     await fresh.brain.load();
-    final (data, files) = await Backup.restore(bytes, 'backup-pass');
+    final (data, files, _) = await Backup.restore(bytes, 'backup-pass');
     await fresh.brain.replaceAll(data, files: files);
     await fresh.brain.load();
     expect(fresh.brain.data.ledger.single.amount, 500);

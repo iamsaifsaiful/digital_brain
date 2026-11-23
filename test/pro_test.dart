@@ -203,7 +203,7 @@ void main() {
       final list = await b.driveBackups();
       final bytes = drive.files[list.single.id]!.$2;
       (other.services.drive as FakeDrive).files[list.single.id] = (list.single, bytes);
-      final (restored, _) = await other.brain.openDriveBackup(list.single);
+      final (restored, _, _) = await other.brain.openDriveBackup(list.single);
       expect(restored.notes.single.title, 'গাড়ির কাগজ');
       // Another account's key does not open it.
       final stranger = Rig(server: keyServer('Zz9xY8vB2nLm9PzR4tW7sD1fG6hJ0aC5eU8iO2pQ9rS'), google: tokenGoogle('x@gmail.com'));
@@ -244,14 +244,14 @@ void main() {
       await mine.brain.load();
       await mine.brain.signInGoogle();
       (mine.services.drive as FakeDrive).files[list.single.id] = (list.single, bytes);
-      final (restored, _) = await mine.brain.openDriveBackup(list.single, password: 'my-own-pass-123');
+      final (restored, _, _) = await mine.brain.openDriveBackup(list.single, password: 'my-own-pass-123');
       expect(restored.notes.single.title, 'জমির দলিল');
       expect(await mine.brain.driveExtraOn(), isTrue);
       // Taken off: the next backup opens with the account alone again.
       expect(await b.setDriveExtra(null), isNull);
       final again = await b.driveBackups();
       (thief.services.drive as FakeDrive).files[again.single.id] = (again.single, drive.files[again.single.id]!.$2);
-      final (open2, _) = await thief.brain.openDriveBackup(again.single);
+      final (open2, _, _) = await thief.brain.openDriveBackup(again.single);
       expect(open2.notes.single.title, 'জমির দলিল');
     });
 

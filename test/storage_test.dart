@@ -42,7 +42,7 @@ void main() {
     test('backup restores with the right password only', () async {
       final data = AppData(notes: [Note(title: 'নোট', body: 'লেখা')]);
       final bytes = await Backup.export(data, 'my backup pass', iterations: 2000);
-      final (back, _) = await Backup.restore(bytes, 'my backup pass');
+      final (back, _, _) = await Backup.restore(bytes, 'my backup pass');
       expect(back.notes.single.body, 'লেখা');
       await expectLater(Backup.restore(bytes, 'wrong'), throwsA(isA<WrongKey>()));
       await expectLater(Backup.restore(utf8.encode('hello world, not a backup file'), 'x'), throwsA(isA<NotABackup>()));
@@ -51,7 +51,7 @@ void main() {
     test('a backup carries the attached files; old (v1) backups still restore; newer or damaged ones are refused', () async {
       final data = AppData(docs: [Doc(title: 'NID', files: [DocFile(id: 'f1', name: 'nid.jpg', mime: 'image/jpeg', size: 3)])]);
       final bytes = await Backup.export(data, 'pass1234', files: {'f1': Uint8List.fromList([1, 2, 3])}, iterations: 2000);
-      final (back, files) = await Backup.restore(bytes, 'pass1234');
+      final (back, files, _) = await Backup.restore(bytes, 'pass1234');
       expect(back.docs.single.files.single.id, 'f1');
       expect(files['f1'], [1, 2, 3]);
       // A version-1 file (made by older app versions).
@@ -59,7 +59,7 @@ void main() {
       final key = await deriveKey('old pass', salt, 2000);
       final sealed = await seal(utf8.encode(jsonEncode(AppData(notes: [Note(title: 'পুরনো')]).toJson())), key);
       final v1 = Uint8List.fromList([...utf8.encode('DBRNBK1'), ...salt, 0, 0, 7, 208, ...sealed]);
-      final (old, oldFiles) = await Backup.restore(v1, 'old pass');
+      final (old, oldFiles, _) = await Backup.restore(v1, 'old pass');
       expect(old.notes.single.title, 'পুরনো');
       expect(oldFiles, isEmpty);
       // Made by a newer app.

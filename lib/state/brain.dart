@@ -184,6 +184,7 @@ class Brain extends ChangeNotifier {
     services.voice.muted = !on;
     if (!on) await services.voice.stopSpeaking();
     await services.lock.keys.write('speak_on', on ? 'true' : 'false');
+    await _settingSaved('speak_on');
     notifyListeners();
   }
 
@@ -858,7 +859,7 @@ class Brain extends ChangeNotifier {
       final extra = await keys.read('drive_extra');
       final hasExtra = extra != null && extra.isNotEmpty;
       final bytes = await Backup.export(data, hasExtra ? driveLock(pw, extra) : pw,
-          files: await backupFiles(), iterations: hasExtra ? Backup.passwordIterations : Backup.defaultIterations);
+          files: await backupFiles(), settings: await backupSettings(), iterations: hasExtra ? Backup.passwordIterations : Backup.defaultIterations);
       final now = services.now();
       final stamp = now.toIso8601String().replaceAll(':', '-').split('.').first;
       final id = await services.drive.upload(token, '$_drivePrefix-$stamp.dbk', bytes);
@@ -899,7 +900,7 @@ class Brain extends ChangeNotifier {
   /// Opens a Drive backup (nothing is replaced yet): with the account's key;
   /// with [password] it is tried as the member's extra lock on that key, then
   /// as the whole password of a backup made before keys (WrongKey when none fits).
-  Future<(AppData, Map<String, Uint8List>)> openDriveBackup(DriveFile f, {String? password}) async {
+  Future<OpenedBackup> openDriveBackup(DriveFile f, {String? password}) async {
     final token = await services.google.driveToken();
     final bytes = await services.drive.download(token, f.id);
     final key = await services.lock.keys.read('drive_pw');
@@ -1215,6 +1216,7 @@ class Brain extends ChangeNotifier {
   Future<void> setUserPhone(String v) async {
     userPhone = v.replaceAll(RegExp(r'[^0-9+]'), '');
     await services.lock.keys.write('user_phone', userPhone);
+    await _settingSaved('user_phone');
     notifyListeners();
   }
 
@@ -1222,6 +1224,7 @@ class Brain extends ChangeNotifier {
     userName = v.trim();
     askUserName = userName;
     await services.lock.keys.write('user_name', userName);
+    await _settingSaved('user_name');
     notifyListeners();
   }
 
@@ -1239,6 +1242,7 @@ class Brain extends ChangeNotifier {
       todayWeather = null;
     }
     await services.lock.keys.write('district', v);
+    await _settingSaved('district');
     if (!auto && autoPlace) {
       autoPlace = false;
       await services.lock.keys.write('auto_place', 'false');
@@ -1270,6 +1274,7 @@ class Brain extends ChangeNotifier {
   Future<void> setAutoPlace(bool on) async {
     autoPlace = on;
     await services.lock.keys.write('auto_place', on ? 'true' : 'false');
+    await _settingSaved('auto_place');
     if (on) await _put('place_hold', '');
     notifyListeners();
     if (on) {
@@ -1515,6 +1520,24 @@ class Brain extends ChangeNotifier {
     try {
       await services.lock.keys.write(key, value);
     } catch (_) {}
+    await _settingSaved(key);
+  }
+
+  /// Written often on their own (opening the app, time in it): no backup for these.
+  static const _quietKeys = {'last_open', 'open_days', 'usage_days', 'last_backup', 'place_hold'};
+
+  /// A setting that goes into backups changed: the automatic Drive backup runs again.
+  Future<void> _settingSaved(String key) async {
+    if (_quietKeys.contains(key) || !backupKeys.contains(key)) return;
+    await _markDriveDirty();
+  }
+
+  Future<void> _markDriveDirty() async {
+    if (!driveOn || _driveDirty) return;
+    _driveDirty = true;
+    try {
+      await services.lock.keys.write('drive_dirty', 'true');
+    } catch (_) {}
   }
 
   Future<void> setLook(Look v) async {
@@ -1586,6 +1609,7 @@ class Brain extends ChangeNotifier {
     } else {
       await services.store.saveDocFile(_photoId, bytes);
     }
+    await _markDriveDirty();
   }
 
   static const _photoId = 'me-profile-photo';
@@ -1987,6 +2011,7 @@ class Brain extends ChangeNotifier {
   Future<void> setAiShareData(bool on) async {
     aiShareData = on;
     await services.lock.keys.write('ai_share_data', on ? 'true' : 'false');
+    await _settingSaved('ai_share_data');
     notifyListeners();
   }
 
@@ -2285,6 +2310,7 @@ class Brain extends ChangeNotifier {
   Future<void> setBargeIn(bool on) async {
     services.voice.bargeIn = on;
     await services.lock.keys.write('barge_in', on ? 'true' : 'false');
+    await _settingSaved('barge_in');
     notifyListeners();
   }
 
@@ -2594,7 +2620,8 @@ class Brain extends ChangeNotifier {
         for (final c in data.noteCategories) FolderHint('notes', c),
       ];
 
-  Future<void> load() async {
+  /// The profile (name, mobile, place) and the voice and alarm settings, as saved on the phone.
+  Future<void> _loadProfileAndVoice() async {
     try {
       services.ai.key = await services.lock.keys.read('claude_api_key') ?? '';
       // Haiku for everyone; Sonnet only by escalation (an old "best" setting is not used).
@@ -2616,6 +2643,10 @@ class Brain extends ChangeNotifier {
       services.notifier.batteryConfirmed = (await services.lock.keys.read('battery_done')) == 'true';
       services.voice.preferredVoice = await services.lock.keys.read('tts_voice');
     } catch (_) {}
+  }
+
+  Future<void> load() async {
+    await _loadProfileAndVoice();
     await loadLook();
     await _loadPrefs();
     await _loadSources();
@@ -3467,7 +3498,7 @@ class Brain extends ChangeNotifier {
   /// Puts a backup in place of everything. The attached files are written
   /// first; if anything fails before the new data is saved, the data on the
   /// phone stays exactly as it was.
-  Future<void> replaceAll(AppData restored, {Map<String, Uint8List> files = const {}}) async {
+  Future<void> replaceAll(AppData restored, {Map<String, Uint8List> files = const {}, Map<String, String>? settings}) async {
     if (loadError != null) await services.store.startOverKeepingOld();
     for (final e in files.entries) {
       await services.store.saveDocFile(e.key, e.value);
@@ -3484,8 +3515,83 @@ class Brain extends ChangeNotifier {
     try {
       photo = await services.store.loadDocFile(_photoId);
     } catch (_) {}
+    if (settings != null) await restoreSettings(settings);
     notifyListeners();
     await _reschedule();
+  }
+
+  /// Settings and profile kept on the phone (not in [data]) that go into
+  /// every backup and come back with it (owner, 24 Nov: "একদম সব ফেরত
+  /// আসবে"). Left out on purpose, because they belong to this phone or this
+  /// sign-in, not to the person's records:
+  /// - the app PIN and the recovery answer (pin_*, rec_*): a restored PIN
+  ///   could lock the member out of the new phone; they set it there.
+  /// - the data key, the Google sign-in, the Drive key and its extra lock,
+  ///   the server session, Premium and trial (drive_*, g_*, srv_*, pro_*,
+  ///   trial_*): they come from the account on sign-in.
+  /// - the alarm tone (alarm_sound*): a link to a sound file on the old phone.
+  /// - one-time phone permissions and checks (battery_done, autostart_done,
+  ///   place_asked, push_sent), counters for our server and notices.
+  static const backupKeys = [
+    // থিম ও ভাষা
+    'look', 'accent', 'dark_set', 'lang', 'letter_size', 'easy_mode',
+    // প্রোফাইল
+    'user_name', 'user_phone', 'district', 'auto_place', 'place_hold',
+    // সহকারী
+    'morning_on', 'morning_at', 'night_on', 'night_at', 'nudges_on', 'carry_over', 'persona', 'business_mode', 'panel_mic', 'quick_questions',
+    'speak_on', 'barge_in', 'tts_voice', 'alarm_insistent', 'ai_share_data', 'claude_api_key',
+    // লক
+    'auto_lock', 'bio_on',
+    // Small choices made on their own pages
+    'doc_shrink', 'receipt_no', 'shop_name', 'tips_done', 'tips_seen', 'chat_history',
+    // ফ্যামিলি: the family key (so family members' messages still open) and the heirs' copy
+    'fam_seed', 'heir_scope', 'heir_files_key',
+    ...prefKeys,
+  ];
+
+  /// Not carried: when this phone last backed up.
+  static const _notBackedUp = {'last_backup'};
+
+  /// Every setting in [backupKeys] that is set on this phone.
+  Future<Map<String, String>> backupSettings() async {
+    final out = <String, String>{};
+    for (final k in backupKeys) {
+      if (_notBackedUp.contains(k)) continue;
+      try {
+        final v = await services.lock.keys.read(k);
+        if (v != null) out[k] = v;
+      } catch (_) {}
+    }
+    return out;
+  }
+
+  /// Puts a backup's settings in place of this phone's and applies them
+  /// (a setting not in the backup goes back to its default).
+  Future<void> restoreSettings(Map<String, String> settings) async {
+    final keys = services.lock.keys;
+    for (final k in backupKeys) {
+      if (_notBackedUp.contains(k)) continue;
+      try {
+        final v = settings[k];
+        if (v == null) {
+          await keys.delete(k);
+        } else {
+          await keys.write(k, v);
+        }
+      } catch (_) {}
+    }
+    for (final k in prefKeys) {
+      if (!_notBackedUp.contains(k)) prefs.remove(k);
+    }
+    quickQuestions = defaultQuestions;
+    persona = '';
+    await _loadProfileAndVoice();
+    await loadLook();
+    await _loadPrefs();
+    family.forgetKeys();
+    // The family key may have changed: the server learns it again.
+    if (signedIn) unawaited(family.refresh().catchError((_) {}));
+    notifyListeners();
   }
 
   /// Every attached photo and file, for the backup (ones that cannot be read are left out).

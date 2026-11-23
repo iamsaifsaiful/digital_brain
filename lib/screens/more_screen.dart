@@ -769,7 +769,7 @@ class _BackupScreenState extends State<BackupScreen> {
     if (pass == null || !mounted) return;
     setState(() => _busy = true);
     try {
-      final bytes = await Backup.export(brain.data, pass, files: await brain.backupFiles(), iterations: Backup.passwordIterations);
+      final bytes = await Backup.export(brain.data, pass, files: await brain.backupFiles(), settings: await brain.backupSettings(), iterations: Backup.passwordIterations);
       final now = brain.services.now();
       final name = 'my-assistant-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.dbrain';
       if (toPhone) {

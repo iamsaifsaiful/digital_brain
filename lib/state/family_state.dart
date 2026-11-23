@@ -190,6 +190,9 @@ class FamilyState extends ChangeNotifier {
 
   FamilyKeys? _keys;
 
+  /// After a restore brought another family key: read it again.
+  void forgetKeys() => _keys = null;
+
   Future<String?> _get(String k) async {
     try {
       return await brain.services.lock.keys.read(k);

@@ -159,6 +159,9 @@ class DataStore {
 /// can be restored on a new phone and is useless without that password.
 /// Version 2 also carries every attached photo and file (documents, note and
 /// contact attachments, the profile photo); version 1 files still restore.
+/// Since 24 Nov version 2 files also carry the settings and profile kept on
+/// the phone ("settings", see `Brain.backupKeys`); older apps ignore them,
+/// and a file without them leaves the phone's settings as they are (null).
 class Backup {
   static final _prefix = utf8.encode('DBRNBK');
   static const version = 2;
@@ -170,19 +173,24 @@ class Backup {
   /// lock): OWASP's 2023 advice for PBKDF2-HMAC-SHA256 (owner's review, 27 Oct).
   static const passwordIterations = 600000;
 
-  static Future<Uint8List> export(AppData data, String password, {Map<String, Uint8List> files = const {}, int iterations = defaultIterations}) async {
+  static Future<Uint8List> export(AppData data, String password, {Map<String, Uint8List> files = const {}, Map<String, String>? settings, int iterations = defaultIterations}) async {
     final salt = randomBytes(16);
     final key = await deriveKey(password, salt, iterations);
-    final payload = {'v': version, 'data': data.toJson(), 'files': {for (final e in files.entries) e.key: base64Encode(e.value)}};
+    final payload = {
+      'v': version,
+      'data': data.toJson(),
+      'files': {for (final e in files.entries) e.key: base64Encode(e.value)},
+      if (settings != null) 'settings': settings,
+    };
     final sealed = await seal(utf8.encode(jsonEncode(payload)), key);
     final it = ByteData(4)..setUint32(0, iterations);
     return Uint8List.fromList([..._prefix, ...utf8.encode('$version'), ...salt, ...it.buffer.asUint8List(), ...sealed]);
   }
 
-  /// The data and attached files in a backup. Throws [NotABackup] (not a
+  /// The data, attached files and settings in a backup. Throws [NotABackup] (not a
   /// backup, or damaged), [UnsupportedBackup] (made by a newer app) or
   /// [WrongKey] (wrong password). Nothing is changed on the phone here.
-  static Future<(AppData, Map<String, Uint8List>)> restore(Uint8List bytes, String password) async {
+  static Future<OpenedBackup> restore(Uint8List bytes, String password) async {
     final head = _prefix.length + 1;
     if (bytes.length < head + 20 || !sameBytes(bytes.sublist(0, _prefix.length), _prefix)) throw const NotABackup();
     final v = int.tryParse(String.fromCharCode(bytes[_prefix.length]));
@@ -195,11 +203,13 @@ class Backup {
     final clear = await open(bytes.sublist(head + 20), key);
     try {
       final j = (jsonDecode(utf8.decode(clear)) as Map).cast<String, Object?>();
-      if (v == 1) return (AppData.fromJson(j), <String, Uint8List>{});
+      if (v == 1) return (AppData.fromJson(j), <String, Uint8List>{}, null);
       final files = <String, Uint8List>{
         for (final e in ((j['files'] as Map?) ?? const {}).entries) '${e.key}': base64Decode('${e.value}'),
       };
-      return (AppData.fromJson((j['data'] as Map).cast<String, Object?>()), files);
+      final s = j['settings'];
+      final settings = s is Map ? <String, String>{for (final e in s.entries) if (e.value is String) '${e.key}': e.value as String} : null;
+      return (AppData.fromJson((j['data'] as Map).cast<String, Object?>()), files, settings);
     } on WrongKey {
       rethrow;
     } catch (_) {
@@ -207,6 +217,10 @@ class Backup {
     }
   }
 }
+
+/// What a backup holds: the data, the attached files by id, and the
+/// settings and profile kept on the phone (null in backups made before them).
+typedef OpenedBackup = (AppData, Map<String, Uint8List>, Map<String, String>?);
 
 /// Every attached file id in [d] (documents, note and contact attachments).
 Set<String> attachedFileIds(AppData d) => {

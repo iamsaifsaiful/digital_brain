@@ -2720,6 +2720,7 @@ const enStrings = <String, String>{
   'ব্যাকআপ ফিরিয়ে আনতে যাচাই করুন': 'Verify to restore a backup',
   'ব্যাকআপ ফিরিয়ে আনবেন?': 'Restore the backup?',
   'ব্যাকআপ ফিরিয়ে আনা হয়েছে': 'Backup restored',
+  'থিম, ভাষা, প্রোফাইল ও সব সেটিংসও আগের মতো ফিরে আসবে। অ্যাপের লক (পিন) এই ফোনেরটাই থাকবে।': 'Theme, language, profile and every setting come back as before. The app lock (PIN) stays this phone\'s own.',
   'ব্যাকআপ ফিরিয়ে আনা হয়েছে।': 'Backup restored.',
   'ব্যাকআপ ফিরিয়ে আনা হয়েছে। Drive-এ অটো ব্যাকআপ চালু থাকল।': 'Backup restored. Automatic Drive backup remains on.',
   'ব্যাকআপ ফোনে সেভ হয়েছে: {0}': 'Backup saved to phone: {0}',

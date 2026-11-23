@@ -373,8 +373,9 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
   try {
     AppData restored;
     Map<String, Uint8List> files;
+    Map<String, String>? settings;
     try {
-      (restored, files) = await brain.openDriveBackup(f);
+      (restored, files, settings) = await brain.openDriveBackup(f);
     } on WrongKey {
       // Locked with the member's own extra password too, or made before backups were
       // locked with the account's key (its old password opens it once).
@@ -383,7 +384,7 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
       final pw = await askBackupPassword(context, create: false);
       if (pw == null || !context.mounted) return;
       setBusy(true);
-      (restored, files) = await brain.openDriveBackup(f, password: pw);
+      (restored, files, settings) = await brain.openDriveBackup(f, password: pw);
     }
     if (!context.mounted) return;
     if (!_GoogleBackupPanelState.looksEmpty(brain)) {
@@ -391,7 +392,7 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
         context,
         title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
         text: trf(
-            'ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)।',
+                'ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)।',
             [
               bnDigits(restored.vault.length),
               bnDigits(restored.contacts.length),
@@ -400,13 +401,14 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
               bnDigits(restored.notes.length),
               bnDigits(restored.reminders.length),
               bnDigits(restored.tasks.length)
-            ]),
+            ]) +
+            _settingsLine(settings),
         yes: tr('ফিরিয়ে আনুন'),
         danger: true,
       );
       if (!ok) return;
     }
-    await brain.replaceAll(restored, files: files);
+    await brain.replaceAll(restored, files: files, settings: settings);
     await brain.continueDriveBackup();
     if (context.mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে।'));
   } on WrongKey {
@@ -424,6 +426,11 @@ Future<void> restoreFromDrive(BuildContext context, {bool fresh = false, void Fu
   }
 }
 
+/// Under the counts: the settings and profile come back too (backups made
+/// before they were carried say nothing).
+String _settingsLine(Map<String, String>? settings) =>
+    settings == null ? '' : '\n\n${tr('থিম, ভাষা, প্রোফাইল ও সব সেটিংসও আগের মতো ফিরে আসবে। অ্যাপের লক (পিন) এই ফোনেরটাই থাকবে।')}';
+
 /// A backup kept on the phone ("ফোনে সেভ", a .dbrain file) brought back:
 /// from আরও › ব্যাকআপ, or right after a new install (owner, 28 Oct).
 Future<void> restoreFromPhoneFile(BuildContext context, {bool fresh = false, void Function(bool)? busy}) async {
@@ -436,7 +443,7 @@ Future<void> restoreFromPhoneFile(BuildContext context, {bool fresh = false, voi
   // account's key: tried first, so no password is asked (owner, 17 Nov).
   final keys = brain.services.lock.keys;
   final accountKey = (await keys.read('drive_key_server')) == 'true' ? (await keys.read('drive_pw') ?? '') : '';
-  (AppData, Map<String, Uint8List>)? opened;
+  OpenedBackup? opened;
   if (accountKey.isNotEmpty) {
     try {
       opened = await Backup.restore(bytes, accountKey);
@@ -447,17 +454,18 @@ Future<void> restoreFromPhoneFile(BuildContext context, {bool fresh = false, voi
   if (pass == null || !context.mounted) return;
   setBusy(true);
   try {
-    final (restored, files) = opened ?? await Backup.restore(bytes, pass);
+    final (restored, files, settings) = opened ?? await Backup.restore(bytes, pass);
     if (!context.mounted) return;
     final ok = await confirmDialog(
       context,
       title: tr('ব্যাকআপ ফিরিয়ে আনবেন?'),
-      text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ, {7}টি ছবি/ফাইল।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)। কিছু ব্যর্থ হলে এখনকার তথ্য যেমন আছে থাকবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length), bnDigits(files.length)]),
+      text: trf('ব্যাকআপে আছে: {0}টি পাসওয়ার্ড, {1} জন যোগাযোগ, {2}টি ধার-দেনা, {3}টি আয়-ব্যয়, {4}টি নোট, {5}টি রিমাইন্ডার, {6}টি কাজ, {7}টি ছবি/ফাইল।\n\nএখনকার সব তথ্য এর বদলে যাবে (মেশানো হবে না)। কিছু ব্যর্থ হলে এখনকার তথ্য যেমন আছে থাকবে।', [bnDigits(restored.vault.length), bnDigits(restored.contacts.length), bnDigits(restored.ledger.length), bnDigits(restored.cash.length), bnDigits(restored.notes.length), bnDigits(restored.reminders.length), bnDigits(restored.tasks.length), bnDigits(files.length)]) +
+          _settingsLine(settings),
       yes: tr('ফিরিয়ে আনুন'),
       danger: !fresh,
     );
     if (!ok) return;
-    await brain.replaceAll(restored, files: files);
+    await brain.replaceAll(restored, files: files, settings: settings);
     if (context.mounted) toast(context, tr('ব্যাকআপ ফিরিয়ে আনা হয়েছে'));
   } on NotABackup {
     if (context.mounted) toast(context, tr('এটা My Assistant-এর ব্যাকআপ ফাইল নয়, অথবা ফাইলটি নষ্ট। এখনকার তথ্যে কোনো পরিবর্তন হয়নি।'));
