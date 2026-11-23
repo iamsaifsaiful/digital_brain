@@ -7,16 +7,14 @@ import '../ui/widgets.dart';
 import 'settings_parts.dart' show pickAccentColor;
 
 /// আরও › থিম ও ভাষা (owner, 22 Nov: "চেহারা ও ভাষা" renamed, and the insides
-/// redone: "একদম ভাল লাগে না"). Two designs to choose from:
-/// 1 = picture tiles with a live sample on top, 2 = a short list, each row
-/// opening its own sheet.
-int lookDesign = 1;
+/// redone: "একদম ভাল লাগে না"). Picture tiles with a live sample on top
+/// (the owner's pick of two, 23 Nov).
 
 class LookSettings extends StatelessWidget {
   const LookSettings({super.key});
 
   @override
-  Widget build(BuildContext context) => lookDesign == 2 ? const _LookList() : const _LookTiles();
+  Widget build(BuildContext context) => const _LookTiles();
 }
 
 String lookName(Look l) => switch (l) {
@@ -184,7 +182,8 @@ class _AccentDots extends StatelessWidget {
             ),
           ),
         );
-    return Wrap(spacing: 4, runSpacing: 4, children: [
+    // Spread edge to edge, like the dark colours below.
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       for (final a in accents) dot(key: Key('accent-${a.key}'), on: brain.accentKey == a.key, color: a.main, label: isEn ? a.nameEn : a.name, onTap: () => brain.setAccent(a.key)),
       dot(
         key: const Key('accent-custom'),
@@ -206,9 +205,9 @@ class _DarkSets extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
-    return Wrap(spacing: 8, runSpacing: 8, children: [
-      for (final d in darkSets)
-        Semantics(
+    // Owner, 23 Nov: three to a row, edge to edge (no gap on the right).
+    const perRow = 3;
+    Widget card(DarkSet d) => Semantics(
           selected: brain.darkKey == d.key,
           button: true,
           label: isEn ? d.nameEn : d.name,
@@ -217,8 +216,7 @@ class _DarkSets extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             onTap: () => brain.setDarkSet(d.key),
             child: Container(
-              width: 84,
-              padding: const EdgeInsets.fromLTRB(7, 7, 7, 6),
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
               decoration: BoxDecoration(
                 color: d.ground,
                 borderRadius: BorderRadius.circular(12),
@@ -230,11 +228,21 @@ class _DarkSets extends StatelessWidget {
                   if (brain.darkKey == d.key) ...[const SizedBox(width: 4), Icon(Icons.check_circle_rounded, size: 14, color: C.green)],
                 ]),
                 const SizedBox(height: 5),
-                Text(isEn ? d.nameEn : d.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: d.muted2, height: 1.2)),
+                Text(isEn ? d.nameEn : d.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: d.muted2, height: 1.2)),
               ]),
             ),
           ),
-        ),
+        );
+    return Column(children: [
+      for (var r = 0; r < darkSets.length; r += perRow) ...[
+        if (r > 0) const SizedBox(height: 8),
+        Row(children: [
+          for (var i = r; i < r + perRow; i++) ...[
+            if (i > r) const SizedBox(width: 8),
+            Expanded(child: i < darkSets.length ? card(darkSets[i]) : const SizedBox.shrink()),
+          ],
+        ]),
+      ],
     ]);
   }
 }
@@ -367,135 +375,4 @@ class _LookTiles extends StatelessWidget {
       ),
     ]);
   }
-}
-
-// ── Design 2: a short list, each row opening a sheet ──
-
-class _LookList extends StatelessWidget {
-  const _LookList();
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final accent = accentFor(brain.accentKey);
-    final night = darkSets.firstWhere((d) => d.key == brain.darkKey, orElse: () => darkSets.first);
-    Widget icon(IconData i, Color fg, Color bg) => Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(11)),
-          child: Icon(i, color: fg, size: 20),
-        );
-    Widget value(String text, {Widget? lead}) => Row(mainAxisSize: MainAxisSize.min, children: [
-          if (lead != null) ...[lead, const SizedBox(width: 6)],
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 130),
-            child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13.5, color: C.muted)),
-          ),
-          const SizedBox(width: 2),
-          Icon(Icons.chevron_right_rounded, color: C.muted),
-        ]);
-    Widget dot(Color c) => Container(width: 16, height: 16, decoration: BoxDecoration(color: c, shape: BoxShape.circle, border: Border.all(color: C.line)));
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const _Sample(),
-      const SizedBox(height: 14),
-      Panel(
-        child: Rows(children: [
-          ListRow(
-            key: const Key('look-row-lang'),
-            leading: icon(Icons.translate_rounded, C.blue, C.blueTint),
-            title: tr('ভাষা') + (isEn ? '' : ' · Language'),
-            trailing: value(brain.english ? 'English' : 'বাংলা'),
-            onTap: () => _pick<bool>(context, tr('ভাষা'), [(false, 'বাংলা', 'অ'), (true, 'English', 'A')], brain.english, brain.setEnglish),
-          ),
-          ListRow(
-            key: const Key('look-row-theme'),
-            leading: icon(Icons.contrast_rounded, C.purple, C.purpleTint),
-            title: tr('থিম'),
-            trailing: value(lookName(brain.look)),
-            onTap: () => _themeSheet(context),
-          ),
-          ListRow(
-            key: const Key('look-row-accent'),
-            leading: icon(Icons.palette_outlined, C.green, C.greenTint),
-            title: tr('মূল রঙ'),
-            trailing: value(isEn ? accent.nameEn : accent.name, lead: dot(accent.main)),
-            onTap: () => _sheet(context, tr('মূল রঙ'), (_) => const _AccentDots()),
-          ),
-          if (brain.look != Look.light)
-            ListRow(
-              key: const Key('look-row-dark'),
-              leading: icon(Icons.dark_mode_outlined, C.ochre, C.ochreTint),
-              title: tr('অন্ধকারের রঙ'),
-              trailing: value(isEn ? night.nameEn : night.name, lead: dot(night.ground)),
-              onTap: () => _sheet(context, tr('অন্ধকারের রঙ'), (_) => const _DarkSets()),
-            ),
-          ListRow(
-            key: const Key('look-row-size'),
-            leading: icon(Icons.format_size_rounded, C.teal, C.tealTint),
-            title: tr('লেখার আকার'),
-            trailing: value(sizeName(brain.letterSize)),
-            onTap: () => _pick<double>(context, tr('লেখার আকার'), [for (final s in _sizes) (s, sizeName(s), 'অ')], brain.letterSize, brain.setLetterSize, grow: true),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 12),
-      Panel(padding: const EdgeInsets.fromLTRB(14, 10, 8, 10), child: _easyRow(brain)),
-    ]);
-  }
-
-  static Future<void> _sheet(BuildContext context, String title, WidgetBuilder child) => showAppSheet<void>(
-        context: context,
-        showDragHandle: true,
-        builder: (ctx) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(title, style: display(20, weight: 700)),
-              const SizedBox(height: 14),
-              ListenableBuilder(listenable: BrainScope.read(context), builder: (c, _) => child(c)),
-            ]),
-          ),
-        ),
-      );
-
-  static Future<void> _pick<T>(BuildContext context, String title, List<(T, String, String)> items, T value, Future<void> Function(T) set, {bool grow = false}) => _sheet(context, title, (ctx) {
-        return Panel(
-          child: Rows(children: [
-            for (final (i, (v, label, glyph)) in items.indexed)
-              ListRow(
-                key: Key('look-pick-$i'),
-                leading: SizedBox(
-                  width: 34,
-                  child: Center(child: Text(glyph, textScaler: TextScaler.noScaling, style: body(grow ? 16 + i * 5.0 : 17, weight: FontWeight.w700, color: C.muted2))),
-                ),
-                title: label,
-                trailing: v == value ? Icon(Icons.check_circle_rounded, color: C.green) : Icon(Icons.circle_outlined, color: C.line),
-                onTap: () {
-                  set(v);
-                  Navigator.pop(ctx);
-                },
-              ),
-          ]),
-        );
-      });
-
-  static Future<void> _themeSheet(BuildContext context) => _sheet(context, tr('থিম'), (ctx) {
-        final brain = BrainScope.of(ctx);
-        return Panel(
-          child: Rows(children: [
-            for (final l in Look.values)
-              ListRow(
-                key: Key('look-pick-${l.name}'),
-                leading: SizedBox(width: 56, child: _ThemeSwatch(l)),
-                title: lookName(l),
-                subtitle: lookNote(l),
-                trailing: brain.look == l ? Icon(Icons.check_circle_rounded, color: C.green) : Icon(Icons.circle_outlined, color: C.line),
-                onTap: () {
-                  brain.setLook(l);
-                  Navigator.pop(ctx);
-                },
-              ),
-          ]),
-        );
-      });
 }

@@ -19,7 +19,7 @@ import 'package:digital_brain/screens/new_item_screen.dart';
 import 'package:digital_brain/services/compass.dart';
 import 'package:digital_brain/state/brain.dart' show BrainHealth;
 import 'package:digital_brain/state/family_state.dart';
-import 'package:digital_brain/ui/theme.dart' show Look;
+import 'package:digital_brain/ui/theme.dart' show Look, darkSets;
 import 'package:digital_brain/ui/widgets.dart' show TopBar;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
@@ -44,7 +44,6 @@ void main() {
   });
   tearDown(() {
     medicalOffForTests = false;
-    lookDesign = 1;
   });
 
   Future<dynamic> openMuslim(WidgetTester t, {IbadahTab tab = IbadahTab.prayer, bool dark = false}) async {
@@ -118,10 +117,9 @@ void main() {
     await _shot(t, '6-medicine');
   });
 
-  for (final design in [1, 2]) {
+  for (final design in [1]) {
     for (final dark in [false, true]) {
       testWidgets('থিম ও ভাষা: design $design${dark ? ', dark' : ''}', (t) async {
-        lookDesign = design;
         final rig = await start(t);
         await rig.brain.setLook(dark ? Look.dark : Look.sun);
         await settle(t);
@@ -136,6 +134,13 @@ void main() {
                 )));
         await settle(t);
         expect(find.byKey(const Key('look-sample')), findsOneWidget);
+        // Six dark colours, three to a row, both rows edge to edge (owner, 23 Nov).
+        if (!dark) {
+          final a = t.getRect(find.byKey(const Key('dark-night'))), c = t.getRect(find.byKey(Key('dark-${darkSets[2].key}')));
+          final f = t.getRect(find.byKey(Key('dark-${darkSets[5].key}')));
+          expect(f.right, moreOrLessEquals(c.right, epsilon: 0.5));
+          expect(a.width, moreOrLessEquals(c.width, epsilon: 0.5));
+        }
         await _shot(t, '7-look-$design${dark ? '-dark' : ''}');
         if (design == 1 && !dark) {
           await t.drag(find.byType(ListView).last, const Offset(0, -700));
@@ -143,14 +148,6 @@ void main() {
           await _shot(t, '7-look-1-below');
           await t.drag(find.byType(ListView).last, const Offset(0, 700));
           await settle(t);
-        }
-        if (design == 2 && !dark) {
-          await t.tap(find.byKey(const Key('look-row-theme')));
-          await settle(t);
-          await _shot(t, '8-look-2-theme-sheet');
-          await t.tap(find.byKey(const Key('look-pick-dark')));
-          await settle(t);
-          expect(rig.brain.look, Look.dark);
         }
         if (design == 1 && !dark) {
           await t.tap(find.byKey(const Key('look-lang-en')));
