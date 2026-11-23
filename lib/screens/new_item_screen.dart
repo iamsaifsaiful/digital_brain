@@ -786,12 +786,12 @@ class _NewItemScreenState extends State<NewItemScreen> {
           tilePadding: EdgeInsets.zero,
           childrenPadding: EdgeInsets.zero,
           expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-          title: Text(tr('আরও: প্রতিবার কয়টা'), style: body(14.5, weight: FontWeight.w600, color: C.muted)),
+          title: Text(tr('আরও: প্রতিবার কয়টা'), style: body(14, weight: FontWeight.w600, color: C.muted)),
           children: [
             FieldLabel(trf('প্রতিবার কয়টা: {0}', [bnDigits(_medDose)])),
             Row(children: [
               IconButton(onPressed: _medDose > 1 ? () => setState(() => _medDose--) : null, icon: const Icon(Icons.remove_circle_outline_rounded)),
-              Text(bnDigits(_medDose), style: display(20)),
+              Text(bnDigits(_medDose), style: body(17, weight: FontWeight.w600)),
               IconButton(onPressed: () => setState(() => _medDose++), icon: const Icon(Icons.add_circle_outline_rounded)),
             ]),
           ],

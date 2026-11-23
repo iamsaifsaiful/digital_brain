@@ -1,5 +1,6 @@
 import 'notice_screen.dart';
 import 'family_screen.dart' show FamilyScreen;
+import 'look_settings.dart' show LookSettings;
 import 'place_picker.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -349,7 +350,7 @@ class _MoreScreenState extends State<MoreScreen> {
     // Each settings page's insides; built afresh whenever the page redraws.
     _parts = {
       'look': () => [
-      const LookSection(),
+      const LookSettings(),
       const SizedBox(height: 12),
       Panel(
         child: Rows(children: [
@@ -553,7 +554,7 @@ class _MoreScreenState extends State<MoreScreen> {
         SectionTitle(tr('সেটিংস')),
         Panel(
           child: Rows(children: [
-            setRow(const Key('more-set-look'), Icons.palette_outlined, C.green, C.greenTint, tr('চেহারা ও ভাষা'), tr('আলো-আঁধার, রং, ভাষা, লেখার মাপ'), 'look'),
+            setRow(const Key('more-set-look'), Icons.palette_outlined, C.green, C.greenTint, tr('থিম ও ভাষা'), tr('আলো-আঁধার, রং, ভাষা, লেখার মাপ'), 'look'),
             setRow(const Key('more-set-remind'), Icons.notifications_none_rounded, C.ochre, C.ochreTint, tr('রিমাইন্ডার ও নোটিফিকেশন'), tr('ঠিকমতো বাজবে কিনা, রিংটোন'), 'remind'),
             setRow(const Key('more-set-assistant'), Icons.mic_none_rounded, C.blue, C.blueTint, tr('সহকারী ও কণ্ঠ'),
                 brain.speakOn ? tr('কণ্ঠে উত্তর চালু · কণ্ঠ বেছে নিন') : tr('কণ্ঠে উত্তর বন্ধ · কণ্ঠ বেছে নিন'), 'assistant'),

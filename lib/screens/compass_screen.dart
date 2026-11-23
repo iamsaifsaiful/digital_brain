@@ -25,7 +25,13 @@ class CompassScreen extends StatelessWidget {
 /// কিবলা: north, south, east, west from the phone's sensor, and the qibla
 /// from where the phone is (else the profile's place).
 class QiblaView extends StatefulWidget {
-  const QiblaView({super.key});
+  const QiblaView({super.key, this.dial = 320, this.accent, this.accentTint});
+
+  /// The marked colour (মুসলিম টাইম gives its picture's gold); the app's accent by default.
+  final Color? accent, accentTint;
+
+  /// The widest the dial grows (owner, 22 Nov: a little smaller in মুসলিম টাইম).
+  final double dial;
   @override
   State<QiblaView> createState() => _QiblaViewState();
 }
@@ -87,6 +93,7 @@ class _QiblaViewState extends State<QiblaView> {
 
   @override
   Widget build(BuildContext context) {
+    final green = widget.accent ?? C.green, tint = widget.accentTint ?? C.greenTint;
     final brain = BrainScope.of(context);
     final place = placeNamed(brain.district);
     final here = _here;
@@ -106,12 +113,12 @@ class _QiblaViewState extends State<QiblaView> {
                 )
               else ...[
                 Center(
-                  child: Text(h == null ? '—' : degreesText(h.degrees), key: const Key('compass-degrees'), style: display(44, weight: 700)),
+                  child: Text(h == null ? '—' : degreesText(h.degrees), key: const Key('compass-degrees'), style: display(widget.dial < 300 ? 36 : 44, weight: 700)),
                 ),
-                Center(child: Text(h == null ? tr('সেন্সর চালু হচ্ছে…') : directionName(h.degrees), style: body(18, color: C.muted, weight: FontWeight.w500))),
+                Center(child: Text(h == null ? tr('সেন্সর চালু হচ্ছে…') : directionName(h.degrees), style: body(widget.dial < 300 ? 16 : 18, color: C.muted, weight: FontWeight.w500))),
                 const SizedBox(height: 14),
                 LayoutBuilder(builder: (context, c) {
-                  final size = math.min(c.maxWidth, 320.0);
+                  final size = math.min(c.maxWidth, widget.dial);
                   return Center(
                     child: SizedBox(
                       width: size,
@@ -126,12 +133,12 @@ class _QiblaViewState extends State<QiblaView> {
                             builder: (_, t, child) => Transform.rotate(angle: t * math.pi / 180, child: child),
                             child: CustomPaint(
                               size: Size.square(size),
-                              painter: _Dial(qibla: qibla, ink: C.ink, muted: C.muted, line: C.line, face: C.surface, red: C.red, green: C.green, lit: facing),
+                              painter: _Dial(qibla: qibla, ink: C.ink, muted: C.muted, line: C.line, face: C.surface, red: C.red, green: green, lit: facing),
                             ),
                           ),
                         ),
                         // The phone's top: where it points.
-                        Icon(Icons.arrow_drop_down_rounded, size: 40, color: facing ? C.green : C.ink),
+                        Icon(Icons.arrow_drop_down_rounded, size: 40, color: facing ? green : C.ink),
                       ]),
                     ),
                   );
@@ -143,8 +150,8 @@ class _QiblaViewState extends State<QiblaView> {
                     Container(
                       width: 44,
                       height: 44,
-                      decoration: BoxDecoration(color: facing ? C.green : C.greenTint, borderRadius: BorderRadius.circular(12)),
-                      child: Icon(Icons.mosque_outlined, color: facing ? C.onAccent : C.green),
+                      decoration: BoxDecoration(color: facing ? green : tint, borderRadius: BorderRadius.circular(12)),
+                      child: Icon(Icons.mosque_outlined, color: facing ? C.onAccent : green),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -160,7 +167,7 @@ class _QiblaViewState extends State<QiblaView> {
                                       ? trf('ডানে আরও {0} ঘুরুন', [degreesText(off.abs())])
                                       : trf('বাঁয়ে আরও {0} ঘুরুন', [degreesText(off.abs())]),
                           key: const Key('compass-qibla'),
-                          style: body(13.5, color: facing ? C.green : C.muted),
+                          style: body(13.5, color: facing ? green : C.muted),
                         ),
                       ]),
                     ),

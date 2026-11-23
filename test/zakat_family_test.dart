@@ -219,7 +219,8 @@ void main() {
     Navigator.of(t.element(find.byType(Scaffold).first)).push(MaterialPageRoute(builder: (_) => const FamilyScreen()));
     await settle(t);
     expect(find.textContaining('Google দিয়ে লগইন করুন'), findsOneWidget);
-    expect(familyPerms, containsAll(['task', 'reminder', 'medicine', 'note', 'location']));
+    // Live location is off for now (owner, 22 Nov).
+    expect(familyPerms, ['task', 'reminder', 'medicine', 'note']);
     expect(heirPartsDefault, isNot(contains('vault')));
     expect(heirPartsDefault, isNot(contains('health')));
   });

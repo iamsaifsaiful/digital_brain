@@ -39,7 +39,7 @@ const _short = <ProFeature, (String, IconData)>{
   ProFeature.projects: ('আলাদা হিসাব', Icons.folder_special_outlined),
   ProFeature.vault: ('যত খুশি পাসওয়ার্ড', Icons.lock_outline_rounded),
   ProFeature.smartNudges: ('নিজে থেকে মনে করানো', Icons.tips_and_updates_outlined),
-  ProFeature.family: ('উত্তরাধিকার, পুরো অ্যাক্সেস, লোকেশন', Icons.family_restroom_rounded),
+  ProFeature.family: ('উত্তরাধিকার, পুরো অ্যাক্সেস', Icons.family_restroom_rounded),
   ProFeature.will: ('ওসিয়তনামা', Icons.history_edu_outlined),
   ProFeature.familyHealth: ('পরিবারের স্বাস্থ্য', Icons.favorite_border_rounded),
 };

@@ -313,8 +313,11 @@ void passSwipe(BuildContext context, int step) {
 
 /// Grey pill with 2–4 choices; the chosen one is white (iOS-style tabs).
 class SegTabs<T> extends StatelessWidget {
-  const SegTabs({super.key, required this.items, required this.value, required this.onChanged, this.pages});
+  const SegTabs({super.key, required this.items, required this.value, required this.onChanged, this.pages, this.track, this.edge});
   final List<(T, String)> items;
+
+  /// The pill's colour and the thumb's border (a page with its own tone).
+  final Color? track, edge;
   final T value;
   final ValueChanged<T> onChanged;
 
@@ -344,12 +347,12 @@ class SegTabs<T> extends StatelessWidget {
       widthFactor: 1 / items.length,
       heightFactor: 1,
       child: DecoratedBox(
-        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), border: Border.all(color: C.border)),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(9), border: Border.all(color: edge ?? C.border)),
       ),
     );
     return Container(
       padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(color: C.surface2, borderRadius: BorderRadius.circular(11)),
+      decoration: BoxDecoration(color: track ?? C.surface2, borderRadius: BorderRadius.circular(11)),
       child: SizedBox(
         height: 38,
         child: Stack(children: [
@@ -489,7 +492,12 @@ class TabPages<T> extends StatefulWidget {
     required this.page,
     this.padding = const EdgeInsets.fromLTRB(20, 16, 20, 28),
     this.tabsPadding = const EdgeInsets.fromLTRB(20, 4, 20, 8),
+    this.track,
+    this.edge,
   });
+
+  /// Passed to the [SegTabs].
+  final Color? track, edge;
   final List<(T, String)> items;
   final T value;
   final ValueChanged<T> onChanged;
@@ -547,6 +555,8 @@ class _TabPagesState<T> extends State<TabPages<T>> {
         items: widget.items,
         value: widget.value,
         pages: _pages,
+        track: widget.track,
+        edge: widget.edge,
         onChanged: (v) {
           widget.onChanged(v);
           _pages.animateToPage(_index(v), duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);

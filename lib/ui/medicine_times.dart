@@ -37,7 +37,7 @@ class MedicineTimesPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final perDay = times.length;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text(tr('দিনে কয়বার'), style: body(13.5, weight: FontWeight.w600, color: C.muted2)),
+      Text(tr('দিনে কয়বার'), style: body(14, weight: FontWeight.w600, color: C.muted2)),
       const SizedBox(height: 8),
       Row(children: [
         for (final n in medicinePresets.keys) ...[
@@ -54,7 +54,7 @@ class MedicineTimesPicker extends StatelessWidget {
       ]),
       const SizedBox(height: 16),
       Row(children: [
-        Expanded(child: Text(tr('কখন খাবেন'), style: body(13.5, weight: FontWeight.w600, color: C.muted2))),
+        Expanded(child: Text(tr('কখন খাবেন'), style: body(14, weight: FontWeight.w600, color: C.muted2))),
         Text(tr('বদলাতে সময়ে চাপুন'), style: body(12, color: C.muted)),
       ]),
       const SizedBox(height: 8),
@@ -73,11 +73,11 @@ class MedicineTimesPicker extends StatelessWidget {
               if (m != null && !times.contains(m)) onChanged([...times, m]..sort());
             },
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
               child: Row(children: [
                 Icon(Icons.add_rounded, size: 20, color: C.green),
                 const SizedBox(width: 10),
-                Text(tr('আরেকটা সময়'), style: body(14.5, weight: FontWeight.w600, color: C.green)),
+                Text(tr('আরেকটা সময়'), style: body(14, weight: FontWeight.w600, color: C.green)),
               ]),
             ),
           ),
@@ -103,11 +103,11 @@ class _TimeRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
           child: Row(children: [
-            Container(width: 34, height: 34, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(10)), child: Icon(icon, size: 19, color: C.green)),
+            Container(width: 30, height: 30, decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(9)), child: Icon(icon, size: 17, color: C.green)),
             const SizedBox(width: 12),
-            Expanded(child: Text(minutesText(minutes), style: body(16, weight: FontWeight.w700))),
+            Expanded(child: Text(minutesText(minutes), style: body(15, weight: FontWeight.w600))),
             Icon(Icons.edit_outlined, size: 19, color: C.muted),
           ]),
         ),
@@ -167,10 +167,10 @@ class _Pill extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             onTap: onTap,
             child: Container(
-              height: 48,
+              height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: selected ? C.green : C.line)),
-              child: Text(label, style: body(15, weight: FontWeight.w600, color: selected ? C.onAccent : C.ink)),
+              child: Text(label, style: body(14, weight: FontWeight.w600, color: selected ? C.onAccent : C.ink)),
             ),
           ),
         ),
@@ -195,12 +195,12 @@ class _TimeChip extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             onTap: onTap,
             child: Container(
-              constraints: const BoxConstraints(minHeight: 44),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              constraints: const BoxConstraints(minHeight: 38),
+              padding: const EdgeInsets.symmetric(horizontal: 13),
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(999), border: Border.all(color: selected ? C.green : C.line)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (icon != null) ...[Icon(icon, size: 18, color: selected ? C.onAccent : C.muted2), const SizedBox(width: 4)],
-                Text(label, style: body(14.5, weight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? C.onAccent : C.ink)),
+                if (icon != null) ...[Icon(icon, size: 16, color: selected ? C.onAccent : C.muted2), const SizedBox(width: 4)],
+                Text(label, style: body(14, weight: selected ? FontWeight.w600 : FontWeight.w400, color: selected ? C.onAccent : C.ink)),
               ]),
             ),
           ),
