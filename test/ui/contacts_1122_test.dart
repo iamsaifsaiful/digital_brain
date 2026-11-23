@@ -1,9 +1,7 @@
-// Owner, 22 Nov: "যোগাযোগ মেনুর ইউআই সুন্দর করতে হবে". Three looks for
-// the owner to pick from (CallsScreen.look 1 ফোনবুক, 2 কার্ড, 3 গ্রিড), and
-// a tap on a person opens their card. With SHOTS=1 --update-goldens the
+// Owner, 22 Nov: "যোগাযোগ মেনুর ইউআই সুন্দর করতে হবে". The owner picked
+// the ফোনবুক look (23 Nov) of three; a tap on a person opens their card. With SHOTS=1 --update-goldens the
 // screens go to test/ui/shots/contacts1122/.
 import 'package:digital_brain/models/models.dart';
-import 'package:digital_brain/screens/calls_screen.dart';
 import 'package:digital_brain/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -25,11 +23,10 @@ final people = [
 ];
 
 void main() {
-  for (final look in [1, 2, 3]) {
+  for (final look in [1]) {
     for (final mode in [Look.light, Look.dark]) {
       testWidgets('22 Nov contacts, look $look ${mode.name}', (t) async {
         if (shots) await icons();
-        CallsScreen.look = look;
         final rig = await start(t);
         t.view.physicalSize = const Size(390 * 3, 844 * 3);
         t.view.devicePixelRatio = 3;
@@ -47,7 +44,7 @@ void main() {
         await settle(t);
         expect(find.text('করিম মিস্ত্রি'), findsOneWidget);
         if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/contacts1122/$look-${mode.name}.png'));
-        if (look == 1 && mode == Look.light || look == 2 && mode == Look.dark) {
+        {
           await t.tap(find.text('ডা. নাসরিন'));
           await settle(t);
           expect(find.byKey(const Key('contact-card')), findsOneWidget);

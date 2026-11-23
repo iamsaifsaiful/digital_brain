@@ -19,10 +19,6 @@ import '../ui/note_parts.dart' show openMap;
 class CallsScreen extends StatefulWidget {
   const CallsScreen({super.key});
 
-  /// Which of the three new looks (owner picks one, 22 Nov): 1 ফোনবুক,
-  /// 2 কার্ড, 3 গ্রিড.
-  static int look = 1;
-
   @override
   State<CallsScreen> createState() => _CallsScreenState();
 }
@@ -78,21 +74,19 @@ class _CallsScreenState extends State<CallsScreen> {
 
   void _addNew() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NewItemScreen(category: ItemCategory.contact)));
 
-  Widget _search({bool onDark = false}) => TextField(
+  Widget _search() => TextField(
         key: const Key('contacts-search'),
         textCapitalization: TextCapitalization.sentences,
         onChanged: (v) => setState(() => _q = v),
-        style: onDark ? body(15, color: Colors.white) : null,
         decoration: InputDecoration(
-          prefixIcon: Icon(Icons.search_rounded, color: onDark ? Colors.white70 : C.muted),
+          prefixIcon: Icon(Icons.search_rounded, color: C.muted),
           hintText: tr('নাম খুঁজুন, বা নম্বর লিখুন'),
-          hintStyle: onDark ? body(14.5, color: Colors.white60) : null,
           filled: true,
-          fillColor: onDark ? Colors.white.withValues(alpha: 0.12) : C.surface,
+          fillColor: C.surface,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide(color: onDark ? Colors.transparent : C.border)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide(color: onDark ? Colors.transparent : C.border)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide(color: onDark ? Colors.white54 : C.green)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide(color: C.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide(color: C.border)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide(color: C.green)),
         ),
       );
 
@@ -118,16 +112,16 @@ class _CallsScreenState extends State<CallsScreen> {
       );
 
   /// The small "bring from phone book" line (not a big button any more).
-  Widget _importLine({bool onDark = false}) => InkWell(
+  Widget _importLine() => InkWell(
         key: const Key('contacts-import'),
         borderRadius: BorderRadius.circular(20),
         onTap: () => importFromPhone(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.download_rounded, size: 17, color: onDark ? const Color(0xFF79DCF6) : C.green),
+            Icon(Icons.download_rounded, size: 17, color: C.green),
             const SizedBox(width: 5),
-            Text(tr('ফোনবুক থেকে আনুন'), style: body(13, weight: FontWeight.w600, color: onDark ? const Color(0xFF79DCF6) : C.green)),
+            Text(tr('ফোনবুক থেকে আনুন'), style: body(13, weight: FontWeight.w600, color: C.green)),
           ]),
         ),
       );
@@ -140,26 +134,21 @@ class _CallsScreenState extends State<CallsScreen> {
     final all = [...brain.data.contacts]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     final list = all.where((c) => q.isEmpty || normalize('${c.name} ${c.phone} ${asciiDigits(c.phone)} ${c.note}').contains(q)).toList();
     return Scaffold(
-      body: switch (CallsScreen.look) {
-        2 => _cards(all, list, typed),
-        3 => _grid(all, list, typed),
-        _ => _book(all, list, typed),
-      },
-      floatingActionButton: CallsScreen.look == 2
-          ? null
-          : FloatingActionButton(
-              key: const Key('contacts-add'),
-              tooltip: tr('নতুন নম্বর রাখুন'),
-              backgroundColor: C.green,
-              foregroundColor: C.onAccent,
-              shape: const CircleBorder(),
-              onPressed: _addNew,
-              child: const Icon(Icons.person_add_alt_1_rounded),
-            ),
+      body: _book(all, list, typed),
+      floatingActionButton: FloatingActionButton(
+        key: const Key('contacts-add'),
+        tooltip: tr('নতুন নম্বর রাখুন'),
+        backgroundColor: C.green,
+        foregroundColor: C.onAccent,
+        shape: const CircleBorder(),
+        onPressed: _addNew,
+        child: const Icon(Icons.person_add_alt_1_rounded),
+      ),
     );
   }
 
-  // ───── 1 ফোনবুক: big title, round search, people under their letter ─────
+  // ফোনবুক look (owner's pick, 23 Nov): big title, round search, people
+  // under their letter, one call button; the rest is on their card.
 
   Widget _book(List<Contact> all, List<Contact> list, String? typed) {
     final items = <Widget>[];
@@ -235,194 +224,6 @@ class _CallsScreenState extends State<CallsScreen> {
               ]),
             ),
             if (c.phone.isNotEmpty) CircleAction(icon: Icons.call_rounded, tooltip: tr('ফোন দিন'), size: 40, onPressed: () => _reach(context, Via.call, c.phone)),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  // ───── 2 কার্ড: night-blue head with the search, a card per person ─────
-
-  Widget _cards(List<Contact> all, List<Contact> list, String? typed) {
-    const head = Color(0xFF121A33);
-    return Column(children: [
-      Container(
-        color: head,
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 16, 18),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.chevron_left_rounded, size: 30, color: Colors.white)),
-                const Spacer(),
-                IconButton(tooltip: tr('মুখে বলুন'), onPressed: () => openVoice(context), icon: const Icon(Icons.mic_none_rounded, color: Color(0xFF79DCF6))),
-                IconButton(
-                    key: const Key('contacts-add'), tooltip: tr('নতুন নম্বর রাখুন'), onPressed: _addNew, icon: const Icon(Icons.person_add_alt_1_outlined, color: Colors.white)),
-              ]),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 0, 0),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(tr('যোগাযোগ'), style: display(27, weight: 700, color: Colors.white, height: 1.2)),
-                      Text(trf('{0} জন · এক ছোঁয়ায় কল, মেসেজ', [bnDigits(all.length)]), style: body(13, color: Colors.white70)),
-                    ]),
-                  ),
-                  _importLine(onDark: true),
-                ]),
-              ),
-              Padding(padding: const EdgeInsets.fromLTRB(12, 14, 0, 0), child: _search(onDark: true)),
-            ]),
-          ),
-        ),
-      ),
-      Expanded(
-        child: ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-          itemCount: list.length + 1,
-          itemBuilder: (_, i) {
-            if (i == 0) {
-              return Column(children: [
-                if (typed != null) _typedRow(typed),
-                if (all.isEmpty) _empty() else if (list.isEmpty && typed == null) Text(tr('কিছু মেলেনি।'), style: body(14, color: C.muted)),
-              ]);
-            }
-            return _card(list[i - 1]);
-          },
-        ),
-      ),
-    ]);
-  }
-
-  Widget _card(Contact c) {
-    final (fg, bg) = personColors(c.name);
-    Widget btn(IconData icon, String label, Color f, Color b, Via via) => Expanded(
-          child: Material(
-            color: b,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => _reach(context, via, c.phone),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Icon(icon, size: 17, color: f),
-                  const SizedBox(width: 6),
-                  Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: f))),
-                ]),
-              ),
-            ),
-          ),
-        );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: C.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: C.border)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => openContactCard(context, c),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 13, 12, 12),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Avatar(name: c.name, fg: fg, bg: bg, size: 46, square: true),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(16, weight: FontWeight.w600)),
-                    if (c.phone.isNotEmpty) Text(showPhone(c.phone), style: body(13, color: C.muted)),
-                  ]),
-                ),
-                if (c.note.trim().isNotEmpty)
-                  Container(
-                    constraints: const BoxConstraints(maxWidth: 120),
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-                    child: Text(c.note.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, weight: FontWeight.w600, color: fg)),
-                  ),
-              ]),
-              if (c.phone.isNotEmpty) ...[
-                const SizedBox(height: 11),
-                Row(children: [
-                  btn(Icons.call_rounded, tr('কল'), C.green, C.greenTint, Via.call),
-                  const SizedBox(width: 7),
-                  btn(Icons.sms_outlined, tr('মেসেজ দিন'), C.blue, C.blueTint, Via.sms),
-                  const SizedBox(width: 7),
-                  btn(Icons.chat_outlined, 'WhatsApp', _wa, C.waTint, Via.whatsapp),
-                ]),
-              ],
-            ]),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ───── 3 গ্রিড: two tiles a row, big face, call and WhatsApp ─────
-
-  Widget _grid(List<Contact> all, List<Contact> list, String? typed) => SafeArea(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          TopBar(title: tr('যোগাযোগ'), trailing: [
-            const PdfButton({ReportPart.contacts}),
-            IconButton(tooltip: tr('মুখে বলুন'), onPressed: () => openVoice(context), icon: Icon(Icons.mic_none_rounded, color: C.green)),
-          ]),
-          Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 4), child: _search()),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 2, 14, 0),
-            child: Row(children: [
-              Expanded(child: Text(trf('{0} জন', [bnDigits(all.length)]), style: body(13.5, weight: FontWeight.w500, color: C.muted))),
-              _importLine(),
-            ]),
-          ),
-          Expanded(
-            child: CustomScrollView(slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                sliver: SliverToBoxAdapter(
-                  child: Column(children: [
-                    if (typed != null) _typedRow(typed),
-                    if (all.isEmpty) _empty() else if (list.isEmpty && typed == null) Text(tr('কিছু মেলেনি।'), style: body(14, color: C.muted)),
-                  ]),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
-                sliver: SliverGrid.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, mainAxisExtent: 172),
-                  itemCount: list.length,
-                  itemBuilder: (_, i) => _tile(list[i]),
-                ),
-              ),
-            ]),
-          ),
-        ]),
-      );
-
-  Widget _tile(Contact c) {
-    final (fg, bg) = personColors(c.name);
-    return Material(
-      color: C.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: C.border)),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => openContactCard(context, c),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
-          child: Column(children: [
-            Avatar(name: c.name, fg: fg, bg: bg, size: 52),
-            const SizedBox(height: 8),
-            Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600)),
-            Text(c.note.trim().isNotEmpty ? c.note.trim() : (c.phone.isEmpty ? ' ' : showPhone(c.phone)),
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: C.muted)),
-            const Spacer(),
-            if (c.phone.isNotEmpty)
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                CircleAction(icon: Icons.call_rounded, tooltip: tr('ফোন দিন'), size: 36, onPressed: () => _reach(context, Via.call, c.phone)),
-                const SizedBox(width: 10),
-                CircleAction(icon: Icons.chat_outlined, tooltip: 'WhatsApp', size: 36, fg: _wa, bg: C.waTint, onPressed: () => _reach(context, Via.whatsapp, c.phone)),
-              ]),
           ]),
         ),
       ),
@@ -535,8 +336,7 @@ Future<void> importFromPhone(BuildContext context) async {
 Future<Contact?> pickContact(BuildContext context) async {
   final brain = BrainScope.read(context);
   if (!brain.data.contacts.any((c) => c.phone.trim().isNotEmpty)) {
-    final ok = await confirmDialog(context,
-        title: tr('ফোনবুক থেকে আনব?'), text: tr('যোগাযোগে এখনো কোনো নম্বর নেই। ফোনের সব নম্বর এক বারে নিয়ে আসি? একই নম্বর দুবার আসবে না।'), yes: tr('আনুন'));
+    final ok = await confirmDialog(context, title: tr('ফোনবুক থেকে আনব?'), text: tr('যোগাযোগে এখনো কোনো নম্বর নেই। ফোনের সব নম্বর এক বারে নিয়ে আসি? একই নম্বর দুবার আসবে না।'), yes: tr('আনুন'));
     if (!ok || !context.mounted) return null;
     await importFromPhone(context);
     if (!context.mounted || !brain.data.contacts.any((c) => c.phone.trim().isNotEmpty)) return null;
@@ -571,7 +371,8 @@ class _ContactPickerState extends State<_ContactPicker> {
       child: Column(children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: TextField(textCapitalization: TextCapitalization.sentences, 
+          child: TextField(
+            textCapitalization: TextCapitalization.sentences,
             autofocus: false,
             onChanged: (v) => setState(() => _q = v),
             decoration: InputDecoration(prefixIcon: Icon(Icons.search_rounded), hintText: tr('নাম বা নম্বর খুঁজুন')),
