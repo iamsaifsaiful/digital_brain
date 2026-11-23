@@ -103,8 +103,9 @@ void main() {
     expect(find.textContaining('এখনো লেখা হয়নি'), findsOneWidget);
     await t.tap(find.byKey(const Key('will-open')));
     await settle(t);
-    await t.tap(find.byKey(const Key('will-sample')));
-    await settle(t);
+    // Owner, 22 Nov: the sample is already written in, ready to edit.
+    expect(find.byKey(const Key('will-ready')), findsOneWidget);
+    expect(find.byKey(const Key('will-sample')), findsNothing);
     await t.tap(find.byKey(const Key('will-save')));
     await settle(t);
     final w = willOf(rig.brain.data)!;

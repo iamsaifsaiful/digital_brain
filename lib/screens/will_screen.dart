@@ -15,7 +15,7 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 
 const willNoteId = 'will';
-const willCategory = 'ওছিয়তনামা';
+const willCategory = willNoteCategory;
 
 Note? willOf(AppData d) => d.notes.where((n) => n.id == willNoteId).firstOrNull;
 
@@ -73,7 +73,10 @@ class _WillScreenState extends State<WillScreen> {
   @override
   void initState() {
     super.initState();
-    _text = TextEditingController(text: willOf(BrainScope.read(context).data)?.body ?? '');
+    // Owner, 22 Nov: not written yet → the sample is already there, to edit.
+    final brain = BrainScope.read(context);
+    final w = willOf(brain.data);
+    _text = TextEditingController(text: w?.body ?? _sample(brain));
   }
 
   @override
@@ -84,6 +87,13 @@ class _WillScreenState extends State<WillScreen> {
 
   String _sample(Brain brain) {
     final name = brain.userName.isEmpty ? tr('[আপনার নাম]') : brain.userName;
+    // A member who chose another religion gets words without the Islamic parts.
+    final r = brain.text('religion');
+    if (r.isNotEmpty && r != 'islam' && r != 'none') {
+      return trf(
+          'আমি, {0}, সুস্থ মস্তিষ্কে, কারো চাপ ছাড়া এই উইল করছি।\n\n১. আমার দেনা: …\n২. আমার পাওনা: …\n৩. সম্পদের যা যাকে দিতে চাই: …\n৪. শেষকৃত্য নিয়ে ইচ্ছা: …\n৫. পরিবারের জন্য কথা: …\n\nবাকি সম্পদ দেশের প্রচলিত উত্তরাধিকার আইন অনুযায়ী ভাগ হবে।',
+          [name]);
+    }
     return trf(
         'বিসমিল্লাহির রাহমানির রাহীম।\n\nআমি, {0}, সুস্থ মস্তিষ্কে, কারো চাপ ছাড়া এই ওসিয়ত করছি।\n\n১. আমার দেনা: …\n২. আমার পাওনা: …\n৩. আমার সম্পদের এক-তৃতীয়াংশের মধ্যে ওসিয়ত: …\n৪. জানাজা ও দাফন: …\n৫. পরিবারের জন্য কথা: …\n\nবাকি সম্পদ ইসলামি উত্তরাধিকার আইন অনুযায়ী ভাগ হবে।',
         [name]);
@@ -122,6 +132,19 @@ class _WillScreenState extends State<WillScreen> {
               const SizedBox(height: 4),
               Text(tr('এই ফোনে তালাবদ্ধ থাকে। পরিবারে উত্তরাধিকারী রাখলে আর “নোট” দেখার অনুমতি দিলে তিনি পরে দেখতে পাবেন। বদলালে নতুন তারিখ দেখাবে।'),
                   style: body(12.5, color: C.muted, height: 1.45)),
+              if (w == null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  key: const Key('will-ready'),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  decoration: BoxDecoration(color: C.ochreTint, borderRadius: BorderRadius.circular(14)),
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Icon(Icons.edit_note_rounded, size: 20, color: C.ochre),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(tr('একটি নমুনা লেখা আছে। “…” জায়গাগুলো নিজের কথায় ভরে দিন, যা দরকার নেই মুছে দিন।'), style: body(13, color: C.muted2, height: 1.45))),
+                  ]),
+                ),
+              ],
               const SizedBox(height: 12),
               TextField(textCapitalization: TextCapitalization.sentences, 
                 key: const Key('will-text'),

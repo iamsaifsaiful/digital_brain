@@ -1852,6 +1852,8 @@ class Brain extends ChangeNotifier {
     'religion',
     // Owner, 22 Nov: money amounts hidden behind the eye in হিসাব and Home.
     'money_hidden',
+    // Owner, 22 Nov: the note categories (পারিবারিক, ব্যবসা…), even empty ones.
+    'note_cats',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';
@@ -3012,6 +3014,50 @@ class Brain extends ChangeNotifier {
     final n = n0.files.isEmpty ? n0 : Note(id: n0.id, title: n0.title, body: n0.body, category: n0.category, updatedAt: n0.updatedAt, files: _withReadText(n0.files));
     _upsert(data.notes, n, (x) => x.id);
     await _save();
+  }
+
+  /// The note categories, in the user's order (owner, 22 Nov): the ones kept
+  /// in 'note_cats' (or the starting set), then any a note uses that are not
+  /// there yet. Empty ones stay until removed. The will is never one.
+  List<String> get noteCats {
+    final kept = prefs.containsKey('note_cats') ? [for (final c in text('note_cats').split('\n')) if (c.trim().isNotEmpty) c.trim()] : starterNoteCats;
+    final used = data.noteCategories.where((c) => c != willNoteCategory && !kept.contains(c));
+    return [...kept, ...used];
+  }
+
+  Future<void> _keepNoteCats(List<String> cats) async {
+    await setPref('note_cats', cats.join('\n'));
+    notifyListeners();
+  }
+
+  /// A new, empty category; an existing name is left as it is.
+  Future<String> addNoteCat(String name) async {
+    final n = name.trim();
+    final same = noteCats.where((c) => normalize(c) == normalize(n)).firstOrNull;
+    if (same != null) return same;
+    await _keepNoteCats([...noteCats, n]);
+    return n;
+  }
+
+  /// A new name for a category, its notes with it.
+  Future<void> renameNoteCat(String from, String to) async {
+    final t = to.trim();
+    if (t.isEmpty || t == from) return;
+    for (final n in [...data.notes.where((n) => n.category == from)]) {
+      _upsert(data.notes, Note(id: n.id, title: n.title, body: n.body, category: t, updatedAt: n.updatedAt, files: n.files), (x) => x.id);
+    }
+    final cats = noteCats;
+    await _keepNoteCats([for (final c in cats) if (c == from) t else if (c != t) c]);
+    await _save();
+  }
+
+  /// Takes a category away; its notes go to "নোট".
+  Future<void> removeNoteCat(String name) async {
+    for (final n in [...data.notes.where((n) => n.category == name)]) {
+      _upsert(data.notes, Note(id: n.id, title: n.title, body: n.body, category: defaultNoteCategory, updatedAt: n.updatedAt, files: n.files), (x) => x.id);
+    }
+    await _save();
+    await _keepNoteCats([for (final c in noteCats) if (c != name) c]);
   }
 
   Future<void> deleteNote(String id) async {
