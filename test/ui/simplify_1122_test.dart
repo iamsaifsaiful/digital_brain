@@ -9,6 +9,7 @@ import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/state/brain.dart';
 import 'package:digital_brain/screens/diary_screen.dart';
 import 'package:digital_brain/screens/new_item_screen.dart';
+import 'package:digital_brain/screens/lock_screen.dart' show lockScene;
 import 'package:digital_brain/screens/onboarding_screen.dart';
 import 'package:digital_brain/screens/plan_screens.dart';
 import 'package:digital_brain/screens/special_days_screen.dart';
@@ -193,4 +194,25 @@ void main() {
     expect(all, contains('হাঁটা'));
     expect(diaryFileName(days.first, days.last), 'my-assistant-diary-20261121-20261127.pdf');
   });
+
+  for (final (name, at) in [('day', DateTime(2026, 11, 23, 9, 0)), ('night', DateTime(2026, 11, 23, 21, 0))]) {
+    testWidgets('23 Nov fingerprint unlock page, $name', (t) async {
+      if (shots) await icons();
+      final rig = await start(t);
+      rig.nowAt = at;
+      await rig.brain.setUserName('সাইফুল ইসলাম');
+      rig.biometrics.has = true;
+      await rig.services.lock.setBiometricsOn(true);
+      rig.brain.lockNow();
+      await settle(t);
+      await t.runAsync(() async {
+        final ctx = t.element(find.byKey(const Key('lock-app-mark')));
+        await precacheImage(const AssetImage('assets/brand/app_mark.png'), ctx);
+        await precacheImage(AssetImage(lockScene(at)), ctx);
+      });
+      await settle(t);
+      expect(find.byKey(const Key('lock-choose-pin')), findsOneWidget);
+      await _shot(t, 'login-4-fingerprint-$name');
+    });
+  }
 }

@@ -533,8 +533,11 @@ class _LockScreenState extends State<LockScreen> {
       // Where the words start (as before), and the picture: owner, 23 Nov,
       // "লগইন পেইজে ছবিটা হোম পেইজের মত না" — the whole sea as on Home, its
       // lower part fading under the mark instead of a thin strip above it.
-      final start = box.maxHeight * (big ? 0.30 : 0.16);
-      final upper = math.min(box.maxWidth * 0.92, start + box.maxHeight * (big ? 0.14 : 0.11));
+      // The fingerprint-or-PIN page has no keypad, so the sea gets the
+      // first page's room too (owner, 23 Nov).
+      final roomy = big || (unlock && _bioAvailable && !_usePin && _lockedUntil == null);
+      final start = box.maxHeight * (roomy ? 0.30 : 0.16);
+      final upper = math.min(box.maxWidth * 0.92, start + box.maxHeight * (roomy ? 0.14 : 0.11));
       return SingleChildScrollView(
         child: Stack(children: [
           Positioned(
