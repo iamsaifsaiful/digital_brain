@@ -54,36 +54,6 @@ class _BizSalesState extends State<BizSales> {
         TabTitle(trm('বিক্রি'), sub: trf('আজ {0}টি বিক্রি · {1}', [bnDigits(todaySum.count), taka(todaySum.total)])),
         const BizFreeBanner(),
         const SizedBox(height: 12),
-        // The one big action, by the thumb's reach.
-        Material(
-          color: C.green,
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            key: const Key('biz-sell-start'),
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => pushPage(context, const SellPage()),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
-              child: Row(children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(color: C.onAccent.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
-                  child: Icon(Icons.add_shopping_cart_rounded, color: C.onAccent, size: 26),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(tr('নতুন বিক্রি'), style: body(18, weight: FontWeight.w700, color: C.onAccent)),
-                    Text(tr('পণ্য বাছুন, পরিমাণ দিন, টাকা নিন'), style: body(12.5, color: C.onAccent.withValues(alpha: 0.85))),
-                  ]),
-                ),
-                Icon(Icons.chevron_right_rounded, color: C.onAccent, size: 28),
-              ]),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
         Row(children: [
           Expanded(child: SmallButton(key: const Key('biz-sell-amount'), label: tr('শুধু টাকা লিখে'), icon: Icons.payments_outlined, onTap: () => pushPage(context, const SellPage(amountOnly: true)))),
           const SizedBox(width: 8),
@@ -248,7 +218,7 @@ class _BizSalesState extends State<BizSales> {
         final list = salesOn(b, today);
         return [
           ...grouped(tr('আজকের বিক্রি'), list, (s) => part(s.at)),
-          if (list.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr('এখনো কোনো বিক্রি নেই। ওপরের “নতুন বিক্রি” চাপুন।'), textAlign: TextAlign.center, style: body(12.5, color: C.muted))),
+          if (list.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text(tr('এখনো কোনো বিক্রি নেই। নিচের “নতুন বিক্রি” চাপুন।'), textAlign: TextAlign.center, style: body(12.5, color: C.muted))),
           if (list.isNotEmpty) ...tail,
         ];
     }

@@ -5290,7 +5290,7 @@ const enStrings = <String, String>{
   'আজ নগদ': 'Cash today',
   'QR / বিকাশ': 'QR / bKash',
   'বাকিতে': 'On credit',
-  'এখনো কোনো বিক্রি নেই। ওপরের “নতুন বিক্রি” চাপুন।': 'No sales yet. Tap “New sale” above.',
+  'এখনো কোনো বিক্রি নেই। নিচের “নতুন বিক্রি” চাপুন।': 'No sales yet. Tap “New sale” below.',
   'রসিদ দেখতে, PDF বা হোয়াটসঅ্যাপে পাঠাতে বিক্রিতে চাপুন।': 'Tap a sale to view the receipt or send it as a PDF or via WhatsApp.',
   'টাকা নিন': 'Take payment',
   'পণ্যের নাম বা বারকোড লিখুন': 'Enter a product name or barcode',
