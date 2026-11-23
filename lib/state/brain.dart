@@ -3272,12 +3272,13 @@ class Brain extends ChangeNotifier {
 
   List<Task> openTasks() => openTasksOf(data, services.now());
 
-  Future<void> saveCash(CashEntry e) async {
+  /// [noAccount]: left without an account on purpose (the form, owner 23 Nov).
+  Future<void> saveCash(CashEntry e, {bool noAccount = false}) async {
     // A new own entry with accounts kept goes into one (so "এখন আছে", their
     // total, follows it): the cash account, else the first.
     final isNew = !data.cash.any((x) => x.id == e.id);
     if (isNew) {
-      final a = e.projectId == null && e.accountId == null ? defaultAccountId(data) : e.accountId;
+      final a = e.projectId == null && e.accountId == null && !noAccount ? defaultAccountId(data) : e.accountId;
       e = CashEntry(id: e.id, kind: e.kind, amount: e.amount, category: e.category, note: e.note, date: e.date, projectId: e.projectId, accountId: a, shopId: e.shopId, linkId: e.linkId, addedAt: e.addedAt ?? services.now());
     } else {
       final was = data.cash.firstWhere((x) => x.id == e.id);

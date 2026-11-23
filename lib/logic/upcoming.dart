@@ -39,11 +39,10 @@ List<Upcoming> upcomingCosts(AppData d, DateTime now, {int days = 30}) {
 
   for (final i in d.installments) {
     if (i.left <= 0 || i.amount <= 0) continue;
-    final first = DateTime(i.start.year, i.start.month);
-    for (var m = -1; m <= 1; m++) {
-      final month = DateTime(today.year, today.month + m);
-      final at = DateTime(month.year, month.month, i.dayOfMonth);
-      if (month.isBefore(first) || month.isAfter(i.end) || i.paidFor(month) || !inside(at)) continue;
+    for (var n = 0; n < i.months; n++) {
+      final at = i.dueAt(n);
+      if (at.isAfter(until)) break;
+      if (i.paidAt(n) || !inside(at)) continue;
       out.add(Upcoming(kind: UpcomingKind.installment, title: i.name, amount: i.amount, date: at, id: i.id));
     }
   }

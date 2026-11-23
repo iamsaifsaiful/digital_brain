@@ -1369,9 +1369,9 @@ class _CashFormScreenState extends State<CashFormScreen> {
   late CashKind _kind = widget.entry?.kind ?? widget.kind;
   late final _amount = TextEditingController(text: widget.entry == null ? (widget.amount == null ? '' : '${widget.amount}') : '${widget.entry!.amount}');
   late final _category = TextEditingController(text: widget.entry?.category ?? widget.category ?? '');
-  /// Every লেনদেন is from an account (owner, 22 Nov); নগদ is always there,
-  /// made when first used ([_cash]).
-  late String? _accountId = widget.entry != null ? widget.entry!.accountId : (defaultAccountId(BrainScope.read(context).data) ?? _cash);
+  /// The account (owner, 23 Nov: asked for warmly, never a must); নগদ is
+  /// always offered, made when first used ([_cash]). None picked at first.
+  late String? _accountId = widget.entry?.accountId;
   static const _cash = '#cash';
   late final _note = TextEditingController(text: widget.entry?.note ?? widget.note ?? '');
   late DateTime _date = widget.entry?.date ?? widget.date ?? BrainScope.read(context).services.now();
@@ -1395,10 +1395,6 @@ class _CashFormScreenState extends State<CashFormScreen> {
       toast(context, tr('টাকার অঙ্ক দিন'));
       return;
     }
-    if (_accountId == null) {
-      toast(context, _kind == CashKind.income ? tr('টাকা কোথায় এল, অ্যাকাউন্ট বেছে নিন') : tr('কোন অ্যাকাউন্ট থেকে গেল, বেছে নিন'));
-      return;
-    }
     final accountId = _accountId == _cash ? (await brain.cashAccount()).id : _accountId;
     // No খাত picked: guess it from the note ("রিকশা" → যাতায়াত), else অন্যান্য.
     final cat = _category.text.trim().isEmpty ? categoryFor(normalize(_note.text), _kind) : _category.text.trim();
@@ -1414,7 +1410,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
       shopId: widget.entry?.shopId ?? widget.shopId,
       linkId: widget.entry?.linkId,
     );
-    await brain.saveCash(saved);
+    await brain.saveCash(saved, noAccount: accountId == null);
     // Owner (24 Oct): another হিসাব's new entry — in the main আয়-ব্যয় too?
     // Another হিসাব's spending goes into the main money by itself: say so.
     if (widget.entry == null && _projectId != null && mounted) sayMainLine(context);
@@ -1592,14 +1588,14 @@ class _CashFormScreenState extends State<CashFormScreen> {
                   if (p != null) setState(() => _date = DateTime(p.year, p.month, p.day, _date.hour, _date.minute));
                 },
               ),
-              // The account is a must (owner, 22 Nov): নগদ always, then the
-              // member's banks, mobile wallets and cards, and one more added here.
+              // The account (owner, 23 Nov: encouraged, not forced): নগদ always,
+              // the member's banks, mobile wallets and cards, and one more added
+              // here; a tap on the chosen one takes it off.
               const SizedBox(height: 14),
-              Row(children: [
-                Text(_kind == CashKind.income ? tr('কোন অ্যাকাউন্টে এল') : tr('কোন অ্যাকাউন্ট থেকে গেল'), style: body(14, color: C.muted)),
-                Text(' *', style: body(14, weight: FontWeight.w700, color: C.red)),
-              ]),
-              const SizedBox(height: 6),
+              Text(_kind == CashKind.income ? tr('কোন অ্যাকাউন্টে এল?') : tr('কোন অ্যাকাউন্ট থেকে গেল?'), style: body(14.5, weight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(tr('বেছে নিলে প্রতিটা অ্যাকাউন্টের ব্যালেন্স নিজে থেকে মিলে যাবে।'), style: body(12.5, color: C.muted, height: 1.4)),
+              const SizedBox(height: 8),
               Wrap(key: const Key('cash-accounts'), spacing: 6, runSpacing: 6, children: [
                 if (!brain.data.accounts.any((a) => a.kind == AccountKind.cash))
                   ChoiceChip(
@@ -1607,7 +1603,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
                     avatar: Icon(accountIcon(AccountKind.cash), size: 16),
                     label: Text(tr('নগদ'), style: body(13)),
                     selected: _accountId == _cash,
-                    onSelected: (_) => setState(() => _accountId = _cash),
+                    onSelected: (on) => setState(() => _accountId = on ? _cash : null),
                   ),
                 for (final a in brain.data.accounts)
                   ChoiceChip(
@@ -1615,7 +1611,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
                     avatar: Icon(accountIcon(a.kind), size: 16),
                     label: Text(accountLabel(a), style: body(13)),
                     selected: _accountId == a.id,
-                    onSelected: (_) => setState(() => _accountId = a.id),
+                    onSelected: (on) => setState(() => _accountId = on ? a.id : null),
                   ),
                 ActionChip(
                   key: const Key('cash-acc-new'),

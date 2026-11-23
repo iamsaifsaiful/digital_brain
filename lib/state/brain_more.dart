@@ -364,40 +364,54 @@ extension BrainMore on Brain {
 
   // ── Instalments ──
 
-  /// Saves [i] with a monthly reminder on its day (10 in the morning, and a day before).
+  /// Saves [i]; with [Installment.remind], a reminder at 10 in the morning,
+  /// a day before, on the next payment not made (it moves on as they are paid).
   Future<Installment> saveInstallment(Installment i) async {
-    if (i.reminderId != null) data.reminders.removeWhere((r) => r.id == i.reminderId);
-    final now = services.now();
-    var first = DateTime(now.year, now.month, i.dayOfMonth);
-    if (first.isBefore(DateTime(i.start.year, i.start.month, i.dayOfMonth))) first = DateTime(i.start.year, i.start.month, i.dayOfMonth);
-    if (first.isBefore(dayOnly(now))) first = DateTime(first.year, first.month + 1, i.dayOfMonth);
-    final r = Reminder(
-      title: trf('{0}-এর কিস্তি {1}', [i.name, taka(i.amount)]),
-      date: first,
-      hour: 10,
-      daysBefore: 1,
-      repeat: Repeat.monthly,
-    );
-    data.reminders.add(r);
-    final saved = i.copyWith(reminderId: r.id);
+    final saved = _withReminder(i);
     _upsert(data.installments, saved, (x) => x.id);
     await _save();
     await _reschedule();
     return saved;
   }
 
-  /// Ticks (or unticks) the instalment for [month]. When all are paid the reminder stops.
+  Installment _withReminder(Installment i) {
+    if (i.reminderId != null) data.reminders.removeWhere((r) => r.id == i.reminderId);
+    final next = i.nextDue;
+    if (!i.remind || next == null) return i.copyWith(clearReminder: true);
+    final now = services.now();
+    var first = next;
+    final monthly = i.cycle == PayCycle.monthly;
+    // A monthly one repeats from this month on, as before.
+    if (monthly && first.isBefore(dayOnly(now))) first = DateTime(now.year, now.month + (now.day > i.dayOfMonth ? 1 : 0), i.dayOfMonth);
+    final r = Reminder(
+      title: trf(i.saving ? '{0}-এর জমা {1}' : '{0}-এর কিস্তি {1}', [i.name, taka(i.amount)]),
+      date: first,
+      hour: 10,
+      daysBefore: 1,
+      repeat: switch (i.cycle) { PayCycle.monthly => Repeat.monthly, PayCycle.weekly => Repeat.weekly, PayCycle.yearly => Repeat.yearly, _ => Repeat.none },
+    );
+    data.reminders.add(r);
+    return i.copyWith(reminderId: r.id);
+  }
+
+  /// Ticks (or unticks) the payment due in [month]. When all are paid the reminder stops.
   Future<void> toggleInstallmentPaid(Installment i, DateTime month) async {
-    final k = monthKey(month);
+    final at = i.indexIn(month) ?? i.nextIndex;
+    if (at == null) return;
+    await toggleInstallmentAt(i, at);
+  }
+
+  /// Ticks (or unticks) payment number [at] (0 = the first).
+  Future<void> toggleInstallmentAt(Installment i, int at) async {
+    final k = i.keyAt(at);
     final paid = [...i.paid];
     paid.contains(k) ? paid.remove(k) : paid.add(k);
-    final next = i.copyWith(paid: paid);
-    if (next.left == 0 && next.reminderId != null) {
-      final r = reminderById(next.reminderId!);
-      if (r != null) _upsert(data.reminders, r.copyWith(enabled: false), (x) => x.id);
-    } else if (next.reminderId != null) {
-      final r = reminderById(next.reminderId!);
-      if (r != null && !r.enabled) _upsert(data.reminders, r.copyWith(enabled: true), (x) => x.id);
+    var next = i.copyWith(paid: paid);
+    if (next.cycle == PayCycle.monthly && next.reminderId != null && reminderById(next.reminderId!) != null) {
+      final r = reminderById(next.reminderId!)!;
+      _upsert(data.reminders, r.copyWith(enabled: next.left > 0), (x) => x.id);
+    } else {
+      next = _withReminder(next);
     }
     _upsert(data.installments, next, (x) => x.id);
     await _save();

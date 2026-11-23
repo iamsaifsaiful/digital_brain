@@ -17,11 +17,13 @@ import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'money_screens.dart';
+import 'savings_screens.dart' show SavingsScreen;
 import 'shop_screens.dart';
 import 'spend_health_screen.dart';
 
 export 'shop_screens.dart' show ShopScreen, ShopDetailScreen;
 export 'spend_health_screen.dart' show SpendHealthScreen;
+export 'savings_screens.dart' show SavingsScreen;
 import '../ui/pdf_export.dart';
 
 void _push(BuildContext context, Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
@@ -664,236 +666,55 @@ class _DayBars extends CustomPainter {
 
 // ───────────────────────── Savings and instalments ─────────────────────────
 
-class SavingsScreen extends StatefulWidget {
-  const SavingsScreen({super.key});
-  @override
-  State<SavingsScreen> createState() => _SavingsScreenState();
-}
-
-class _SavingsScreenState extends State<SavingsScreen> {
-  int _tab = 0;
-
-  Future<void> _editGoal(SavingsGoal? old) async {
-    final brain = BrainScope.read(context);
-    final name = TextEditingController(text: old?.name ?? '');
-    final target = TextEditingController(text: old == null ? '' : '${old.target}');
-    DateTime? deadline = old?.deadline;
-    final ok = await showAppSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, set) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(old == null ? tr('নতুন সঞ্চয়ের লক্ষ্য') : tr('লক্ষ্য বদলান'), style: display(20, weight: 700)),
-            FieldLabel(tr('কীসের জন্য')),
-            TextField(textCapitalization: TextCapitalization.sentences, controller: name, autofocus: old == null, decoration: InputDecoration(hintText: tr('যেমন: ঈদের খরচ, নতুন ফোন'))),
-            FieldLabel(tr('কত টাকা জমাতে চান')),
-            TextField(controller: target, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
-            FieldLabel(tr('কবের মধ্যে (ঐচ্ছিক)')),
-            OutlinedButton.icon(
+/// A new savings goal, or [old] changed.
+Future<void> editGoal(BuildContext context, SavingsGoal? old) async {
+  final brain = BrainScope.read(context);
+  final name = TextEditingController(text: old?.name ?? '');
+  final target = TextEditingController(text: old == null ? '' : '${old.target}');
+  DateTime? deadline = old?.deadline;
+  final ok = await showAppSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, set) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(old == null ? tr('নতুন সঞ্চয়ের লক্ষ্য') : tr('লক্ষ্য বদলান'), style: display(20, weight: 700)),
+          FieldLabel(tr('কীসের জন্য')),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: name, autofocus: old == null, decoration: InputDecoration(hintText: tr('যেমন: ঈদের খরচ, নতুন ফোন'))),
+          FieldLabel(tr('কত টাকা জমাতে চান')),
+          TextField(controller: target, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
+          FieldLabel(tr('কবের মধ্যে (ঐচ্ছিক)')),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final now = DateTime.now();
+              final d = await showDatePicker(context: ctx, initialDate: deadline ?? now.add(const Duration(days: 90)), firstDate: now, lastDate: DateTime(now.year + 20));
+              if (d != null) set(() => deadline = d);
+            },
+            icon: const Icon(Icons.event_outlined),
+            label: Text(deadline == null ? tr('তারিখ বেছে নিন') : fullDate(deadline!)),
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(label: tr('রাখুন'), onPressed: () => Navigator.pop(ctx, true)),
+          if (old != null)
+            TextButton(
               onPressed: () async {
-                final now = DateTime.now();
-                final d = await showDatePicker(context: ctx, initialDate: deadline ?? now.add(const Duration(days: 90)), firstDate: now, lastDate: DateTime(now.year + 20));
-                if (d != null) set(() => deadline = d);
+                await brain.deleteGoal(old.id);
+                if (ctx.mounted) Navigator.pop(ctx, false);
               },
-              icon: const Icon(Icons.event_outlined),
-              label: Text(deadline == null ? tr('তারিখ বেছে নিন') : fullDate(deadline!)),
+              child: Text(tr('মুছে ফেলুন'), style: body(15, weight: FontWeight.w600, color: C.red)),
             ),
-            const SizedBox(height: 16),
-            PrimaryButton(label: tr('রাখুন'), onPressed: () => Navigator.pop(ctx, true)),
-            if (old != null)
-              TextButton(
-                onPressed: () async {
-                  await brain.deleteGoal(old.id);
-                  if (ctx.mounted) Navigator.pop(ctx, false);
-                },
-                child: Text(tr('মুছে ফেলুন'), style: body(15, weight: FontWeight.w600, color: C.red)),
-              ),
-          ]),
-        ),
-      ),
-    );
-    final t = readInt(target.text) ?? 0;
-    if (ok == true && name.text.trim().isNotEmpty && t > 0) {
-      final base = old ?? SavingsGoal(name: name.text.trim(), target: t, createdAt: brain.services.now());
-      await brain.saveGoal(base.copyWith(name: name.text.trim(), target: t, deadline: deadline, clearDeadline: deadline == null));
-    }
-    name.dispose();
-    target.dispose();
-  }
-
-  Future<void> _editInst(Installment? old) async {
-    final brain = BrainScope.read(context);
-    final name = TextEditingController(text: old?.name ?? '');
-    final amount = TextEditingController(text: old == null ? '' : '${old.amount}');
-    final months = TextEditingController(text: '${old?.months ?? 12}');
-    var kind = old?.kind ?? InstallmentKind.dps;
-    var day = old?.dayOfMonth ?? 5;
-    var start = old?.start ?? DateTime(DateTime.now().year, DateTime.now().month);
-    final ok = await showAppSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, set) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text(old == null ? tr('নতুন কিস্তি') : tr('কিস্তি বদলান'), style: display(20, weight: 700)),
-              FieldLabel(tr('ধরন')),
-              ChoiceChips<InstallmentKind>(items: [for (final k in InstallmentKind.values) (k, isEn ? k.en : k.bn)], value: kind, onChanged: (v) => set(() => kind = v)),
-              FieldLabel(tr('নাম')),
-              TextField(textCapitalization: TextCapitalization.sentences, controller: name, decoration: InputDecoration(hintText: tr('যেমন: সোনালী ব্যাংক DPS, বাইকের লোন'))),
-              FieldLabel(tr('প্রতি মাসে কত')),
-              TextField(controller: amount, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
-              FieldLabel(tr('মোট কয় মাস')),
-              TextField(controller: months, keyboardType: TextInputType.number),
-              FieldLabel(trf('মাসের কত তারিখে: {0}', [bnDigits(day)])),
-              Slider(value: day.toDouble(), min: 1, max: 28, divisions: 27, label: bnDigits(day), onChanged: (v) => set(() => day = v.round())),
-              FieldLabel(tr('প্রথম কিস্তির মাস')),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final d = await showDatePicker(context: ctx, initialDate: start, firstDate: DateTime(2000), lastDate: DateTime(2100));
-                  if (d != null) set(() => start = DateTime(d.year, d.month));
-                },
-                icon: const Icon(Icons.event_outlined),
-                label: Text(monthTitle(start)),
-              ),
-              const SizedBox(height: 16),
-              PrimaryButton(label: tr('রাখুন'), onPressed: () => Navigator.pop(ctx, true)),
-              if (old != null)
-                TextButton(
-                  onPressed: () async {
-                    await brain.deleteInstallment(old);
-                    if (ctx.mounted) Navigator.pop(ctx, false);
-                  },
-                  child: Text(tr('মুছে ফেলুন'), style: body(15, weight: FontWeight.w600, color: C.red)),
-                ),
-            ]),
-          ),
-        ),
-      ),
-    );
-    final a = readInt(amount.text) ?? 0;
-    if (ok == true && name.text.trim().isNotEmpty && a > 0) {
-      final base = old ?? Installment(name: name.text.trim(), amount: a, start: start);
-      await brain.saveInstallment(base.copyWith(name: name.text.trim(), kind: kind, amount: a, months: (readInt(months.text) ?? 12).clamp(1, 600), dayOfMonth: day, start: start));
-    }
-    name.dispose();
-    amount.dispose();
-    months.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final d = brain.data;
-    final now = brain.services.now();
-    return Scaffold(
-      floatingActionButton: AddButton(label: _tab == 0 ? tr('লক্ষ্য যোগ') : tr('কিস্তি যোগ'), onPressed: () => _tab == 0 ? _editGoal(null) : _editInst(null)),
-      body: SafeArea(
-        child: Column(children: [
-          TopBar(title: tr('সঞ্চয় ও কিস্তি'), trailing: const [
-            PdfButton({ReportPart.accounts})
-          ]),
-          Expanded(
-            child: TabPages<int>(
-                items: [(0, tr('সঞ্চয়ের লক্ষ্য')), (1, tr('কিস্তি ও DPS'))],
-                value: _tab,
-                onChanged: (v) => setState(() => _tab = v),
-                tabsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 100),
-                page: (tab) => [
-                      if (tab == 0) ...[
-                        if (d.goals.isEmpty)
-                          EmptyState(
-                              icon: Icons.savings_outlined, title: tr('কোনো লক্ষ্য নেই'), text: tr('ঈদ, ভ্রমণ, নতুন কিছু কেনা — লক্ষ্য ঠিক করে একটু একটু জমান। কত জমলো আর মাসে কত রাখতে হবে, দেখাবে।'))
-                        else
-                          for (final g in d.goals) ...[
-                            Panel(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                                Row(children: [
-                                  Expanded(child: Text(g.name, style: body(16, weight: FontWeight.w600))),
-                                  IconButton(tooltip: tr('বদলান'), onPressed: () => _editGoal(g), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
-                                ]),
-                                Text(trf('{0} জমেছে, লক্ষ্য {1}', [taka(g.saved), taka(g.target)]), style: body(14, color: C.muted2)),
-                                const SizedBox(height: 8),
-                                Bar(value: g.progress, height: 10),
-                                const SizedBox(height: 6),
-                                if (g.deadline != null)
-                                  Text(
-                                    g.saved >= g.target ? tr('লক্ষ্য পূরণ হয়েছে') : trf('{0}-এর মধ্যে · মাসে {1} করে রাখলে হবে', [shortDate(g.deadline!), taka(g.perMonth(now) ?? 0)]),
-                                    style: body(13, color: g.saved >= g.target ? C.green : C.muted),
-                                  ),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: FilledButton.icon(
-                                    onPressed: () async {
-                                      final v = readInt(await askText(context, tr('কত জমালেন?'), number: true));
-                                      if (v != null && v > 0) await brain.addDeposit(g, v);
-                                    },
-                                    style: FilledButton.styleFrom(backgroundColor: C.green, shape: const StadiumBorder()),
-                                    icon: const Icon(Icons.add_rounded, size: 18),
-                                    label: Text(tr('জমা')),
-                                  ),
-                                ),
-                                if (g.deposits.isNotEmpty)
-                                  TextButton(
-                                    onPressed: () => _deposits(context, g.id),
-                                    child: Text(trf('জমার হিসাব · {0}টি — বদলান বা মুছুন', [bnDigits(g.deposits.length)])),
-                                  ),
-                              ]),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                      ] else ...[
-                        if (d.installments.isEmpty)
-                          EmptyState(
-                              icon: Icons.event_repeat_outlined,
-                              title: tr('কোনো কিস্তি নেই'),
-                              text: tr('DPS, লোনের কিস্তি, বীমার প্রিমিয়াম — প্রতি মাসে আগের দিন মনে করাব, টিক দিলে কত বাকি দেখাবে।'))
-                        else
-                          for (final i in d.installments) ...[
-                            Panel(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                                Row(children: [
-                                  Expanded(
-                                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      Text(i.name, style: body(16, weight: FontWeight.w600)),
-                                      Text('${isEn ? i.kind.en : i.kind.bn} · ${taka(i.amount)} · ${trf('প্রতি মাসের {0} তারিখ', [bnDigits(i.dayOfMonth)])}', style: body(13, color: C.muted)),
-                                    ]),
-                                  ),
-                                  IconButton(tooltip: tr('বদলান'), onPressed: () => _editInst(i), icon: Icon(Icons.edit_outlined, color: C.muted, size: 20)),
-                                ]),
-                                const SizedBox(height: 8),
-                                Bar(value: i.months == 0 ? 0 : i.paidCount / i.months, height: 10, color: C.purple),
-                                const SizedBox(height: 6),
-                                Text(trf('{0}/{1} কিস্তি দেওয়া ({2}) · বাকি {3}টি · শেষ {4}', [bnDigits(i.paidCount), bnDigits(i.months), taka(i.paidTotal), bnDigits(i.left), monthTitle(i.end)]),
-                                    style: body(13, color: C.muted2)),
-                                const SizedBox(height: 8),
-                                Row(children: [
-                                  FilledButton.icon(
-                                    onPressed: () => brain.toggleInstallmentPaid(i, now),
-                                    style: FilledButton.styleFrom(
-                                        backgroundColor: i.paidFor(now) ? C.chip : C.purple, foregroundColor: i.paidFor(now) ? C.ink : Colors.white, shape: const StadiumBorder()),
-                                    icon: Icon(i.paidFor(now) ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, size: 18),
-                                    label: Text(i.paidFor(now) ? trf('{0} দেওয়া হয়েছে', [monthName(now.month)]) : trf('{0}-এর কিস্তি দিলাম', [monthName(now.month)])),
-                                  ),
-                                ]),
-                              ]),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
-                      ],
-                    ]),
-          ),
         ]),
       ),
-    );
+    ),
+  );
+  final t = readInt(target.text) ?? 0;
+  if (ok == true && name.text.trim().isNotEmpty && t > 0) {
+    final base = old ?? SavingsGoal(name: name.text.trim(), target: t, createdAt: brain.services.now());
+    await brain.saveGoal(base.copyWith(name: name.text.trim(), target: t, deadline: deadline, clearDeadline: deadline == null));
   }
+  name.dispose();
+  target.dispose();
 }
 
 // ───────────────────────── Split a bill ─────────────────────────
@@ -1164,7 +985,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
 }
 
 /// A goal's deposits, each one changed or taken out.
-Future<void> _deposits(BuildContext context, String goalId) async {
+Future<void> goalDeposits(BuildContext context, String goalId) async {
   final brain = BrainScope.read(context);
   await showAppSheet<void>(
     context: context,
