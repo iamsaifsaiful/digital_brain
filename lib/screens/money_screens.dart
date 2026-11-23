@@ -20,7 +20,8 @@ import '../ui/widgets.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 import '../ui/pick.dart';
-import 'cash_categories.dart';
+import 'money_hub.dart' show MoneyEye, hid, accountIcon;
+import 'money_more_screens.dart' show editAccount;
 import 'project_dues.dart';
 import 'to_main.dart';
 
@@ -165,7 +166,7 @@ class CashNowLine extends StatelessWidget {
             Expanded(
               child: Text.rich(TextSpan(children: [
                 TextSpan(text: '${tr('এখন আছে')} ', style: body(13, color: C.muted)),
-                TextSpan(text: '${now < 0 ? '−' : ''}${taka(now.abs())}', style: body(14.5, weight: FontWeight.w700, color: now < 0 ? C.red : C.ink)),
+                TextSpan(text: hid(context, '${now < 0 ? '−' : ''}${taka(now.abs())}'), style: body(14.5, weight: FontWeight.w700, color: now < 0 ? C.red : C.ink)),
               ])),
             ),
             TextButton(
@@ -365,6 +366,9 @@ class _CashViewState extends State<CashView> {
     }
   }
 
+  /// দৈনিক, মাসিক, বাৎসরিক — no সাপ্তাহিক (owner, 22 Nov: not needed).
+  static const _spans = [CashSpan.day, CashSpan.month, CashSpan.year];
+
   String _spanName(CashSpan v) => switch (v) {
         CashSpan.day => tr('দৈনিক'),
         CashSpan.week => tr('সাপ্তাহিক'),
@@ -430,8 +434,6 @@ class _CashViewState extends State<CashView> {
     final shownSums = sumsOf(entries);
     _shown = [for (final e in entries) e.id];
     _picks.keepOnly(_shown);
-    final incomeSide = _kind == CashKind.income;
-    final top = incomeSide ? shownSums.topIncome : shownSums.topExpenses;
     // Day by day (all but the day view): each day with its own totals.
     final days = <DateTime, List<CashEntry>>{};
     for (final e in entries) {
@@ -441,7 +443,7 @@ class _CashViewState extends State<CashView> {
     void setSpan(CashSpan v) {
       if (v == _span) return;
       _go(() {
-        _dir = v.index > _span.index ? 1 : -1;
+        _dir = _spans.indexOf(v) > _spans.indexOf(_span) ? 1 : -1;
         // The new period holds the day being looked at.
         _at = _at == null ? null : (current ? null : from);
         _span = v;
@@ -460,7 +462,7 @@ class _CashViewState extends State<CashView> {
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
-                child: RollingAmount(value: value, format: (v) => '${signed && v < 0 ? '−' : ''}${taka(v.abs())}', style: display(17, weight: 700, color: color, height: 1.35)),
+                child: RollingAmount(value: value, format: (v) => hid(context, '${signed && v < 0 ? '−' : ''}${taka(v.abs())}'), style: display(17, weight: 700, color: color, height: 1.35)),
               ),
             ]),
           ),
@@ -509,6 +511,7 @@ class _CashViewState extends State<CashView> {
                 ),
               ),
             ),
+            const MoneyEye(),
             _NavButton(
               key: const Key('cash-next'),
               icon: Icons.chevron_right_rounded,
@@ -542,14 +545,14 @@ class _CashViewState extends State<CashView> {
     final period = GestureDetector(
       key: const Key('cash-swipe'),
       behavior: HitTestBehavior.translucent,
-      // দৈনিক ⇄ সাপ্তাহিক ⇄ মাসিক ⇄ বাৎসরিক with a swipe (owner, 26 Oct).
+      // দৈনিক ⇄ মাসিক ⇄ বাৎসরিক with a swipe (owner, 26 Oct).
       onHorizontalDragEnd: (d) {
         final v = d.primaryVelocity ?? 0;
         if (v.abs() < 150) return;
         final step = v < 0 ? 1 : -1;
-        final i = _span.index + step;
-        if (i >= 0 && i < CashSpan.values.length) {
-          setSpan(CashSpan.values[i]);
+        final i = _spans.indexOf(_span) + step;
+        if (i >= 0 && i < _spans.length) {
+          setSpan(_spans[i]);
         } else {
           // Past দৈনিক or বাৎসরিক: on to the tab beside.
           passSwipe(context, step);
@@ -558,7 +561,7 @@ class _CashViewState extends State<CashView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         SegTabs<CashSpan>(
           key: const Key('cash-span'),
-          items: [for (final v in CashSpan.values) (v, _spanName(v))],
+          items: [for (final v in _spans) (v, _spanName(v))],
           value: _span,
           onChanged: (v) => setSpan(v),
         ),
@@ -587,25 +590,8 @@ class _CashViewState extends State<CashView> {
       if (cashOnHand(brain.data) == null) ...[const CashNowCard(), const SizedBox(height: 12)],
       period,
       const SizedBox(height: 10),
-      if (top.length > 1 || (top.isNotEmpty && cat == null)) ...[
-        _CatStrip(
-          title: incomeSide ? tr('খাত অনুযায়ী আয়') : tr('খাত অনুযায়ী খরচ'),
-          parts: top,
-          onTap: () async {
-            final prevFrom = spanShift(_span, from, -1);
-            final picked = await Navigator.of(context).push<String>(MaterialPageRoute(
-              builder: (_) => CategoryScreen(
-                title: _label(from, now),
-                entries: inSpan,
-                before: spanEntries(brain.data.cash, prevFrom, from),
-                income: incomeSide,
-              ),
-            ));
-            if (picked != null && mounted) _go(() => _cat = picked);
-          },
-        ),
-        const SizedBox(height: 10),
-      ],
+      // খাত অনুযায়ী খরচ is gone from here (owner, 22 Nov); the month's
+      // report has it.
       if (inSpan.isNotEmpty) listHead,
       if (filtered && entries.isNotEmpty)
         Padding(
@@ -671,57 +657,6 @@ class _NavButton extends StatelessWidget {
           ),
         ),
       );
-}
-
-/// খাত অনুযায়ী খরচ, small: one bar in each খাত's colour and the biggest
-/// three; a tap opens the whole breakdown.
-class _CatStrip extends StatelessWidget {
-  const _CatStrip({required this.title, required this.parts, required this.onTap});
-  final String title;
-  final List<MapEntry<String, int>> parts;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = parts.fold<int>(0, (a, e) => a + e.value);
-    return Panel(
-      key: const Key('cash-cats'),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              Expanded(child: Text(title, style: body(14, weight: FontWeight.w700))),
-              Icon(Icons.chevron_right_rounded, color: C.muted, size: 20),
-            ]),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: SizedBox(
-                height: 8,
-                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  for (final (i, e) in parts.indexed) ...[
-                    if (i > 0) const SizedBox(width: 2),
-                    Expanded(flex: total == 0 ? 1 : (e.value * 1000 ~/ total).clamp(1, 1000), child: ColoredBox(color: catStyle(e.key).color)),
-                  ],
-                ]),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(spacing: 12, runSpacing: 4, children: [
-              for (final e in parts.take(3))
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(width: 8, height: 8, decoration: BoxDecoration(color: catStyle(e.key).color, borderRadius: BorderRadius.circular(3))),
-                  const SizedBox(width: 5),
-                  Text('${tr(e.key)} ${bnDigits(total == 0 ? 0 : (e.value * 100 / total).round())}%', style: body(12, color: C.muted)),
-                ]),
-            ]),
-          ]),
-        ),
-      ),
-    );
-  }
 }
 
 /// A day's heading in the list: its date, and that day's income and spending.
@@ -1061,6 +996,17 @@ Future<(String, int, bool)?> askNewProject(BuildContext context) {
   );
 }
 
+/// A new হিসাব (Premium past the first), named, then opened.
+Future<void> createProject(BuildContext context) async {
+  final brain = BrainScope.read(context);
+  if (!await needPro(context, ProFeature.projects, allowed: brain.canAddProject) || !context.mounted) return;
+  final r = await askNewProject(context);
+  if (r == null || r.$1.isEmpty || !context.mounted) return;
+  var p = await brain.projectNamed(r.$1);
+  if (!p.mainAsked) await brain.setProjectMain(p.id, r.$3);
+  if (context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id)));
+}
+
 class ProjectsView extends StatelessWidget {
   const ProjectsView({super.key});
 
@@ -1070,67 +1016,14 @@ class ProjectsView extends StatelessWidget {
     final d = brain.data;
     final open = d.projects.where((p) => !p.closed).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     final closed = d.projects.where((p) => p.closed).toList();
-    Future<void> create() async {
-      if (!await needPro(context, ProFeature.projects, allowed: brain.canAddProject) || !context.mounted) return;
-      final r = await askNewProject(context);
-      if (r == null || r.$1.isEmpty || !context.mounted) return;
-      var p = await brain.projectNamed(r.$1);
-      if (!p.mainAsked) await brain.setProjectMain(p.id, r.$3);
-      if (context.mounted) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id)));
-    }
-
-    // বকেয়া right from this tab: one হিসাব → straight in; several → which
-    // one; none → name one first (দোকান, ব্যবসা…).
-    Future<void> addDue() async {
-      Project? target;
-      if (open.length == 1) {
-        target = open.first;
-      } else if (open.isEmpty) {
-        if (!await needPro(context, ProFeature.projects, allowed: brain.canAddProject) || !context.mounted) return;
-        final name = await askProjectName(context, initial: tr('দোকান'));
-        if (name == null || name.trim().isEmpty || !context.mounted) return;
-        target = await brain.projectNamed(name.trim());
-        if (!context.mounted) return;
-        final v = await askProjectMain(context, target.name);
-        if (v != null) await brain.setProjectMain(target.id, v);
-        if (!context.mounted) return;
-      } else {
-        target = await showAppSheet<Project>(
-          context: context,
-          showDragHandle: true,
-          builder: (ctx) => SafeArea(
-            child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
-              Text(tr('কোন হিসাবে বকেয়া?'), style: display(19, weight: 700)),
-              const SizedBox(height: 12),
-              Panel(
-                child: Rows(children: [
-                  for (final p in open)
-                    ListRow(
-                      leading: Icon(Icons.work_outline_rounded, color: C.blue),
-                      title: p.name,
-                      onTap: () => Navigator.pop(ctx, p),
-                    ),
-                ]),
-              ),
-            ]),
-          ),
-        );
-      }
-      if (target == null || !context.mounted) return;
-      await dueForm(context, target);
-    }
 
     // Each হিসাব on its own cover (owner, 28 Oct): no totals across them —
     // each is separate, and one let into the main money is counted there.
     Widget row(Project p) => ProjectCover(project: p, onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ProjectScreen(id: p.id))));
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Expanded(child: PrimaryButton(label: tr('নতুন হিসাব'), icon: Icons.add_rounded, height: 48, color: C.fill, onPressed: create)),
-        const SizedBox(width: 8),
-        Expanded(child: SecondaryButton(key: const Key('due-add-top'), label: tr('বকেয়া যোগ'), icon: Icons.receipt_long_outlined, onPressed: addDue)),
-      ]),
-      const SizedBox(height: 8),
+      // Owner, 22 Nov: the two buttons gave way to one floating
+      // "আলাদা হিসাব যোগ করুন"; বকেয়া is added inside each হিসাব.
       Text(tr('মুখেও বলা যায়: “রহিম ভবন প্রজেক্টে ৫০ হাজার টাকা এলো”, “রহিম ভবন প্রজেক্টে রড কিনলাম ২০ হাজার”'), style: body(12.5, color: C.muted, height: 1.45)),
       const SizedBox(height: 16),
       if (open.isEmpty && closed.isEmpty)
@@ -1476,7 +1369,10 @@ class _CashFormScreenState extends State<CashFormScreen> {
   late CashKind _kind = widget.entry?.kind ?? widget.kind;
   late final _amount = TextEditingController(text: widget.entry == null ? (widget.amount == null ? '' : '${widget.amount}') : '${widget.entry!.amount}');
   late final _category = TextEditingController(text: widget.entry?.category ?? widget.category ?? '');
-  late String? _accountId = widget.entry != null ? widget.entry!.accountId : defaultAccountId(BrainScope.read(context).data);
+  /// Every লেনদেন is from an account (owner, 22 Nov); নগদ is always there,
+  /// made when first used ([_cash]).
+  late String? _accountId = widget.entry != null ? widget.entry!.accountId : (defaultAccountId(BrainScope.read(context).data) ?? _cash);
+  static const _cash = '#cash';
   late final _note = TextEditingController(text: widget.entry?.note ?? widget.note ?? '');
   late DateTime _date = widget.entry?.date ?? widget.date ?? BrainScope.read(context).services.now();
   late String? _projectId = widget.entry?.projectId ?? widget.projectId;
@@ -1499,6 +1395,11 @@ class _CashFormScreenState extends State<CashFormScreen> {
       toast(context, tr('টাকার অঙ্ক দিন'));
       return;
     }
+    if (_accountId == null) {
+      toast(context, _kind == CashKind.income ? tr('টাকা কোথায় এল, অ্যাকাউন্ট বেছে নিন') : tr('কোন অ্যাকাউন্ট থেকে গেল, বেছে নিন'));
+      return;
+    }
+    final accountId = _accountId == _cash ? (await brain.cashAccount()).id : _accountId;
     // No খাত picked: guess it from the note ("রিকশা" → যাতায়াত), else অন্যান্য.
     final cat = _category.text.trim().isEmpty ? categoryFor(normalize(_note.text), _kind) : _category.text.trim();
     final saved = CashEntry(
@@ -1509,7 +1410,7 @@ class _CashFormScreenState extends State<CashFormScreen> {
       note: _note.text.trim(),
       date: _date,
       projectId: _projectId,
-      accountId: _accountId,
+      accountId: accountId,
       shopId: widget.entry?.shopId ?? widget.shopId,
       linkId: widget.entry?.linkId,
     );
@@ -1691,17 +1592,43 @@ class _CashFormScreenState extends State<CashFormScreen> {
                   if (p != null) setState(() => _date = DateTime(p.year, p.month, p.day, _date.hour, _date.minute));
                 },
               ),
-              if (brain.data.accounts.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Text(_kind == CashKind.income ? tr('কোথায় এল') : tr('কোথা থেকে গেল'), style: body(14, color: C.muted)),
-                const SizedBox(height: 6),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  for (final a in brain.data.accounts) ChoiceChip(label: Text(accountLabel(a), style: body(13)), selected: _accountId == a.id, onSelected: (_) => setState(() => _accountId = a.id)),
-                  // "বলা নেই" only for an old entry that has none (owner, 24 Oct: every entry in an account).
-                  if (widget.entry != null && widget.entry!.accountId == null)
-                    ChoiceChip(label: Text(tr('বলা নেই'), style: body(13)), selected: _accountId == null, onSelected: (_) => setState(() => _accountId = null)),
-                ]),
-              ],
+              // The account is a must (owner, 22 Nov): নগদ always, then the
+              // member's banks, mobile wallets and cards, and one more added here.
+              const SizedBox(height: 14),
+              Row(children: [
+                Text(_kind == CashKind.income ? tr('কোন অ্যাকাউন্টে এল') : tr('কোন অ্যাকাউন্ট থেকে গেল'), style: body(14, color: C.muted)),
+                Text(' *', style: body(14, weight: FontWeight.w700, color: C.red)),
+              ]),
+              const SizedBox(height: 6),
+              Wrap(key: const Key('cash-accounts'), spacing: 6, runSpacing: 6, children: [
+                if (!brain.data.accounts.any((a) => a.kind == AccountKind.cash))
+                  ChoiceChip(
+                    key: const Key('cash-acc-cash'),
+                    avatar: Icon(accountIcon(AccountKind.cash), size: 16),
+                    label: Text(tr('নগদ'), style: body(13)),
+                    selected: _accountId == _cash,
+                    onSelected: (_) => setState(() => _accountId = _cash),
+                  ),
+                for (final a in brain.data.accounts)
+                  ChoiceChip(
+                    key: Key('cash-acc-${a.id}'),
+                    avatar: Icon(accountIcon(a.kind), size: 16),
+                    label: Text(accountLabel(a), style: body(13)),
+                    selected: _accountId == a.id,
+                    onSelected: (_) => setState(() => _accountId = a.id),
+                  ),
+                ActionChip(
+                  key: const Key('cash-acc-new'),
+                  avatar: Icon(Icons.add_rounded, size: 16, color: C.green),
+                  label: Text(tr('নতুন অ্যাকাউন্ট'), style: body(13, color: C.green)),
+                  onPressed: () async {
+                    final before = brain.data.accounts.map((a) => a.id).toSet();
+                    await editAccount(context, null);
+                    final added = brain.data.accounts.where((a) => !before.contains(a.id)).firstOrNull;
+                    if (added != null && mounted) setState(() => _accountId = added.id);
+                  },
+                ),
+              ]),
               if (projects.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 Text(tr('কোথায় লিখব'), style: body(14, color: C.muted)),

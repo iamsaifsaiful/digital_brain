@@ -281,6 +281,8 @@ enum AccountKind {
   nagad('নগদ (মোবাইল)', 'Nagad'),
   rocket('রকেট', 'Rocket'),
   bank('ব্যাংক', 'Bank'),
+  // Owner, 22 Nov: credit cards too, so a purchase on the card is tracked.
+  card('ক্রেডিট কার্ড', 'Credit card'),
   other('অন্য', 'Other');
 
   const AccountKind(this.bn, this.en);
@@ -321,6 +323,74 @@ class Transfer {
   Map<String, Object?> toJson() => {'id': id, 'from': from, 'to': to, 'amount': amount, 'fee': fee, 'date': date.toIso8601String(), 'note': note};
   factory Transfer.fromJson(Map<String, Object?> j) =>
       Transfer(id: j['id'] as String?, from: _s(j['from']), to: _s(j['to']), amount: _i(j['amount']), fee: _i(j['fee']), date: _d(j['date']) ?? DateTime.now(), note: _s(j['note']));
+}
+
+// ───────────────────────── Subscriptions ─────────────────────────
+
+/// How often a subscription is paid.
+enum SubCycle {
+  monthly('মাসিক', 'Monthly'),
+  yearly('বাৎসরিক', 'Yearly');
+
+  const SubCycle(this.bn, this.en);
+  final String bn;
+  final String en;
+  static SubCycle parse(Object? v) => SubCycle.values.firstWhere((k) => k.name == v, orElse: () => SubCycle.monthly);
+}
+
+/// A payment that comes back every month or year (owner, 22 Nov): internet,
+/// Netflix, the gym, a phone package. [next] is the day it is due next; a
+/// payment moves it on by one [cycle].
+class Subscription {
+  Subscription({String? id, required this.name, required this.amount, this.cycle = SubCycle.monthly, required this.next, this.accountId, this.category = 'বিল', this.paused = false})
+      : id = id ?? newId();
+  final String id;
+  final String name;
+  final int amount;
+  final SubCycle cycle;
+  final DateTime next;
+
+  /// Where it is paid from (see [MoneyAccount]).
+  final String? accountId;
+  final String category;
+  final bool paused;
+
+  /// What it costs in a month (a yearly one spread over twelve).
+  int get perMonth => cycle == SubCycle.monthly ? amount : (amount / 12).round();
+
+  DateTime after(DateTime d) => cycle == SubCycle.monthly ? DateTime(d.year, d.month + 1, d.day) : DateTime(d.year + 1, d.month, d.day);
+
+  Subscription copyWith({String? name, int? amount, SubCycle? cycle, DateTime? next, String? accountId, String? category, bool? paused}) => Subscription(
+        id: id,
+        name: name ?? this.name,
+        amount: amount ?? this.amount,
+        cycle: cycle ?? this.cycle,
+        next: next ?? this.next,
+        accountId: accountId ?? this.accountId,
+        category: category ?? this.category,
+        paused: paused ?? this.paused,
+      );
+
+  Map<String, Object?> toJson() => {
+        'id': id,
+        'name': name,
+        'amount': amount,
+        'cycle': cycle.name,
+        'next': next.toIso8601String(),
+        if (accountId != null) 'accountId': accountId,
+        'category': category,
+        if (paused) 'paused': true,
+      };
+  factory Subscription.fromJson(Map<String, Object?> j) => Subscription(
+        id: j['id'] as String?,
+        name: _s(j['name']),
+        amount: _i(j['amount']),
+        cycle: SubCycle.parse(j['cycle']),
+        next: _d(j['next']) ?? DateTime.now(),
+        accountId: j['accountId'] as String?,
+        category: _s(j['category'], 'বিল'),
+        paused: j['paused'] == true,
+      );
 }
 
 // ───────────────────────── Savings and instalments ─────────────────────────

@@ -76,35 +76,6 @@ class MoneyTools extends StatelessWidget {
   }
 }
 
-/// হিসাবের অন্য পাতা (owner, 24 Oct: no cards on top) — one ⋮ menu on the title.
-class MoneyToolsMenu extends StatelessWidget {
-  const MoneyToolsMenu({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final items = <(String, IconData, Widget)>[
-      (tr('অ্যাকাউন্ট'), Icons.account_balance_outlined, const AccountsScreen()),
-      (tr('খরচ বিশ্লেষণ'), Icons.pie_chart_outline_rounded, const SpendHealthScreen()),
-      (tr('মাসের রিপোর্ট'), Icons.insert_chart_outlined_rounded, const ReportScreen()),
-      (tr('সঞ্চয় ও কিস্তি'), Icons.savings_outlined, const SavingsScreen()),
-      (tr('খরচ ভাগাভাগি'), Icons.call_split_rounded, const SplitScreen()),
-    ];
-    return PopupMenuButton<int>(
-      key: const Key('money-tools'),
-      tooltip: tr('আরও'),
-      icon: Icon(Icons.more_vert_rounded, color: C.ink),
-      onSelected: (i) => _push(context, items[i].$3),
-      itemBuilder: (_) => [
-        for (final (i, (label, icon, _)) in items.indexed)
-          PopupMenuItem<int>(
-            value: i,
-            child: Row(children: [Icon(icon, size: 20, color: C.muted2), const SizedBox(width: 12), Text(label, style: body(15))]),
-          ),
-      ],
-    );
-  }
-}
-
 /// A quick card at the top of হিসাব in business mode.
 class ShopTodayCard extends StatelessWidget {
   const ShopTodayCard({super.key});
@@ -164,90 +135,94 @@ class ShopTodayCard extends StatelessWidget {
 
 // ───────────────────────── Accounts ─────────────────────────
 
+/// A new account, or [old] changed (owner, 22 Nov: credit cards too —
+/// for a card the amount typed is what is owed on it).
+Future<void> editAccount(BuildContext context, MoneyAccount? old) async {
+  final brain = BrainScope.read(context);
+  var kind = old?.kind ?? AccountKind.bkash;
+  final name = TextEditingController(text: old?.name ?? '');
+  // A card shows what is owed on it (its balance below zero) as a plain number.
+  final shownNow = old == null ? null : accountBalance(brain.data, old);
+  final opening = TextEditingController(text: shownNow == null ? '' : '${old!.kind == AccountKind.card ? -shownNow : shownNow}');
+  final ok = await showAppSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, set) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(old == null ? tr('নতুন অ্যাকাউন্ট') : tr('অ্যাকাউন্ট বদলান'), style: display(20, weight: 700)),
+          FieldLabel(tr('ধরন')),
+          ChoiceChips<AccountKind>(items: [for (final k in AccountKind.values) (k, isEn ? k.en : k.bn)], value: kind, onChanged: (v) => set(() => kind = v)),
+          FieldLabel(tr('নাম (ঐচ্ছিক)')),
+          TextField(textCapitalization: TextCapitalization.sentences, controller: name, decoration: InputDecoration(hintText: tr('যেমন: ডাচ-বাংলা সেভিংস, সিটি ব্যাংক কার্ড'))),
+          FieldLabel(kind == AccountKind.card ? tr('কার্ডে এখন কত দেনা') : tr('এখন কত আছে')),
+          TextField(controller: opening, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
+          const SizedBox(height: 16),
+          PrimaryButton(label: tr('রাখুন'), onPressed: () => Navigator.pop(ctx, true)),
+          if (old != null)
+            TextButton(
+              onPressed: () async {
+                await brain.deleteAccount(old.id);
+                if (ctx.mounted) Navigator.pop(ctx, false);
+              },
+              child: Text(tr('মুছে ফেলুন'), style: body(15, weight: FontWeight.w600, color: C.red)),
+            ),
+        ]),
+      ),
+    ),
+  );
+  if (ok == true) {
+    final base = old ?? MoneyAccount(name: '');
+    // The balance typed now: keep the history, change the opening to match.
+    final typed = (readInt(opening.text) ?? 0) * (kind == AccountKind.card ? -1 : 1);
+    final now = old == null ? 0 : accountBalance(brain.data, old) - old.opening;
+    await brain.saveAccount(base.copyWith(name: name.text.trim(), kind: kind, opening: typed - now));
+  }
+  name.dispose();
+  opening.dispose();
+}
+
+/// A new move between accounts, or [old] changed.
+Future<void> moveMoney(BuildContext context, [Transfer? old]) async {
+  final brain = BrainScope.read(context);
+  final accs = brain.data.accounts;
+  if (accs.length < 2) {
+    toast(context, tr('টাকা সরাতে অন্তত দুটো অ্যাকাউন্ট লাগবে'));
+    return;
+  }
+  var from = old?.from ?? accs[0].id, to = old?.to ?? accs[1].id;
+  final amount = TextEditingController(text: old == null ? '' : '${old.amount}'), fee = TextEditingController(text: old == null || old.fee == 0 ? '' : '${old.fee}');
+  final ok = await showAppSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, set) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(tr('এক অ্যাকাউন্ট থেকে আরেকটায়'), style: display(20, weight: 700)),
+          FieldLabel(tr('থেকে')),
+          ChoiceChips<String>(items: [for (final a in accs) (a.id, accountLabel(a))], value: from, onChanged: (v) => set(() => from = v)),
+          FieldLabel(tr('তে')),
+          ChoiceChips<String>(items: [for (final a in accs) (a.id, accountLabel(a))], value: to, onChanged: (v) => set(() => to = v)),
+          FieldLabel(tr('কত টাকা')),
+          TextField(controller: amount, keyboardType: TextInputType.number, autofocus: true, decoration: InputDecoration(prefixText: tr('৳ '))),
+          FieldLabel(tr('খরচ/চার্জ (যেমন ক্যাশ আউট, ঐচ্ছিক)')),
+          TextField(controller: fee, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
+          const SizedBox(height: 16),
+          PrimaryButton(label: tr('রাখুন'), onPressed: () => Navigator.pop(ctx, true)),
+        ]),
+      ),
+    ),
+  );
+  final a = readInt(amount.text) ?? 0;
+  if (ok == true && a > 0 && from != to) {
+    await brain.saveTransfer(Transfer(id: old?.id, from: from, to: to, amount: a, fee: readInt(fee.text) ?? 0, date: old?.date ?? brain.services.now(), note: old?.note ?? ''));
+  }
+}
+
 class AccountsScreen extends StatelessWidget {
   const AccountsScreen({super.key});
-
-  Future<void> _edit(BuildContext context, MoneyAccount? old) async {
-    final brain = BrainScope.read(context);
-    var kind = old?.kind ?? AccountKind.bkash;
-    final name = TextEditingController(text: old?.name ?? '');
-    final opening = TextEditingController(text: old == null ? '' : '${old.opening}');
-    final ok = await showAppSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, set) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(old == null ? tr('নতুন অ্যাকাউন্ট') : tr('অ্যাকাউন্ট বদলান'), style: display(20, weight: 700)),
-            FieldLabel(tr('ধরন')),
-            ChoiceChips<AccountKind>(items: [for (final k in AccountKind.values) (k, isEn ? k.en : k.bn)], value: kind, onChanged: (v) => set(() => kind = v)),
-            FieldLabel(tr('নাম (ঐচ্ছিক)')),
-            TextField(textCapitalization: TextCapitalization.sentences, controller: name, decoration: InputDecoration(hintText: tr('যেমন: ডাচ-বাংলা সেভিংস, পকেটের টাকা'))),
-            FieldLabel(tr('এখন কত আছে')),
-            TextField(controller: opening, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
-            const SizedBox(height: 16),
-            PrimaryButton(label: tr('রাখুন'), onPressed: () => Navigator.pop(ctx, true)),
-            if (old != null)
-              TextButton(
-                onPressed: () async {
-                  await brain.deleteAccount(old.id);
-                  if (ctx.mounted) Navigator.pop(ctx, false);
-                },
-                child: Text(tr('মুছে ফেলুন'), style: body(15, weight: FontWeight.w600, color: C.red)),
-              ),
-          ]),
-        ),
-      ),
-    );
-    if (ok == true) {
-      final base = old ?? MoneyAccount(name: '');
-      // The balance typed now: keep the history, change the opening to match.
-      final typed = readInt(opening.text) ?? 0;
-      final now = old == null ? 0 : accountBalance(brain.data, old) - old.opening;
-      await brain.saveAccount(base.copyWith(name: name.text.trim(), kind: kind, opening: typed - now));
-    }
-    name.dispose();
-    opening.dispose();
-  }
-
-  /// A new move between accounts, or [old] changed.
-  Future<void> _transfer(BuildContext context, [Transfer? old]) async {
-    final brain = BrainScope.read(context);
-    final accs = brain.data.accounts;
-    if (accs.length < 2) {
-      toast(context, tr('টাকা সরাতে অন্তত দুটো অ্যাকাউন্ট লাগবে'));
-      return;
-    }
-    var from = old?.from ?? accs[0].id, to = old?.to ?? accs[1].id;
-    final amount = TextEditingController(text: old == null ? '' : '${old.amount}'), fee = TextEditingController(text: old == null || old.fee == 0 ? '' : '${old.fee}');
-    final ok = await showAppSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, set) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 0, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(tr('এক অ্যাকাউন্ট থেকে আরেকটায়'), style: display(20, weight: 700)),
-            FieldLabel(tr('থেকে')),
-            ChoiceChips<String>(items: [for (final a in accs) (a.id, accountLabel(a))], value: from, onChanged: (v) => set(() => from = v)),
-            FieldLabel(tr('তে')),
-            ChoiceChips<String>(items: [for (final a in accs) (a.id, accountLabel(a))], value: to, onChanged: (v) => set(() => to = v)),
-            FieldLabel(tr('কত টাকা')),
-            TextField(controller: amount, keyboardType: TextInputType.number, autofocus: true, decoration: InputDecoration(prefixText: tr('৳ '))),
-            FieldLabel(tr('খরচ/চার্জ (যেমন ক্যাশ আউট, ঐচ্ছিক)')),
-            TextField(controller: fee, keyboardType: TextInputType.number, decoration: InputDecoration(prefixText: tr('৳ '))),
-            const SizedBox(height: 16),
-            PrimaryButton(label: tr('রাখুন'), onPressed: () => Navigator.pop(ctx, true)),
-          ]),
-        ),
-      ),
-    );
-    final a = readInt(amount.text) ?? 0;
-    if (ok == true && a > 0 && from != to) {
-      await brain.saveTransfer(Transfer(id: old?.id, from: from, to: to, amount: a, fee: readInt(fee.text) ?? 0, date: old?.date ?? brain.services.now(), note: old?.note ?? ''));
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -263,12 +238,12 @@ class AccountsScreen extends StatelessWidget {
     final moves = [...d.transfers]..sort((a, b) => b.date.compareTo(a.date));
     String nameOf(String id) => accountLabel(d.accounts.firstWhere((a) => a.id == id, orElse: () => MoneyAccount(id: id, name: '?')));
     return Scaffold(
-      floatingActionButton: AddButton(label: tr('অ্যাকাউন্ট যোগ'), onPressed: () => _edit(context, null)),
+      floatingActionButton: AddButton(label: tr('অ্যাকাউন্ট যোগ'), onPressed: () => editAccount(context, null)),
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('অ্যাকাউন্ট'), trailing: [
             const PdfButton({ReportPart.accounts}),
-            if (d.accounts.length >= 2) IconButton(tooltip: tr('টাকা সরান'), onPressed: () => _transfer(context), icon: const Icon(Icons.swap_horiz_rounded)),
+            if (d.accounts.length >= 2) IconButton(tooltip: tr('টাকা সরান'), onPressed: () => moveMoney(context), icon: const Icon(Icons.swap_horiz_rounded)),
           ]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
@@ -278,7 +253,7 @@ class AccountsScreen extends StatelessWidget {
                   title: tr('নগদ, বিকাশ, ব্যাংক — আলাদা রাখুন'),
                   text: tr('প্রতিটার এখনকার টাকা দিয়ে যোগ করুন। এরপর আয়-ব্যয় লেখার সময় কোন অ্যাকাউন্ট, তা বেছে নিলে ব্যালেন্স নিজে থেকে মিলবে।'),
                   action: tr('প্রথম অ্যাকাউন্ট যোগ'),
-                  onAction: () => _edit(context, null),
+                  onAction: () => editAccount(context, null),
                 )
               else ...[
                 Panel(
@@ -299,7 +274,7 @@ class AccountsScreen extends StatelessWidget {
                         title: accountLabel(a),
                         subtitle: a.name.trim().isEmpty ? null : (isEn ? a.kind.en : a.kind.bn),
                         trailing: Text(taka(accountBalance(d, a)), style: display(17, weight: 700, color: accountBalance(d, a) < 0 ? C.orange : C.ink)),
-                        onTap: () => _edit(context, a),
+                        onTap: () => editAccount(context, a),
                       ),
                   ]),
                 ),
@@ -317,7 +292,7 @@ class AccountsScreen extends StatelessWidget {
                           onTap: () async {
                             final pick = await editOrDelete(context);
                             if (!context.mounted) return;
-                            if (pick == 'edit') await _transfer(context, t);
+                            if (pick == 'edit') await moveMoney(context, t);
                             if (pick == 'delete' && await confirmDialog(context, title: tr('মুছবেন?'), text: tr('এই টাকা সরানোর হিসাবটা মুছে যাবে।'), yes: tr('মুছুন'), danger: true)) {
                               await brain.deleteTransfer(t.id);
                             }

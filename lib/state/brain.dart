@@ -1849,6 +1849,8 @@ class Brain extends ChangeNotifier {
     'calendars', 'weather_places', 'temp_unit',
     // Owner, 20 Nov: the member's religion (optional, only on this phone).
     'religion',
+    // Owner, 22 Nov: money amounts hidden behind the eye in হিসাব and Home.
+    'money_hidden',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';

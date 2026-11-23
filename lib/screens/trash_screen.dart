@@ -29,6 +29,7 @@ class TrashScreen extends StatelessWidget {
     'medicines': ('ওষুধ', Icons.medication_outlined),
     'goals': ('সঞ্চয়', Icons.savings_outlined),
     'installments': ('কিস্তি', Icons.event_repeat_outlined),
+    'subscriptions': ('সাবস্ক্রিপশন', Icons.autorenew_rounded),
     'health': ('স্বাস্থ্য', Icons.favorite_border_rounded),
   };
 

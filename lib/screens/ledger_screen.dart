@@ -16,19 +16,21 @@ import '../models/models.dart';
 import 'money_screens.dart';
 import 'money_more_screens.dart';
 import 'money_search_screen.dart';
+import 'money_hub.dart';
 import 'person_screen.dart';
 import 'transactions_screen.dart';
 import '../logic/lang.dart';
 import '../ui/pdf_export.dart';
 
-/// Which part of হিসাব is open. Ordered as people use them: own monthly
-/// money most often, then loans, then projects.
-enum MoneyPart { cash, loans, projects }
+/// Which part of হিসাব is open (owner, 22 Nov): আমার খাত first — every part
+/// on one page — then own income and spending, loans, the other হিসাব and
+/// the accounts the money sits in.
+enum MoneyPart { hub, cash, loans, projects, accounts }
 
 /// The হিসাব tab: আয়-ব্যয়, ধার-দেনা and প্রজেক্ট, each with its own totals
 /// so they never mix.
 class MoneyScreen extends StatefulWidget {
-  const MoneyScreen({super.key, this.initial = MoneyPart.cash});
+  const MoneyScreen({super.key, this.initial = MoneyPart.hub});
   final MoneyPart initial;
 
   @override
@@ -50,29 +52,40 @@ class MoneyScreenState extends State<MoneyScreen> {
 
     // One add button at the bottom, by the thumb, as on দিনলিপি (approved design, 3 Nov).
     final add = switch (_part) {
-      MoneyPart.cash => AddButton(key: const Key('cash-add'), label: tr('লেনদেন যোগ করুন'), onPressed: () => push(const CashFormScreen(kind: CashKind.expense))),
+      MoneyPart.hub || MoneyPart.cash => AddButton(key: const Key('cash-add'), label: tr('লেনদেন যোগ করুন'), onPressed: () => push(const CashFormScreen(kind: CashKind.expense))),
       MoneyPart.loans => AddButton(key: const Key('loan-add'), label: tr('নতুন লেনদেন'), onPressed: () => push(const LedgerFormScreen())),
-      MoneyPart.projects => null,
+      // Owner, 22 Nov: one floating button instead of the two at the top.
+      MoneyPart.projects => AddButton(key: const Key('project-add'), label: tr('আলাদা হিসাব যোগ করুন'), onPressed: () => createProject(context)),
+      MoneyPart.accounts => AddButton(key: const Key('account-add'), label: tr('অ্যাকাউন্ট যোগ করুন'), onPressed: () => editAccount(context, null)),
     };
     return Stack(children: [
       TabPages<MoneyPart>(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
-      items: [(MoneyPart.cash, tr('আয়-ব্যয়')), (MoneyPart.loans, tr('ধার-দেনা')), (MoneyPart.projects, tr('আলাদা হিসাব'))],
+      items: [
+        (MoneyPart.hub, tr('আমার খাত')),
+        (MoneyPart.cash, tr('আয়-ব্যয়')),
+        (MoneyPart.loans, tr('ধার-দেনা')),
+        (MoneyPart.projects, tr('আলাদা হিসাব')),
+        (MoneyPart.accounts, tr('অ্যাকাউন্ট')),
+      ],
       value: _part,
       onChanged: show,
       top: (tabs) => [
         TabTitle(tr('হিসাব'),
-            sub: tr('আয়-ব্যয় আর ধার-দেনা'),
+            sub: tr('আয়-ব্যয়, ধার-দেনা আর অ্যাকাউন্ট'),
+            // Owner, 22 Nov: no ⋮ here (its pages are on আমার খাত), and a
+            // rounder search.
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               PdfButton(switch (_part) {
+                MoneyPart.hub => const {ReportPart.money, ReportPart.ledger, ReportPart.accounts},
                 MoneyPart.cash => const {ReportPart.money},
                 MoneyPart.loans => const {ReportPart.ledger},
                 MoneyPart.projects => const {ReportPart.projects},
+                MoneyPart.accounts => const {ReportPart.accounts},
               }),
               if (_part == MoneyPart.loans) IconButton(tooltip: tr('সব লেনদেন খুঁজুন'), onPressed: () => push(const TransactionsScreen()), icon: const Icon(Icons.list_alt_rounded)),
-              IconButton(
-                  key: const Key('money-search-open'), tooltip: tr('হিসাবে খুঁজুন'), onPressed: () => push(const MoneySearchScreen()), icon: const Icon(Icons.person_search_outlined)),
-              const MoneyToolsMenu(),
+              const SizedBox(width: 4),
+              _SearchButton(onTap: () => push(const MoneySearchScreen())),
             ])),
         const SizedBox(height: 12),
         tabs,
@@ -80,14 +93,16 @@ class MoneyScreenState extends State<MoneyScreen> {
       ],
       page: (part) => [
         ...switch (part) {
+          MoneyPart.hub => [const MoneyHubView()],
           MoneyPart.cash => [const CashView()],
           MoneyPart.loans => _loans(context, brain, push),
           MoneyPart.projects => [const ProjectsView()],
+          MoneyPart.accounts => [const AccountsView()],
         },
         const AdSlot(padding: EdgeInsets.only(top: 16)),
       ],
       ),
-      if (add != null) Positioned(right: 16, bottom: 16, child: add),
+      Positioned(right: 16, bottom: 16, child: add),
     ]);
   }
 
@@ -136,7 +151,7 @@ class MoneyScreenState extends State<MoneyScreen> {
             decoration: first ? null : BoxDecoration(border: Border(left: BorderSide(color: C.border))),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(label, style: body(12.5, color: C.muted)),
-              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: RollingAmount(value: amount, format: taka, style: display(22, weight: 700, color: color, height: 1.3))),
+              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: RollingAmount(value: amount, format: (v) => hid(context, taka(v)), style: display(22, weight: 700, color: color, height: 1.3))),
               Text(sub, maxLines: 2, style: body(11.5, color: C.muted, height: 1.35)),
             ]),
           ),
@@ -150,12 +165,13 @@ class MoneyScreenState extends State<MoneyScreen> {
 
     return [
       Panel(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        padding: const EdgeInsets.fromLTRB(14, 6, 6, 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [Expanded(child: Text(tr('ধার-দেনার হিসাব'), style: body(13.5, weight: FontWeight.w600, color: C.muted2))), const MoneyEye()]),
           IntrinsicHeight(
             child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              half(tr('আমি পাব'), loans.receivable, C.blue, trf('দিয়েছি {0} · ফেরত {1}', [taka(loans.lent), taka(loans.received)])),
-              half(tr('আমি দেব'), loans.payable, C.red, trf('নিয়েছি {0} · শোধ {1}', [taka(loans.borrowed), taka(loans.repaid)]), first: false),
+              half(tr('আমি পাব'), loans.receivable, C.blue, trf('দিয়েছি {0} · ফেরত {1}', [hid(context, taka(loans.lent)), hid(context, taka(loans.received))])),
+              half(tr('আমি দেব'), loans.payable, C.red, trf('নিয়েছি {0} · শোধ {1}', [hid(context, taka(loans.borrowed)), hid(context, taka(loans.repaid))]), first: false),
             ]),
           ),
           if (both > 0) ...[
@@ -172,7 +188,7 @@ class MoneyScreenState extends State<MoneyScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              net == 0 ? tr('সব মিলিয়ে সমান সমান') : trf(net > 0 ? 'সব মিলিয়ে আপনি পাবেন {0}' : 'সব মিলিয়ে আপনি দেবেন {0}', [taka(net.abs())]),
+              net == 0 ? tr('সব মিলিয়ে সমান সমান') : trf(net > 0 ? 'সব মিলিয়ে আপনি পাবেন {0}' : 'সব মিলিয়ে আপনি দেবেন {0}', [hid(context, taka(net.abs()))]),
               key: const Key('loans-net'),
               style: body(12.5, color: C.muted),
             ),
@@ -255,6 +271,27 @@ class MoneyScreenState extends State<MoneyScreen> {
       ],
     ];
   }
+}
+
+/// The search on হিসাব's title: a round soft button (owner, 22 Nov).
+class _SearchButton extends StatelessWidget {
+  const _SearchButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: tr('হিসাবে খুঁজুন'),
+        child: Material(
+          key: const Key('money-search-open'),
+          color: C.surface,
+          shape: CircleBorder(side: BorderSide(color: C.border)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(width: 42, height: 42, child: Icon(Icons.search_rounded, size: 22, color: C.ink)),
+          ),
+        ),
+      );
 }
 
 class _LoanCard extends StatelessWidget {

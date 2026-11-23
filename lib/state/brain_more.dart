@@ -262,6 +262,41 @@ extension BrainMore on Brain {
     await _save();
   }
 
+  /// The cash-in-hand account, made when there is none yet (owner, 22 Nov:
+  /// every লেনদেন is from an account, and নগদ is always one of them).
+  Future<MoneyAccount> cashAccount() async {
+    final have = data.accounts.where((a) => a.kind == AccountKind.cash).firstOrNull;
+    if (have != null) return have;
+    final a = MoneyAccount(name: '', kind: AccountKind.cash);
+    data.accounts.insert(0, a);
+    await _save();
+    return a;
+  }
+
+  // ── Subscriptions (owner, 22 Nov) ──
+
+  Future<void> saveSubscription(Subscription s) async {
+    _upsert(data.subscriptions, s, (x) => x.id);
+    await _save();
+  }
+
+  Future<void> deleteSubscription(Subscription s) async {
+    _trash(s.name, [('subscriptions', s.toJson())]);
+    data.subscriptions.removeWhere((x) => x.id == s.id);
+    await _save();
+  }
+
+  /// Paid: an expense from its account today, and the next date one cycle on.
+  Future<void> paySubscription(Subscription s) async {
+    final now = services.now();
+    await saveCash(CashEntry(kind: CashKind.expense, amount: s.amount, category: s.category, note: s.name, date: now, accountId: s.accountId ?? defaultAccountId(data)));
+    var next = s.after(s.next);
+    while (!next.isAfter(dayOnly(now))) {
+      next = s.after(next);
+    }
+    await saveSubscription(s.copyWith(next: next));
+  }
+
   Future<void> saveTransfer(Transfer t) async {
     _upsert(data.transfers, t, (x) => x.id);
     await _save();
