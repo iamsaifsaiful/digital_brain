@@ -16,6 +16,7 @@ import '../state/brain.dart';
 import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'money_hub.dart' show AccountsView;
 import 'money_screens.dart';
 import 'savings_screens.dart' show SavingsScreen;
 import 'shop_screens.dart';
@@ -226,92 +227,17 @@ Future<void> moveMoney(BuildContext context, [Transfer? old]) async {
 class AccountsScreen extends StatelessWidget {
   const AccountsScreen({super.key});
 
+  /// Owner, 23 Nov: no অ্যাকাউন্ট tab any more; the strip on আয়-ব্যয় opens this.
   @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final d = brain.data;
-    final total = totalBalance(d);
-    IconData icon(AccountKind k) => switch (k) {
-          AccountKind.cash => Icons.payments_outlined,
-          AccountKind.bank => Icons.account_balance_outlined,
-          AccountKind.other => Icons.wallet_outlined,
-          _ => Icons.phone_android_rounded,
-        };
-    final moves = [...d.transfers]..sort((a, b) => b.date.compareTo(a.date));
-    String nameOf(String id) => accountLabel(d.accounts.firstWhere((a) => a.id == id, orElse: () => MoneyAccount(id: id, name: '?')));
-    return Scaffold(
-      floatingActionButton: AddButton(label: tr('অ্যাকাউন্ট যোগ'), onPressed: () => editAccount(context, null)),
-      body: SafeArea(
-        child: Column(children: [
-          TopBar(title: tr('অ্যাকাউন্ট'), trailing: [
-            const PdfButton({ReportPart.accounts}),
-            if (d.accounts.length >= 2) IconButton(tooltip: tr('টাকা সরান'), onPressed: () => moveMoney(context), icon: const Icon(Icons.swap_horiz_rounded)),
+  Widget build(BuildContext context) => Scaffold(
+        floatingActionButton: AddButton(key: const Key('account-add'), label: tr('অ্যাকাউন্ট যোগ করুন'), onPressed: () => editAccount(context, null)),
+        body: SafeArea(
+          child: Column(children: [
+            TopBar(title: tr('অ্যাকাউন্ট'), trailing: const [PdfButton({ReportPart.accounts})]),
+            Expanded(child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: const [AccountsView()])),
           ]),
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
-              if (d.accounts.isEmpty)
-                EmptyState(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: tr('নগদ, বিকাশ, ব্যাংক — আলাদা রাখুন'),
-                  text: tr('প্রতিটার এখনকার টাকা দিয়ে যোগ করুন। এরপর আয়-ব্যয় লেখার সময় কোন অ্যাকাউন্ট, তা বেছে নিলে ব্যালেন্স নিজে থেকে মিলবে।'),
-                  action: tr('প্রথম অ্যাকাউন্ট যোগ'),
-                  onAction: () => editAccount(context, null),
-                )
-              else ...[
-                Panel(
-                  padding: const EdgeInsets.all(16),
-                  child: Figure(label: tr('সব মিলিয়ে হাতে আছে'), amount: '${total < 0 ? '−' : ''}${taka(total.abs())}', color: total < 0 ? C.orange : C.ink, size: 30),
-                ),
-                const SizedBox(height: 12),
-                Panel(
-                  child: Rows(children: [
-                    for (final a in d.accounts)
-                      ListRow(
-                        leading: Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(color: C.blueTint, borderRadius: BorderRadius.circular(12)),
-                          child: Icon(icon(a.kind), color: C.blue),
-                        ),
-                        title: accountLabel(a),
-                        subtitle: a.name.trim().isEmpty ? null : (isEn ? a.kind.en : a.kind.bn),
-                        trailing: Text(taka(accountBalance(d, a)), style: display(17, weight: 700, color: accountBalance(d, a) < 0 ? C.orange : C.ink)),
-                        onTap: () => editAccount(context, a),
-                      ),
-                  ]),
-                ),
-                if (moves.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  SectionTitle(tr('টাকা সরানো')),
-                  Panel(
-                    child: Rows(children: [
-                      for (final t in moves.take(20))
-                        ListRow(
-                          leading: Icon(Icons.swap_horiz_rounded, color: C.muted2),
-                          title: '${nameOf(t.from)} → ${nameOf(t.to)}',
-                          subtitle: '${shortDate(t.date)}${t.fee > 0 ? trf(' · চার্জ {0}', [taka(t.fee)]) : ''}',
-                          trailing: Text(taka(t.amount), style: body(15, weight: FontWeight.w600)),
-                          onTap: () async {
-                            final pick = await editOrDelete(context);
-                            if (!context.mounted) return;
-                            if (pick == 'edit') await moveMoney(context, t);
-                            if (pick == 'delete' && await confirmDialog(context, title: tr('মুছবেন?'), text: tr('এই টাকা সরানোর হিসাবটা মুছে যাবে।'), yes: tr('মুছুন'), danger: true)) {
-                              await brain.deleteTransfer(t.id);
-                            }
-                          },
-                        ),
-                    ]),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Text(tr('আয়-ব্যয় লেখার সময় অ্যাকাউন্ট বেছে নিলে এখানে মিলবে। “টাকা সরান” (⇄) দিয়ে বিকাশ থেকে নগদে তোলা বা ব্যাংকে জমা রাখুন।'), style: body(13, color: C.muted, height: 1.5)),
-              ],
-            ]),
-          ),
-        ]),
-      ),
-    );
-  }
+        ),
+      );
 }
 
 // ───────────────────────── Monthly report ─────────────────────────

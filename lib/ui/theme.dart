@@ -272,6 +272,14 @@ ThemeData buildTheme() {
       contentTextStyle: body(15, color: Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
+    // Owner, 24 Nov: every floating button a little smaller (56 → 46/50).
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      sizeConstraints: BoxConstraints.tightFor(width: 50, height: 50),
+      extendedSizeConstraints: BoxConstraints(minHeight: 46, maxHeight: 46, minWidth: 46),
+      extendedPadding: EdgeInsetsDirectional.only(start: 14, end: 18),
+      extendedIconLabelSpacing: 8,
+      iconSize: 21,
+    ),
     dividerTheme: DividerThemeData(color: C.line2, thickness: 1, space: 1),
     bottomSheetTheme: BottomSheetThemeData(backgroundColor: C.surface, surfaceTintColor: Colors.transparent, showDragHandle: true, dragHandleColor: C.border, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20)))),
     dialogTheme: DialogThemeData(backgroundColor: C.surface, surfaceTintColor: Colors.transparent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),

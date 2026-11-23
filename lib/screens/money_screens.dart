@@ -587,7 +587,8 @@ class _CashViewState extends State<CashView> {
     );
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (cashOnHand(brain.data) == null) ...[const CashNowCard(), const SizedBox(height: 12)],
+      // With accounts, each holds its own starting money (owner, 23 Nov).
+      if (cashOnHand(brain.data) == null && brain.data.accounts.isEmpty) ...[const CashNowCard(), const SizedBox(height: 12)],
       period,
       const SizedBox(height: 10),
       // খাত অনুযায়ী খরচ is gone from here (owner, 22 Nov); the month's

@@ -34,7 +34,7 @@ const enStrings = <String, String>{
   'ক্রেডিট কার্ড': 'Credit card',
   'নগদ, বিকাশ, ব্যাংক, কার্ড — আলাদা রাখুন': 'Cash, bKash, bank, card — keep them apart',
   'প্রতিটার এখনকার টাকা দিয়ে যোগ করুন। লেনদেন লেখার সময় কোন অ্যাকাউন্ট থেকে গেল বা এল, বেছে নিলে ব্যালেন্স নিজে মিলবে।': 'Add each with what it holds now. Pick the account when you write a transaction and the balances match by themselves.',
-  'প্রতিটা লেনদেন কোনো না কোনো অ্যাকাউন্ট থেকে হয় — নগদ সবসময় থাকে। ক্রেডিট কার্ডে খরচ করলে কার্ডের দেনা বাড়ে।': 'Every transaction goes through an account — cash is always there. Spending on a credit card adds to what you owe on it.',
+  'লেনদেনে অ্যাকাউন্ট বেছে নিলে তার ব্যালেন্স নিজে মিলে যায়। ক্রেডিট কার্ডে খরচ করলে কার্ডের দেনা বাড়ে।': 'Pick an account on each entry and its balance stays right. Spending on a credit card adds to what you owe on it.',
   'এ মাসে লেনদেন নেই': 'No transactions this month',
   'বাকি নেই': 'Nothing owed',
   'সাবস্ক্রিপশন যোগ করুন': 'Add subscription',
@@ -6875,4 +6875,7 @@ const enStrings = <String, String>{
   'এই সময়ে কোনো বিক্রি নেই।': 'No sales in this period.',
   'বাকিতে {0}': '{0} on credit',
   'পাসওয়ার্ড যোগ': 'Add password',
+  'আয়-ব্যয়, ধার-দেনা আর আলাদা হিসাব': 'Income, loans and separate budgets',
+  'অ্যাকাউন্টের হিসাব': 'Accounts',
+  'জমেছে · {0}টি চলছে': 'Saved · {0} running',
 };

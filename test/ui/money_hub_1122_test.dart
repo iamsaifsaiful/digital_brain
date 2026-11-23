@@ -9,8 +9,8 @@ import 'dart:io';
 import 'package:digital_brain/logic/upcoming.dart';
 import 'package:digital_brain/models/models.dart';
 import 'package:digital_brain/screens/home_shell.dart';
-import 'package:digital_brain/screens/ledger_screen.dart';
 import 'package:digital_brain/screens/money_hub.dart';
+import 'package:digital_brain/screens/money_more_screens.dart' show AccountsScreen;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_test/flutter_test.dart';
@@ -83,18 +83,25 @@ void main() {
     expect(up.firstWhere((u) => u.kind == UpcomingKind.loan).amount, 10000);
   });
 
-  testWidgets('হিসাব: আমার খাত, tabs, eye, accounts, subscriptions, form', (t) async {
+  // Owner, 23 Nov (later): no আমার খাত or অ্যাকাউন্ট tab; their parts sit on
+  // আয়-ব্যয়, and the tabs go আয়-ব্যয় · ধার-দেনা · আলাদা হিসাব.
+  testWidgets('হিসাব: আয়-ব্যয় with accounts, tabs, eye, subscriptions, form', (t) async {
     final rig = await start(t);
     rig.nowAt = DateTime(2026, 11, 22, 10, 5);
     rig.brain.data = seed(rig.nowAt);
     await settle(t);
-    t.view.physicalSize = const Size(1170, 5600);
+    t.view.physicalSize = const Size(1170, 6200);
     goToTab(t.element(find.byType(Scaffold).first), ShellTab.money);
     await settle(t);
-    expect(find.text('আমার খাত'), findsWidgets);
+    expect(find.text('আমার খাত'), findsNothing);
     expect(find.byKey(const Key('money-tools')), findsNothing);
+    expect(find.byKey(const Key('hub-accounts')), findsOneWidget);
     expect(find.byKey(const Key('khat-subs')), findsOneWidget);
-    await _shot(t, '1-amar-khat');
+    expect(find.byKey(const Key('upcoming')), findsOneWidget);
+    expect(find.byKey(const Key('home-report')), findsOneWidget);
+    final tabs = [for (final l in ['আয়-ব্যয়', 'ধার-দেনা', 'আলাদা হিসাব']) t.getTopLeft(find.text(l).first).dx];
+    expect(tabs[0] < tabs[1] && tabs[1] < tabs[2], isTrue);
+    await _shot(t, '1-ay-bay');
 
     // The eye hides every amount.
     await t.tap(find.byKey(const Key('money-eye')).first);
@@ -105,9 +112,7 @@ void main() {
     await t.tap(find.byKey(const Key('money-eye')).first);
     await settle(t);
 
-    // আয়-ব্যয়: no সাপ্তাহিক, no খাত অনুযায়ী খরচ.
-    await t.tap(find.text('আয়-ব্যয়').first);
-    await settle(t);
+    // No সাপ্তাহিক, no খাত অনুযায়ী খরচ.
     expect(find.text('সাপ্তাহিক'), findsNothing);
     expect(find.byKey(const Key('cash-cats')), findsNothing);
     await t.tap(find.text('মাসিক').last);
@@ -119,21 +124,21 @@ void main() {
     expect(find.byKey(const Key('due-add-top')), findsNothing);
     expect(find.byKey(const Key('project-add')), findsOneWidget);
     await _shot(t, '4-projects');
+    await t.tap(find.text('আয়-ব্যয়').first);
+    await settle(t);
 
-    await t.tap(find.text('অ্যাকাউন্ট').first);
+    // The accounts open from the strip.
+    await t.tap(find.byKey(const Key('hub-accounts-all')));
     await settle(t);
     expect(find.byKey(const Key('accounts-total')), findsOneWidget);
     expect(find.text('সিটি ব্যাংক কার্ড'), findsOneWidget);
+    expect(find.byKey(const Key('account-add')), findsOneWidget);
     await _shot(t, '5-accounts');
+    Navigator.of(t.element(find.byType(AccountsScreen))).pop();
+    await settle(t);
 
-    // The form: the account is a must, নগদ chosen first.
+    // The form: the account is asked for.
     t.view.physicalSize = const Size(1170, 2532);
-    await settle(t);
-    await t.tap(find.byKey(const Key('account-add')));
-    await settle(t);
-    Navigator.of(t.element(find.byType(BottomSheet).last)).pop();
-    await settle(t);
-    t.state<MoneyScreenState>(find.byType(MoneyScreen)).show(MoneyPart.hub);
     await settle(t);
     await t.tap(find.byKey(const Key('cash-add')));
     await settle(t);
@@ -161,7 +166,7 @@ void main() {
 
   // Owner, 23 Nov: সামনের খরচ and রিপোর্ট live on হিসাব's first tab, and
   // Home stays as it was.
-  testWidgets('Home unchanged; সামনের খরচ and রিপোর্ট on আমার খাত', (t) async {
+  testWidgets('Home unchanged; সামনের খরচ and রিপোর্ট on আয়-ব্যয়', (t) async {
     final rig = await start(t);
     rig.nowAt = DateTime(2026, 11, 22, 10, 5);
     rig.brain.data = seed(rig.nowAt);

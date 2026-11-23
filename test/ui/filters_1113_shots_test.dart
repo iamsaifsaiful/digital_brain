@@ -64,6 +64,8 @@ void main() {
     await down(t, 500);
     await shot(t, '4-money-list');
     if (stage == 'after') {
+      await t.ensureVisible(find.byKey(const ValueKey('cash-filter')));
+      await settle(t);
       await t.tap(find.byKey(const ValueKey('cash-filter')));
       await settle(t);
       await shot(t, '4b-menu');
