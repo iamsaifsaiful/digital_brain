@@ -206,8 +206,10 @@ Future<void> showReceipt(BuildContext context, Sale s) => showAppSheet<void>(
       },
     );
 
-/// নতুন বিক্রি: search or pick products, quantities (weights for loose
-/// ones), the buyer, the payment, and the receipt.
+/// নতুন বিক্রি (owner, 23 Nov): one page — the customer (with what they
+/// already owe and their last memo), the products by live search with + and
+/// − for how many, the discount in ৳ or %, how it is paid (cash, bKash/QR,
+/// part, on credit) and the memo.
 class SellPage extends StatefulWidget {
   const SellPage({super.key, this.amountOnly = false, this.customerId = ''});
   final bool amountOnly;
@@ -216,14 +218,17 @@ class SellPage extends StatefulWidget {
   State<SellPage> createState() => _SellPageState();
 }
 
+enum _Pay { cash, qr, part, credit }
+
 class _SellPageState extends State<SellPage> {
   final _find = TextEditingController();
   final _amount = TextEditingController();
   final _discount = TextEditingController();
-  final _cart = <String, double>{}; // product id → quantity
-  String _shelf = '';
+  final _paid = TextEditingController();
+  final _cart = <String, double>{}; // product id → quantity, in the order picked
   late String _customerId = widget.customerId;
-  late SalePay _pay = widget.customerId.isEmpty ? SalePay.cash : SalePay.credit;
+  late _Pay _pay = widget.customerId.isEmpty ? _Pay.cash : _Pay.credit;
+  bool _busy = false;
 
   /// The discount typed as taka or as percent (owner, 6 Nov: "ছাড়, টাকাতেও
   /// দিতে পারবে, পারসেন্ট এ। সেটা অটো লাইভ ক্যালকুলেট হবে।").
@@ -231,9 +236,9 @@ class _SellPageState extends State<SellPage> {
 
   @override
   void dispose() {
-    _find.dispose();
-    _amount.dispose();
-    _discount.dispose();
+    for (final c in [_find, _amount, _discount, _paid]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -272,283 +277,291 @@ class _SellPageState extends State<SellPage> {
 
   int get _total => widget.amountOnly ? (readNum(_amount.text) ?? 0).round() : (_subtotal - _off).clamp(0, 1 << 40);
 
+  int get _paidNow => switch (_pay) {
+        _Pay.cash || _Pay.qr => _total,
+        _Pay.credit => 0,
+        _Pay.part => ((readNum(_paid.text) ?? 0).round()).clamp(0, _total),
+      };
+
   Future<void> _pickCustomer() async {
     final c = await pickCustomer(context);
     if (c != null && mounted) setState(() => _customerId = c.id);
   }
 
   Future<void> _done() async {
+    if (_busy) return;
     final brain = BrainScope.read(context);
     if (_total <= 0) return toast(context, widget.amountOnly ? tr('কত টাকার বিক্রি, লিখুন') : tr('কোনো পণ্য বাছা হয়নি'));
-    if (_pay == SalePay.credit && _customerId.isEmpty) {
-      toast(context, tr('বাকিতে বিক্রির জন্য গ্রাহক বাছুন'));
+    final owes = _total - _paidNow;
+    if (owes > 0 && _customerId.isEmpty) {
+      toast(context, tr('বাকি থাকলে গ্রাহক বাছুন'));
       await _pickCustomer();
       if (_customerId.isEmpty || !mounted) return;
     }
     final c = customerById(brain.shop, _customerId);
-    if (_pay == SalePay.credit && c != null && c.limit > 0) {
-      final after = customerAccount(brain.shop, c).due + _total;
+    if (owes > 0 && c != null && c.limit > 0) {
+      final after = customerAccount(brain.shop, c).due + owes;
       if (after > c.limit) {
         final ok = await confirmDialog(context, title: tr('বাকির সীমা পার হবে'), text: trf('{0}-এর সীমা {1}, এই বিক্রিতে বাকি হবে {2}। তবুও বাকিতে দেবেন?', [c.name, taka(c.limit), taka(after)]), yes: tr('হ্যাঁ, দিন'));
         if (!ok || !mounted) return;
       }
     }
+    setState(() => _busy = true);
     final pct = _pct ? (readNum(_discount.text) ?? 0).clamp(0, 100).toDouble() : 0.0;
+    final pay = switch (_pay) { _Pay.cash => SalePay.cash, _Pay.qr => SalePay.qr, _ => SalePay.credit };
     final s = await brain.recordSale(Sale(
       at: brain.services.now(),
       lines: widget.amountOnly ? const [] : _lines,
       discount: widget.amountOnly ? 0 : _off,
       discountPct: widget.amountOnly || _off == 0 ? 0 : pct,
       amountOnly: widget.amountOnly ? _total : 0,
-      pay: _pay,
+      pay: pay,
+      paid: pay == SalePay.credit ? _paidNow : 0,
       customerId: c?.id ?? '',
       customer: c?.name ?? '',
     ));
     if (!mounted) return;
-    Navigator.of(context).pop();
-    toast(context, trf('বিক্রি রাখা হয়েছে · {0}', [taka(s.total)]));
+    final nav = Navigator.of(context);
+    nav.pop();
+    toast(nav.context, trf('বিক্রি রাখা হয়েছে · মেমো #{0} · {1}', [bnDigits(s.no), taka(s.total)]));
+    showReceipt(nav.context, s);
   }
-
-  /// Two steps (owner, 7 Nov: the sell page was not easy to use): first the
-  /// products — big cards, one tap adds one; then the checkout — the cart,
-  /// the customer, the discount, how it is paid.
-  bool _checkout = false;
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
     final b = brain.shop;
-    if (widget.amountOnly) return _scaffold(context, tr('শুধু টাকার বিক্রি'), _checkoutBody(context, brain), _payFoot(context, brain));
-    if (_checkout) {
-      return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) setState(() => _checkout = false);
-        },
-        child: _scaffold(context, tr('টাকা নিন'), _checkoutBody(context, brain), _payFoot(context, brain), back: () => setState(() => _checkout = false)),
+    final customer = _customerId.isEmpty ? null : customerById(b, _customerId);
+    final before = customer == null ? 0 : customerAccount(b, customer).due;
+    final lastMemo = customer == null ? null : (b.sales.where((x) => x.customerId == customer.id && x.no > 0).toList()..sort((a, x) => x.at.compareTo(a.at))).firstOrNull;
+    final owes = _total - _paidNow;
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Column(children: [
+          InnerTop(
+            title: widget.amountOnly ? tr('শুধু টাকার বিক্রি') : tr('নতুন বিক্রি'),
+            actions: [
+              Padding(padding: const EdgeInsets.only(right: 4), child: Text(trf('মেমো #{0}', [bnDigits(brain.nextSaleNo)]), style: body(12.5, color: C.muted))),
+              IconButton(tooltip: tr('মুখে বলে বিক্রি'), onPressed: () => openVoice(context), icon: const Icon(Icons.mic_none_rounded)),
+            ],
+          ),
+          Expanded(
+            child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 16), children: [
+              _label(tr('গ্রাহক')),
+              _customerCard(customer, before, lastMemo),
+              if (widget.amountOnly) ...[
+                const SizedBox(height: 14),
+                NumField(controller: _amount, label: tr('কত টাকার বিক্রি'), hint: '৳', fieldKey: const Key('biz-sell-amount-field'), onChanged: (_) => setState(() {})),
+              ] else ...[
+                const SizedBox(height: 14),
+                _label(tr('পণ্য যোগ করুন')),
+                ..._search(brain),
+                if (_cart.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  _label(trf('বাছাই করা {0}টি', [bnDigits(_cart.length)])),
+                  _cartCard(),
+                ],
+                const SizedBox(height: 12),
+                _sumCard(),
+              ],
+              const SizedBox(height: 14),
+              _label(tr('টাকা')),
+              SegTabs<_Pay>(
+                key: const Key('biz-sell-pay'),
+                items: [(_Pay.cash, tr('নগদ')), (_Pay.qr, tr('বিকাশ/QR')), (_Pay.part, tr('আংশিক')), (_Pay.credit, tr('বাকি'))],
+                value: _pay,
+                onChanged: (v) => setState(() => _pay = v),
+              ),
+              if (_pay == _Pay.part || (_pay == _Pay.credit && customer != null) || (before > 0 && owes == 0 && customer != null)) ...[
+                const SizedBox(height: 10),
+                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  if (_pay == _Pay.part) ...[
+                    Expanded(child: NumField(controller: _paid, fieldKey: const Key('biz-sell-paid'), label: tr('পেলাম ৳'), onChanged: (_) => setState(() {}))),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                      decoration: BoxDecoration(color: C.warnBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: C.warnBorder)),
+                      child: Text(trf('মোট বকেয়া {0}', [taka(before + owes)]), key: const Key('biz-sell-due-after'), style: body(14, weight: FontWeight.w700, color: C.warn)),
+                    ),
+                  ),
+                ]),
+              ],
+            ]),
+          ),
+          PageFoot(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Expanded(child: Text(_off > 0 ? trf('এই মেমো ({0} থেকে)', [taka(_subtotal)]) : tr('এই মেমো'), style: body(14, color: C.muted))),
+                Text(taka(_total), key: const Key('biz-sell-total'), style: display(26, weight: 700)),
+              ]),
+              const SizedBox(height: 10),
+              PrimaryButton(key: const Key('biz-sell-done'), label: tr('বিক্রি সেভ ও মেমো'), icon: Icons.check_rounded, onPressed: _busy ? null : _done),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _label(String s) => Padding(padding: const EdgeInsets.fromLTRB(2, 0, 2, 6), child: Text(s, style: body(12.5, color: C.muted, weight: FontWeight.w600)));
+
+  Widget _customerCard(Customer? c, int before, Sale? lastMemo) => Material(
+        color: C.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: c == null && _pay != _Pay.cash && _pay != _Pay.qr ? C.warnBorder : C.border)),
+        child: InkWell(
+          key: const Key('biz-sell-customer'),
+          borderRadius: BorderRadius.circular(14),
+          onTap: _pickCustomer,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 11, 14, 11),
+            child: Row(children: [
+              c == null ? CircleAvatar(radius: 19, backgroundColor: C.surface2, child: Icon(Icons.person_outline_rounded, color: C.muted)) : Avatar(name: c.name, size: 38),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(c?.name ?? tr('গ্রাহক বাছুন (ঐচ্ছিক)'), style: body(15, weight: FontWeight.w600, color: c == null ? C.muted : C.ink)),
+                  if (c != null && before > 0)
+                    Text([trf('আগের বকেয়া {0}', [taka(before)]), if (lastMemo != null) trf('শেষ মেমো #{0}', [bnDigits(lastMemo.no)])].join(' · '), style: body(12, color: C.warn))
+                  else if (c == null && _pay != _Pay.cash && _pay != _Pay.qr)
+                    Text(tr('বাকির জন্য দরকার'), style: body(12, color: C.warn)),
+                ]),
+              ),
+              Text(c == null ? tr('বাছুন') : tr('বদলান'), style: body(13, weight: FontWeight.w600, color: C.green)),
+            ]),
+          ),
+        ),
       );
-    }
+
+  List<Widget> _search(Brain brain) {
+    final b = brain.shop;
     final q = _find.text.trim().toLowerCase();
     final best = bestSellers(b, brain.services.now()).map((x) => x.$1).toList();
-    final shelfNames = shelves(b.products).map((x) => x.$1).toList();
-    var shown = b.products.where((p) => q.isEmpty || p.name.toLowerCase().contains(q) || (p.barcode.isNotEmpty && p.barcode == asciiDigits(q))).toList();
-    if (_shelf.isNotEmpty) shown = shown.where((p) => sectionOf(p) == _shelf).toList();
     int rank(Product p) {
       final i = best.indexOf(p.name);
       return i < 0 ? 999 : i;
     }
 
-    if (q.isEmpty && _shelf.isEmpty) shown.sort((a, c) => rank(a).compareTo(rank(c)));
-    final count = _cart.length;
-
-    final page = ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 16), children: [
-      TextField(textCapitalization: TextCapitalization.sentences, 
+    final shown = [for (final p in b.products) if (q.isEmpty || p.name.toLowerCase().contains(q) || (p.barcode.isNotEmpty && p.barcode == asciiDigits(q))) p]..sort((a, x) {
+        if (q.isNotEmpty) {
+          final sa = a.name.toLowerCase().startsWith(q), sx = x.name.toLowerCase().startsWith(q);
+          if (sa != sx) return sa ? -1 : 1;
+        }
+        final r = rank(a).compareTo(rank(x));
+        return r != 0 ? r : a.name.compareTo(x.name);
+      });
+    return [
+      TextField(
         key: const Key('biz-sell-find'),
         controller: _find,
         onChanged: (_) => setState(() {}),
         style: body(15),
         decoration: InputDecoration(hintText: tr('পণ্যের নাম বা বারকোড লিখুন'), prefixIcon: const Icon(Icons.search_rounded), isDense: true),
       ),
-      if (shelfNames.length > 1) ...[
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 38,
-          child: ListView(scrollDirection: Axis.horizontal, children: [
-            for (final s in ['', ...shelfNames])
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(
-                  avatar: s.isEmpty ? null : Icon(sectionIcon(s), size: 16, color: _shelf == s ? C.green : C.muted),
-                  showCheckmark: false,
-                  label: Text(s.isEmpty ? tr('সব') : tr(s)),
-                  selected: _shelf == s,
-                  onSelected: (_) => setState(() => _shelf = s),
+      const SizedBox(height: 8),
+      if (b.products.isEmpty)
+        Padding(padding: const EdgeInsets.all(8), child: Text(tr('স্টকে কোনো পণ্য নেই। “শুধু টাকা লিখে” বিক্রি রাখা যায়, বা স্টক যোগ করুন।'), style: body(13.5, color: C.muted)))
+      else if (shown.isEmpty)
+        Padding(padding: const EdgeInsets.all(8), child: Text(tr('মেলেনি।'), style: body(14, color: C.muted)))
+      else
+        Container(
+          decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.border)),
+          clipBehavior: Clip.antiAlias,
+          child: Column(children: [
+            for (final (i, p) in shown.take(q.isEmpty ? 5 : 8).indexed) ...[
+              if (i > 0) Divider(height: 1, color: C.border, indent: 14, endIndent: 14),
+              InkWell(
+                key: Key(p.loose ? 'biz-weigh-${p.id}' : 'biz-plus-${p.id}'),
+                onTap: () => p.loose ? _weigh(p) : _add(p),
+                onLongPress: () => _weigh(p),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 9, 10, 9),
+                  child: Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(p.name, style: body(14.5, weight: FontWeight.w600)),
+                        Text(
+                          trf('{0} / {1} · আছে {2} {1}', [taka(p.sell), tr(p.unit), bnDigits(qtyText(p.stock))]),
+                          style: body(12, color: p.stock <= 0 ? C.red : C.muted),
+                        ),
+                      ]),
+                    ),
+                    Icon(p.loose ? Icons.scale_outlined : Icons.add_rounded, color: C.green, size: 24),
+                  ]),
                 ),
               ),
+            ],
           ]),
         ),
-      ],
-      const SizedBox(height: 12),
-      if (b.products.isEmpty)
-        ListCard(rows: const [], empty: tr('স্টকে কোনো পণ্য নেই। “শুধু টাকা লিখে” বিক্রি রাখা যায়, বা স্টক থেকে পণ্য যোগ করুন।'))
-      else if (shown.isEmpty)
-        Padding(padding: const EdgeInsets.all(12), child: Text(tr('মেলেনি।'), style: body(14, color: C.muted)))
-      else
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.55,
-          children: [for (final p in shown.take(60)) _card(p)],
-        ),
-      const SizedBox(height: 8),
-      Text(tr('চাপ দিলে একটা যোগ হয় · চেপে ধরলে পরিমাণ লিখুন'), textAlign: TextAlign.center, style: body(12, color: C.muted)),
-    ]);
-
-    final foot = PageFoot(
-      child: Row(children: [
-        Expanded(
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(count == 0 ? tr('কিছু বাছা হয়নি') : trf('{0}টি পণ্য', [bnDigits(count)]), style: body(12.5, color: C.muted)),
-            Text(taka(_subtotal), key: const Key('biz-sell-subtotal'), style: display(24, weight: 600)),
-          ]),
-        ),
-        SizedBox(
-          width: 170,
-          child: PrimaryButton(
-            key: const Key('biz-sell-next'),
-            label: tr('এগিয়ে যান'),
-            icon: Icons.arrow_forward_rounded,
-            onPressed: () => count == 0 ? toast(context, tr('কোনো পণ্য বাছা হয়নি')) : setState(() => _checkout = true),
-          ),
-        ),
-      ]),
-    );
-    return _scaffold(context, tr('নতুন বিক্রি'), page, foot);
+    ];
   }
 
-  Widget _scaffold(BuildContext context, String title, Widget body, Widget foot, {VoidCallback? back}) => Scaffold(
-        body: SafeArea(
-          bottom: false,
-          child: Column(children: [
-            back == null
-                ? InnerTop(title: title, actions: [IconButton(tooltip: tr('মুখে বলে বিক্রি'), onPressed: () => openVoice(context), icon: const Icon(Icons.mic_none_rounded))])
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 8, 8, 4),
-                    child: Row(children: [
-                      IconButton(key: const Key('biz-sell-back'), tooltip: tr('পণ্যে ফিরে যান'), onPressed: back, icon: const Icon(Icons.chevron_left_rounded, size: 28)),
-                      Expanded(child: Text(title, style: display(21, weight: 600))),
-                    ]),
-                  ),
-            Expanded(child: body),
-            foot,
-          ]),
-        ),
-      );
-
-  /// A product card: tap adds one (loose goods ask the weight), hold to type the amount.
-  Widget _card(Product p) {
-    final inCart = _cart[p.id];
-    final on = inCart != null;
-    return Material(
-      color: on ? C.greenTint : C.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: on ? C.green : C.border, width: on ? 1.6 : 1)),
-      child: InkWell(
-        key: Key(p.loose ? 'biz-weigh-${p.id}' : 'biz-plus-${p.id}'),
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => p.loose ? _weigh(p) : _add(p),
-        onLongPress: () => _weigh(p),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              LetterTile(p.name, size: 32),
-              const Spacer(),
-              if (on) ...[
-                InkWell(
-                  key: Key('biz-minus-${p.id}'),
-                  customBorder: const CircleBorder(),
-                  onTap: () => p.loose ? setState(() => _cart.remove(p.id)) : _add(p, -1),
-                  child: Padding(padding: const EdgeInsets.all(4), child: Icon(Icons.remove_circle_outline_rounded, color: C.green, size: 22)),
+  Widget _cartCard() => Container(
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.border)),
+        child: Column(children: [
+          for (final (i, l) in _lines.indexed) ...[
+            if (i > 0) Divider(height: 1, color: C.border, indent: 14, endIndent: 14),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(l.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14, weight: FontWeight.w600)),
+                    Text(trf('{0} / {1}', [taka(_p(l.productId!)?.sell ?? 0), tr(l.unit)]), style: body(11.5, color: C.muted)),
+                  ]),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: C.green, borderRadius: BorderRadius.circular(10)),
-                  child: Text('${bnDigits(qtyText(inCart))} ${tr(p.unit)}', style: body(12, weight: FontWeight.w700, color: C.onAccent)),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), border: Border.all(color: C.border)),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    InkWell(key: Key('biz-dec-${l.productId}'), onTap: () => _add(_p(l.productId!)!, -1), child: Padding(padding: const EdgeInsets.all(6), child: Icon(Icons.remove_rounded, size: 18, color: C.green))),
+                    InkWell(
+                      key: Key('biz-qty-${l.productId}'),
+                      onTap: () => _weigh(_p(l.productId!)!),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 44),
+                        child: Text('${bnDigits(qtyText(l.qty))} ${tr(l.unit)}', textAlign: TextAlign.center, style: body(13, weight: FontWeight.w600)),
+                      ),
+                    ),
+                    InkWell(key: Key('biz-inc-${l.productId}'), onTap: () => _add(_p(l.productId!)!), child: Padding(padding: const EdgeInsets.all(6), child: Icon(Icons.add_rounded, size: 18, color: C.green))),
+                  ]),
                 ),
-              ] else
-                Icon(p.loose ? Icons.scale_outlined : Icons.add_circle_outline_rounded, color: C.muted, size: 22),
-            ]),
-            const Spacer(),
-            Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600)),
-            Text(trf('{0} / {1}', [taka(p.sell), tr(p.unit)]) + (p.stock <= 0 ? ' · ${tr('স্টক নেই')}' : ''), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12, color: p.stock <= 0 ? C.warn : C.muted)),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  /// The checkout: the cart (or the amount), the customer, the discount.
-  Widget _checkoutBody(BuildContext context, Brain brain) {
-    final b = brain.shop;
-    final customer = _customerId.isEmpty ? null : customerById(b, _customerId);
-    final owe = customer == null ? 0 : customerAccount(b, customer).due;
-    return ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 16), children: [
-      if (widget.amountOnly)
-        NumField(controller: _amount, label: tr('কত টাকার বিক্রি'), hint: '৳', fieldKey: const Key('biz-sell-amount-field'), onChanged: (_) => setState(() {}))
-      else ...[
-        SectionHeading(tr('কার্ট'), counter: trf('{0}টি পণ্য', [bnDigits(_cart.length)]), link: tr('+ আরও পণ্য'), onLink: () => setState(() => _checkout = false)),
-        ListCard(rows: [
-          for (final l in _lines)
-            ListRow(
-              leading: LetterTile(l.name, size: 36),
-              title: l.name,
-              subtitle: '${bnDigits(qtyText(l.qty))} ${tr(l.unit)}',
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(taka(l.amount), style: body(14, weight: FontWeight.w600)),
-                IconButton(tooltip: tr('বাদ দিন'), onPressed: () => setState(() => _cart.remove(l.productId)), icon: Icon(Icons.close_rounded, size: 18, color: C.muted)),
+                const SizedBox(width: 10),
+                SizedBox(width: 64, child: Text(taka(l.amount), textAlign: TextAlign.right, style: body(14, weight: FontWeight.w700))),
               ]),
-              onTap: () {
-                final p = _p(l.productId!);
-                if (p != null) _weigh(p);
-              },
             ),
+          ],
         ]),
-      ],
-      SectionHeading(tr('গ্রাহক')),
-      OutlinedButton(
-        key: const Key('biz-sell-customer'),
-        onPressed: _pickCustomer,
-        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), alignment: Alignment.centerLeft),
-        child: Row(children: [
-          const Icon(Icons.person_outline_rounded, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text.rich(
-              TextSpan(children: [
-                TextSpan(text: customer == null ? (_pay == SalePay.credit ? tr('গ্রাহক বাছুন (বাকির জন্য দরকার)') : tr('গ্রাহক (ঐচ্ছিক)')) : customer.name, style: body(14, color: customer == null && _pay == SalePay.credit ? C.warn : C.ink)),
-                if (owe > 0) TextSpan(text: ' · ${trf('আগের বাকি {0}', [taka(owe)])}', style: body(13, color: C.warn)),
-              ]),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Text(customer == null ? tr('বাছুন') : tr('বদলান'), style: body(13, weight: FontWeight.w600, color: C.green)),
-        ]),
-      ),
-      if (!widget.amountOnly) ...[
-        SectionHeading(tr('ছাড়')),
-        Row(children: [
-          Expanded(
-            child: TextField(
-              key: const Key('biz-sell-discount'),
-              controller: _discount,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              onChanged: (_) => setState(() {}),
-              style: body(15),
-              decoration: InputDecoration(isDense: true, hintText: _pct ? tr('কত শতাংশ') : tr('কত টাকা')),
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(width: 120, child: SegTabs<bool>(key: const Key('biz-sell-discount-kind'), items: const [(false, '৳'), (true, '%')], value: _pct, onChanged: (v) => setState(() => _pct = v))),
-        ]),
-        if (_off > 0) Padding(padding: const EdgeInsets.only(top: 6), child: Text('− ${taka(_off)}', key: const Key('biz-sell-off'), style: body(13.5, color: C.green, weight: FontWeight.w600))),
-      ],
-      SectionHeading(tr('টাকা কীভাবে')),
-      SegTabs<SalePay>(key: const Key('biz-sell-pay'), items: [for (final p in SalePay.values) (p, tr(p.label))], value: _pay, onChanged: (v) => setState(() => _pay = v)),
-    ]);
-  }
+      );
 
-  Widget _payFoot(BuildContext context, Brain brain) => PageFoot(
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+  Widget _sumCard() => Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: C.border)),
+        child: Column(children: [
           Row(children: [
-            Expanded(child: Text(_off > 0 ? trf('মোট ({0} থেকে)', [taka(_subtotal)]) : tr('মোট'), style: body(14, color: C.muted))),
-            Text(taka(_total), key: const Key('biz-sell-total'), style: display(27, weight: 600)),
+            Expanded(child: Text(tr('মোট'), style: body(14, color: C.muted))),
+            Text(taka(_subtotal), key: const Key('biz-sell-subtotal'), style: body(15, weight: FontWeight.w700)),
           ]),
           const SizedBox(height: 10),
-          PrimaryButton(key: const Key('biz-sell-done'), label: tr('বিক্রি হয়ে গেছে'), icon: Icons.check_rounded, onPressed: _done),
+          Row(children: [
+            Text(tr('ছাড়'), style: body(14, color: C.muted)),
+            const SizedBox(width: 12),
+            SizedBox(width: 96, child: SegTabs<bool>(key: const Key('biz-sell-discount-kind'), items: const [(false, '৳'), (true, '%')], value: _pct, onChanged: (v) => setState(() => _pct = v))),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                key: const Key('biz-sell-discount'),
+                controller: _discount,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => setState(() {}),
+                style: body(15),
+                decoration: const InputDecoration(isDense: true),
+              ),
+            ),
+            const SizedBox(width: 10),
+            SizedBox(width: 64, child: Text(_off > 0 ? '− ${taka(_off)}' : '', key: const Key('biz-sell-off'), textAlign: TextAlign.right, style: body(13.5, color: C.green, weight: FontWeight.w700))),
+          ]),
         ]),
       );
 }

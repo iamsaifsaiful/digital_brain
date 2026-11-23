@@ -11,6 +11,8 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import 'biz_hisab.dart' show pickDealer;
 import 'biz_parts.dart';
+import 'biz_stock_in.dart';
+export 'biz_stock_in.dart' show StockInPage;
 
 /// স্টক (business mode tab; My Assistant's "সংরক্ষণ" in its place).
 class BizStock extends StatefulWidget {
@@ -19,9 +21,12 @@ class BizStock extends StatefulWidget {
   State<BizStock> createState() => _BizStockState();
 }
 
+/// স্টক (owner, 23 Nov): what is on the shelf, by section — what it cost,
+/// what it would sell for, what is running low; "+ স্টক যোগ" always there.
 class _BizStockState extends State<BizStock> {
-  String _part = 'all';
-  String _section = ''; // '' = every section
+  String _section = ''; // '' = all, '@low' = running low, '@exp' = expiry, else a section
+  bool _search = false;
+  String _q = '';
 
   @override
   Widget build(BuildContext context) {
@@ -30,135 +35,196 @@ class _BizStockState extends State<BizStock> {
     final now = brain.services.now();
     final low = lowStock(b);
     final exp = expiring(b, now);
-    final worth = b.products.fold<int>(0, (s, p) => s + (p.buy * p.stock).round());
-    return TabPages<String>(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
-      items: [('all', tr('সব পণ্য')), ('low', low.isEmpty ? tr('কম স্টক') : trf('কম স্টক · {0}', [bnDigits(low.length)])), ('expiry', tr('মেয়াদ'))],
-      value: _part,
-      onChanged: (v) => setState(() => _part = v),
-      top: (tabs) => [
-      TabTitle(tr('স্টক'),
-          sub: trf('{0}টি পণ্য · কেনা দামে {1}', [bnDigits(b.products.length), taka(worth)]),
-          trailing: IconButton(key: const Key('biz-stock-add'), tooltip: tr('নতুন পণ্য'), onPressed: () => pushPage(context, const ProductForm()), icon: const Icon(Icons.add_box_outlined))),
-      const BizFreeBanner(),
-      if (exp.isNotEmpty) ...[
-        const SizedBox(height: 12),
-        AttentionCard(
-          icon: Icons.schedule_rounded,
-          title: trf('{0}-এর মেয়াদ {1}', [exp.first.name, dayOnly(exp.first.expiry!).isAfter(dayOnly(now)) ? trf('{0} শেষ', [shortDate(exp.first.expiry!)]) : tr('শেষ হয়ে গেছে')]),
-          text: exp.length > 1 ? trf('আরও {0}টি পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন', [bnDigits(exp.length - 1)]) : tr('আজ কম দামে বিক্রি করতে পারেন'),
-          action: tr('দেখুন'),
-          onAction: () => setState(() => _part = 'expiry'),
-        ),
-      ],
-        const SizedBox(height: 12),
-        tabs,
-      ],
-      page: (part) => _page(context, b, part, low, now),
-    );
-  }
-
-  List<Widget> _page(BuildContext context, ShopBook b, String part, List<Product> low, DateTime now) {
-    final shown = switch (part) {
-      'low' => low,
-      'expiry' => [for (final p in b.products) if (p.expiry != null) p]..sort((a, c) => a.expiry!.compareTo(c.expiry!)),
+    final hasExpiry = b.products.any((p) => p.expiry != null);
+    final worth = b.products.fold<int>(0, (s, p) => s + p.value);
+    final sellWorth = b.products.fold<int>(0, (s, p) => s + (p.sell * (p.stock > 0 ? p.stock : 0)).round());
+    final q = _q.trim().toLowerCase();
+    final base = switch (_section) {
+      '@low' => low,
+      '@exp' => [for (final p in b.products) if (p.expiry != null) p]..sort((a, c) => a.expiry!.compareTo(c.expiry!)),
       _ => b.products,
     };
-    final sections = shelves(shown);
-    final showSection = _section.isNotEmpty && sections.any((x) => x.$1 == _section);
-    final listed = showSection ? sections.where((x) => x.$1 == _section).toList() : sections;
-    return [
-      if (b.products.isEmpty) ...[
-        const SizedBox(height: 16),
-        EmptyState(
-          icon: Icons.inventory_2_outlined,
-          title: tr('এখনো কোনো পণ্য নেই'),
-          text: tr('পণ্যের নাম, কেনা-বেচার দাম আর কতটা আছে দিন — বিক্রি করলে স্টক নিজে থেকে কমবে, কম হলে অর্ডার তালিকায় উঠবে।'),
-          action: tr('পণ্য যোগ করুন'),
-          onAction: () => pushPage(context, const ProductForm()),
+    final matched = [for (final p in base) if (q.isEmpty || p.name.toLowerCase().contains(q)) p];
+    final all = shelves(b.products);
+    final sections = shelves(matched);
+    final listed = _section.isEmpty || _section.startsWith('@') ? sections : sections.where((x) => x.$1 == _section).toList();
+    return Stack(children: [
+      ListView(key: const PageStorageKey('biz-stock'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 110), children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
+          child: Row(children: [
+            Expanded(child: Text(tr('স্টক'), style: display(24, weight: 700))),
+            IconButton(key: const Key('biz-stock-search'), tooltip: tr('খুঁজুন'), onPressed: () => setState(() {
+              _search = !_search;
+              if (!_search) _q = '';
+            }), icon: Icon(_search ? Icons.close_rounded : Icons.search_rounded)),
+            IconButton(key: const Key('biz-stock-add'), tooltip: tr('নতুন পণ্য'), onPressed: () => pushPage(context, const ProductForm()), icon: const Icon(Icons.add_box_outlined)),
+          ]),
         ),
-      ] else if (shown.isEmpty)
-        Padding(padding: const EdgeInsets.only(top: 18), child: Text(part == 'low' ? tr('কোনো পণ্য কম নেই।') : tr('মেয়াদ দেওয়া কোনো পণ্য নেই।'), style: body(14, color: C.muted)))
-      else ...[
-        if (sections.length > 1) ...[
+        if (_search)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: TextField(
+              key: const Key('biz-stock-q'),
+              autofocus: true,
+              onChanged: (v) => setState(() => _q = v),
+              decoration: InputDecoration(hintText: tr('পণ্যের নাম লিখুন'), prefixIcon: const Icon(Icons.search_rounded), isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(24))),
+            ),
+          ),
+        const BizFreeBanner(),
+        AppCard(
+          key: const Key('biz-stock-sum'),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(tr('স্টকের মাল · কেনা দামে'), style: body(12.5, color: C.muted))),
+              Text(tr('পণ্য'), style: body(12.5, color: C.muted)),
+            ]),
+            const SizedBox(height: 2),
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Expanded(child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(taka(worth), key: const Key('biz-stock-worth'), style: display(26, weight: 700)))),
+              Text(bnDigits(b.products.length), style: display(24, weight: 700)),
+            ]),
+            const SizedBox(height: 4),
+            Row(children: [
+              Expanded(child: Text(trf('বেচলে প্রায় {0}', [taka(sellWorth)]), style: body(12.5, color: C.green, weight: FontWeight.w600))),
+              if (low.isNotEmpty) Text(trf('{0}টি কম আছে', [bnDigits(low.length)]), style: body(12.5, color: C.red, weight: FontWeight.w600)),
+            ]),
+          ]),
+        ),
+        if (exp.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          AttentionCard(
+            icon: Icons.schedule_rounded,
+            title: trf('{0}-এর মেয়াদ {1}', [exp.first.name, dayOnly(exp.first.expiry!).isAfter(dayOnly(now)) ? trf('{0} শেষ', [shortDate(exp.first.expiry!)]) : tr('শেষ হয়ে গেছে')]),
+            text: exp.length > 1 ? trf('আরও {0}টি পণ্যের মেয়াদ কাছে · কম দামে বিক্রি করতে পারেন', [bnDigits(exp.length - 1)]) : tr('আজ কম দামে বিক্রি করতে পারেন'),
+            action: tr('দেখুন'),
+            onAction: () => setState(() => _section = '@exp'),
+          ),
+        ],
+        if (b.products.isNotEmpty) ...[
           const SizedBox(height: 12),
           SizedBox(
             height: 38,
             child: ListView(scrollDirection: Axis.horizontal, children: [
-              _sectionChip('', tr('সব সেকশন'), Icons.apps_rounded, shown.length, !showSection),
-              for (final (name, ps) in sections) _sectionChip(name, tr(name), sectionIcon(name), ps.length, showSection && _section == name),
+              _chip('', trf('সব {0}', [bnDigits(b.products.length)]), null),
+              if (low.isNotEmpty) _chip('@low', trf('কম আছে {0}', [bnDigits(low.length)]), C.red),
+              if (hasExpiry) _chip('@exp', tr('মেয়াদ'), C.warn),
+              if (all.length > 1)
+                for (final (name, ps) in all) _chip(name, '${tr(name)} ${bnDigits(ps.length)}', null),
             ]),
           ),
         ],
-        for (final (shelf, ps) in listed) ...[
-          Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 6),
-            child: Row(children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(9)),
-                child: Icon(sectionIcon(shelf), size: 17, color: C.green),
-              ),
-              const SizedBox(width: 10),
-              Expanded(child: Text(tr(shelf), key: Key('biz-section-$shelf'), maxLines: 1, overflow: TextOverflow.ellipsis, style: display(17, weight: 600))),
-              Counter(trf('{0}টি', [bnDigits(ps.length)])),
-              const SizedBox(width: 6),
-              IconButton(
-                key: Key('biz-section-add-$shelf'),
-                tooltip: trf('{0}-এ পণ্য যোগ', [tr(shelf)]),
-                visualDensity: VisualDensity.compact,
-                onPressed: () => pushPage(context, ProductForm(category: shelf == otherSection ? '' : shelf)),
-                icon: Icon(Icons.add_rounded, size: 20, color: C.green),
-              ),
-            ]),
-          ),
-          ListCard(rows: [for (final p in ps) _productRow(context, p, now)]),
-        ],
-        // On their own under the list, not stuck to its last section (owner, 13 Nov).
-        if (listed.isNotEmpty) ...[
+        if (b.products.isEmpty) ...[
           const SizedBox(height: 16),
-          Row(children: [
-            Expanded(child: SmallButton(key: const Key('biz-add-product'), label: tr('পণ্য যোগ'), icon: Icons.add_box_outlined, primary: true, onTap: () => pushPage(context, const ProductForm()))),
-            const SizedBox(width: 8),
-            Expanded(child: SmallButton(key: const Key('biz-open-purchase'), label: tr('মাল কেনা'), icon: Icons.local_shipping_outlined, onTap: () => pushPage(context, const PurchasePage()))),
-          ]),
-        ],
-      ],
-    ];
+          EmptyState(
+            icon: Icons.inventory_2_outlined,
+            title: tr('এখনো কোনো পণ্য নেই'),
+            text: tr('স্টক যোগ করুন — কত এলো, কেনা-বেচার দাম। বিক্রি করলে স্টক নিজে থেকে কমবে, কম হলে অর্ডার তালিকায় উঠবে।'),
+            action: tr('স্টক যোগ করুন'),
+            onAction: () => pushPage(context, const StockInPage()),
+          ),
+        ] else if (matched.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: Text(q.isNotEmpty ? tr('কোনো পণ্য মেলেনি।') : (_section == '@low' ? tr('কোনো পণ্য কম নেই।') : tr('মেয়াদ দেওয়া কোনো পণ্য নেই।')), style: body(14, color: C.muted)),
+          )
+        else
+          for (final (shelf, ps) in listed) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 16, 0, 6),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                Icon(sectionIcon(shelf), size: 17, color: C.green),
+                const SizedBox(width: 8),
+                Flexible(child: Text(tr(shelf), key: Key('biz-section-$shelf'), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(15, weight: FontWeight.w700))),
+                const SizedBox(width: 8),
+                Text(trf('{0}টি · {1}', [bnDigits(ps.length), taka(ps.fold<int>(0, (s, p) => s + p.value))]), style: body(12, color: C.muted)),
+                const Spacer(),
+                IconButton(
+                  key: Key('biz-section-add-$shelf'),
+                  tooltip: trf('{0}-এ পণ্য যোগ', [tr(shelf)]),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => pushPage(context, ProductForm(category: shelf == otherSection ? '' : shelf)),
+                  icon: Icon(Icons.add_rounded, size: 20, color: C.green),
+                ),
+              ]),
+            ),
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(children: [
+                for (final (i, p) in ps.indexed) ...[if (i > 0) const Hairline(indent: 14, endIndent: 14), _productRow(context, p, now)],
+              ]),
+            ),
+          ],
+      ]),
+      Positioned(
+        right: 16,
+        bottom: 16,
+        child: FloatingActionButton.extended(
+          key: const Key('biz-stock-in'),
+          heroTag: 'biz-stock-in',
+          backgroundColor: C.green,
+          foregroundColor: C.onAccent,
+          onPressed: () => pushPage(context, const StockInPage()),
+          icon: const Icon(Icons.add_rounded),
+          label: Text(tr('স্টক যোগ'), style: body(15, weight: FontWeight.w700, color: C.onAccent)),
+          extendedPadding: const EdgeInsets.symmetric(horizontal: 18),
+        ),
+      ),
+    ]);
   }
 
-  Widget _sectionChip(String key, String label, IconData icon, int count, bool on) => Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: ChoiceChip(
-          key: Key('biz-section-chip-$key'),
-          avatar: Icon(icon, size: 16, color: on ? C.green : C.muted),
-          label: Text('$label · ${bnDigits(count)}'),
-          selected: on,
-          showCheckmark: false,
-          onSelected: (_) => setState(() => _section = key),
-        ),
-      );
+  Widget _chip(String key, String label, Color? warn) {
+    final on = _section == key;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: ChoiceChip(
+        key: Key('biz-section-chip-$key'),
+        label: Text(label, style: body(13, weight: FontWeight.w600, color: on ? C.onAccent : (warn ?? C.ink))),
+        selected: on,
+        selectedColor: C.green,
+        showCheckmark: false,
+        onSelected: (_) => setState(() => _section = on ? '' : key),
+      ),
+    );
+  }
 
   Widget _productRow(BuildContext context, Product p, DateTime now) {
     final exp = p.expiry;
     final soon = exp != null && !dayOnly(exp).isAfter(dayOnly(now).add(const Duration(days: 3)));
-    return ListRow(
+    final low = p.isLow;
+    return InkWell(
       key: Key('biz-product-${p.id}'),
-      leading: LetterTile(p.name),
-      title: p.name,
-      subtitle: [
-        trf('বিক্রি {0} / {1}', [taka(p.sell), tr(p.unit)]),
-        if (exp != null) trf('মেয়াদ {0}', [shortDate(exp)]),
-      ].join(' · '),
-      subtitleColor: soon ? C.warn : null,
-      trailing: p.isLow ? WarnChip('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}') : Text('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}', style: body(14, weight: FontWeight.w600)),
       onTap: () => pushPage(context, ProductForm(product: p)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text([p.name, if (p.weight.isNotEmpty) p.weight].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(
+                [
+                  trf('কেনা {0} · বেচা {1} / {2}', [taka(p.avgCost.round()), taka(p.sell), tr(p.unit)]),
+                  if (exp != null) trf('মেয়াদ {0}', [shortDate(exp)]),
+                ].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: body(12, color: soon ? C.warn : C.muted),
+              ),
+            ]),
+          ),
+          const SizedBox(width: 10),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('${bnDigits(qtyText(p.stock))} ${tr(p.unit)}', style: body(14.5, weight: FontWeight.w700, color: low ? C.red : C.ink)),
+            Text(low ? '${taka(p.value)} · ${tr('কম')}' : taka(p.value), style: body(11.5, color: low ? C.red : C.muted)),
+          ]),
+        ]),
+      ),
     );
   }
 }
 
-/// নতুন পণ্য / পণ্য বদলান.
 class ProductForm extends StatefulWidget {
   const ProductForm({super.key, this.product, this.category = ''});
   final Product? product;
@@ -205,13 +271,18 @@ class _ProductFormState extends State<ProductForm> {
       return;
     }
     if (_p == null && !await bizNewProduct(context) || !mounted) return;
+    final stock = readNum(_stock.text) ?? 0;
+    final was = _p;
     final p = Product(
-      id: _p?.id,
+      id: was?.id,
+      // What the shelf cost is kept; a stock typed in is at the average cost.
+      value: was == null ? null : (stock == was.stock ? was.value : (stock * was.avgCost).round()),
+      weight: was?.weight ?? '',
       name: name,
       unit: _unit,
       buy: (readNum(_buy.text) ?? 0).round(),
       sell: (readNum(_sell.text) ?? 0).round(),
-      stock: readNum(_stock.text) ?? 0,
+      stock: stock,
       low: readNum(_low.text) ?? 0,
       loose: _loose && (_unit == 'কেজি' || _unit == 'গ্রাম' || _unit == 'লিটার'),
       bulkFrom: _bulk ? readNum(_bulkFrom.text) : null,
@@ -670,9 +741,3 @@ class OrderListPage extends StatelessWidget {
   Widget build(BuildContext context) => const PurchasePage();
 }
 
-/// স্টক যোগ (the quick button).
-class StockInPage extends StatelessWidget {
-  const StockInPage({super.key});
-  @override
-  Widget build(BuildContext context) => const PurchasePage(part: 'in');
-}

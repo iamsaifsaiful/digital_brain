@@ -128,7 +128,7 @@ Future<void> writeOffSheet(BuildContext context) async {
   final brain = BrainScope.read(context);
   final p = await pickProduct(context, tr('কোন মাল নষ্ট হলো?'));
   if (p == null || !context.mounted) return;
-  final v = await askText(context, trf('{0} কতটুকু নষ্ট? (আছে {1} {2})', [p.name, bnDigits(qtyText(p.stock)), tr(p.unit)]), number: true);
+  final v = await askText(context, trf('{0} কতটুকু নষ্ট? (আছে {1} {2})', [p.name, bnDigits(qtyText(p.stock)), tr(p.unit)]));
   final q = v == null ? null : readNum(v);
   if (q == null || q <= 0 || !context.mounted) return;
   final why = await askText(context, tr('কেন? (না লিখলেও চলবে)'), hint: tr('যেমন: মেয়াদ শেষ, ভেঙে গেছে'));
