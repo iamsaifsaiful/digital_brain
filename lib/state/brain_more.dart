@@ -598,6 +598,53 @@ extension BrainHealth on Brain {
     await _save();
   }
 
+  // ── The two daily questions (logic/daily_ask.dart) ──
+
+  /// "sleep:2026-11-22"-like keys: answered or skipped today (older days dropped).
+  Set<String> get askDone {
+    final today = dayKey(services.now());
+    return {for (final x in text('ask_done').split(',')) if (x.endsWith(today)) x};
+  }
+
+  bool askOn(DailyAsk k) => flag('ask_${k.name}', true);
+
+  /// Skipped this many times in a row (answering sets it back to 0).
+  int askSkips(DailyAsk k) => number('ask_skips_${k.name}');
+
+  Future<void> _askMark(DailyAsk k, {required bool skipped}) async {
+    final key = '${k.name}:${dayKey(services.now())}';
+    prefs['ask_done'] = {...askDone, key}.join(',');
+    prefs['ask_skips_${k.name}'] = '${skipped ? askSkips(k) + 1 : 0}';
+    await setPref('ask_done', prefs['ask_done']!);
+  }
+
+  /// "আজ না": the question goes away until tomorrow.
+  Future<void> skipAsk(DailyAsk k) => _askMark(k, skipped: true);
+
+  /// Turns a question on or off (off also clears the skips).
+  Future<void> setAskOn(DailyAsk k, bool on) async {
+    prefs['ask_skips_${k.name}'] = '0';
+    await setPref('ask_${k.name}', on);
+  }
+
+  /// Last night's sleep, in hours (written this morning, replacing one
+  /// already written today by hand).
+  Future<void> answerSleep(double hours) async {
+    final now = services.now();
+    data.health.removeWhere((h) => h.member == FamilyMember.meId && h.kind == HealthKind.sleep && dayOnly(h.at) == dayOnly(now) && h.tag != hcTag);
+    data.health.add(HealthLog(kind: HealthKind.sleep, at: now, a: hours, tag: 'ask'));
+    await _askMark(DailyAsk.sleep, skipped: false);
+  }
+
+  /// Today's glasses of water: the day's total becomes [glasses] (the
+  /// "+১ গ্লাস" taps of the day are folded into it).
+  Future<void> answerWater(int glasses) async {
+    final now = services.now();
+    data.health.removeWhere((h) => h.member == FamilyMember.meId && h.kind == HealthKind.water && dayOnly(h.at) == dayOnly(now));
+    if (glasses > 0) data.health.add(HealthLog(kind: HealthKind.water, at: now, a: glasses.toDouble(), tag: 'ask'));
+    await _askMark(DailyAsk.water, skipped: false);
+  }
+
   Future<void> deleteHealth(String id) async {
     for (final h in data.health.where((h) => h.id == id)) {
       _trash(tr('স্বাস্থ্যের মাপ'), [('health', h.toJson())]);

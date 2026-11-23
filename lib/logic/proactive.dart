@@ -13,6 +13,7 @@ import 'vault_age.dart';
 import '../services/notifications.dart';
 import 'bn.dart';
 import 'calendar_bd.dart';
+import 'daily_ask.dart';
 import 'health.dart' show bmiOf, latest;
 import 'lang.dart';
 import 'ledger.dart';
@@ -75,7 +76,16 @@ class AssistantPrefs {
     this.rules = NoticeRules.none,
     this.groups = const {'all'},
     this.trialEnds,
+    this.askSleep = false,
+    this.askWater = false,
+    this.askDone = const {},
   });
+
+  /// The morning sleep and night water questions (logic/daily_ask.dart), and
+  /// which are answered or skipped today.
+  final bool askSleep;
+  final bool askWater;
+  final Set<String> askDone;
 
   /// While on the free Premium trial: when it ends (a note the day before).
   final DateTime? trialEnds;
@@ -155,6 +165,9 @@ class AssistantPrefs {
 /// Notification ids the app opens in its own way when tapped.
 const morningTag = 'brief:morning';
 const nightTag = 'brief:night';
+
+/// "আজ কত গ্লাস পানি খেলেন?" at the night summary's time (owner, 22 Nov).
+const askWaterTag = 'nudge:ask:water';
 const nudgeDue = 'nudge:due:';
 const nudgeDoc = 'nudge:doc:';
 const nudgeBill = 'nudge:bill:';
@@ -301,7 +314,7 @@ const noticeGap = Duration(minutes: 30);
 /// One that finds no room that day (it would run into the quiet hours or the
 /// next day) is left out — it is a nudge, not a reminder.
 List<PlannedNotice> _spaced(List<PlannedNotice> list, AssistantPrefs p) {
-  bool fixed(String t) => t == morningTag || t == nightTag || t.startsWith(nudgePrayer) || t.startsWith(nudgeRamadan) || t.startsWith('${nudgeHabit}ask:');
+  bool fixed(String t) => t == morningTag || t == nightTag || t == askWaterTag || t.startsWith(nudgePrayer) || t.startsWith(nudgeRamadan) || t.startsWith('${nudgeHabit}ask:');
   final placed = <DateTime>[for (final n in list) if (fixed(n.reminderId)) n.at];
   final out = <PlannedNotice>[for (final n in list) if (fixed(n.reminderId)) n];
   final rest = [for (final n in list) if (!fixed(n.reminderId)) n]
@@ -321,7 +334,7 @@ List<PlannedNotice> _spaced(List<PlannedNotice> list, AssistantPrefs p) {
     placed.add(at);
     out.add(at == n.at
         ? n
-        : PlannedNotice(id: n.id, at: at, title: n.title, body: n.body, reminderId: n.reminderId, gentle: n.gentle, repeat: n.repeat, every: n.every, early: n.early));
+        : PlannedNotice(id: n.id, at: at, title: n.title, body: n.body, reminderId: n.reminderId, gentle: n.gentle, repeat: n.repeat, every: n.every, early: n.early, asks: n.asks));
   }
   out.sort((a, b) => a.at.compareTo(b.at));
   return out;
@@ -350,18 +363,18 @@ PlannedNotice? _ruled(PlannedNotice n, AssistantPrefs p, DateTime now) {
   final title = r.title.trim().isEmpty ? n.title : fillNotice(r.title, title: n.title, body: n.body, name: name);
   final body = r.body.trim().isEmpty ? n.body : fillNotice(r.body, title: n.title, body: n.body, name: name);
   if (at == n.at && title == n.title && body == n.body) return n;
-  return PlannedNotice(id: n.id, at: at, title: title.isEmpty ? n.title : title, body: body, reminderId: n.reminderId, gentle: n.gentle, repeat: n.repeat, every: n.every, early: n.early);
+  return PlannedNotice(id: n.id, at: at, title: title.isEmpty ? n.title : title, body: body, reminderId: n.reminderId, gentle: n.gentle, repeat: n.repeat, every: n.every, early: n.early, asks: n.asks);
 }
 
 /// Summaries at the user's own times, and prayer/Ramadan times they asked
 /// for, are never held back or counted.
 bool _chosenByUser(String tag) =>
-    tag.startsWith('${nudgeHabit}ask:') ||
+    tag.startsWith('${nudgeHabit}ask:') || tag == askWaterTag ||
     tag.startsWith(nudgeQuote) || tag.startsWith(nudgeFix) || tag == morningTag || tag == nightTag || tag.startsWith(nudgePrayer) || tag.startsWith(nudgeRamadan) || tag.startsWith(nudgeDonor);
 
 int _rank(String tag) {
   // Our own notices first (owner, 27 Oct): a few a week, and the daily cap must not drop them.
-  const order = ['nudge:srv:', 'nudge:plan:srv', morningTag, nightTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeTagada, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeBmi, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
+  const order = ['nudge:srv:', 'nudge:plan:srv', morningTag, nightTag, askWaterTag, nudgePrayer, nudgeRamadan, nudgeDue, nudgeTagada, nudgeBill, nudgeMed, nudgeDoc, nudgeBackup, nudgeDonor, nudgeDay2, '${nudgePlan}eve', nudgeSoon, nudgeSalary, nudgeSpend, nudgeNoCash, nudgePlan, nudgeHabit, nudgeBmi, nudgeJumuah, nudgeWeek, nudgeFest, nudgeHealth, nudgeBack];
   for (var i = 0; i < order.length; i++) {
     if (tag.startsWith(order[i])) return i;
   }
@@ -381,7 +394,7 @@ PlannedNotice _afterQuiet(PlannedNotice n, AssistantPrefs p) {
   if (p.quietFrom > p.quietTo && m >= p.quietFrom) day = day.add(const Duration(days: 1));
   // Not before সুপ্রভাত (owner, 4 Nov): the day starts with the summary.
   final at = _at(day, p.morningOn && p.morningAt >= p.quietTo ? p.morningAt + noticeGap.inMinutes : p.quietTo);
-  return PlannedNotice(id: n.id, at: at, title: n.title, body: n.body, reminderId: n.reminderId, gentle: true);
+  return PlannedNotice(id: n.id, at: at, title: n.title, body: n.body, reminderId: n.reminderId, gentle: true, asks: n.asks);
 }
 
 List<PlannedNotice> _summaries(AppData d, DateTime now, AssistantPrefs p) {
@@ -398,9 +411,10 @@ List<PlannedNotice> _summaries(AppData d, DateTime now, AssistantPrefs p) {
         id: stableId('$morningTag:${dayKey(day)}'),
         at: at,
         title: hello,
-        body: morningText(d, day),
+        body: sleepAsked(d, day, now, p) ? '${morningText(d, day)}\n\n$sleepAskLine' : morningText(d, day),
         reminderId: morningTag,
         gentle: true,
+        asks: sleepAsked(d, day, now, p) ? [for (final h in sleepNoticeChoices) (askAction(DailyAsk.sleep, h), trf('{0} ঘণ্টা', [bnDigits(h)]))] : const [],
       ));
     }
   }
@@ -412,19 +426,50 @@ List<PlannedNotice> _summaries(AppData d, DateTime now, AssistantPrefs p) {
       if (!at.isAfter(now)) continue;
       final left = tasksLeft(d, day);
       if (left.isEmpty) continue;
+      // The water question rides on this one when both come (one notification, not two).
+      final water = waterAsked(day, p);
       out.add(PlannedNotice(
         id: stableId('$nightTag:${dayKey(day)}'),
         at: at,
         title: trf('আজকের {0}টি কাজ বাকি আছে', [bnDigits(left.length)]),
-        body: trf('{0}। চাইলে কালকের তালিকায় সরিয়ে রাখি।', [left.take(3).map((t) => t.title).join(', ')]),
+        body: trf('{0}। চাইলে কালকের তালিকায় সরিয়ে রাখি।', [left.take(3).map((t) => t.title).join(', ')]) + (water ? '\n\n${tr('আর, আজ কত গ্লাস পানি খেলেন?')}' : ''),
         reminderId: nightTag,
         gentle: true,
+        asks: water ? _waterButtons : const [],
+      ));
+    }
+  }
+
+  // Night: the water question on its own when no night summary carries it.
+  if (p.askWater) {
+    for (var i = 0; i < 2; i++) {
+      final day = today.add(Duration(days: i));
+      final at = _at(day, p.nightOn ? p.nightAt : 21 * 60);
+      if (!at.isAfter(now) || !waterAsked(day, p)) continue;
+      if (out.any((n) => n.reminderId == nightTag && dayOnly(n.at) == day)) continue;
+      out.add(PlannedNotice(
+        id: stableId('$askWaterTag:${dayKey(day)}'),
+        at: at,
+        title: tr('আজ কত গ্লাস পানি খেলেন?'),
+        body: tr('এক ট্যাপে জানান — অ্যাপ সপ্তাহের হিসাব রাখবে'),
+        reminderId: askWaterTag,
+        gentle: true,
+        asks: _waterButtons,
       ));
     }
   }
 
   return out;
 }
+
+/// The sleep question goes with [day]'s morning summary: on, not answered
+/// or skipped, and (for today) the night's sleep not already known.
+bool sleepAsked(AppData d, DateTime day, DateTime now, AssistantPrefs p) =>
+    p.askSleep && !p.askDone.contains('sleep:${dayKey(day)}') && (dayOnly(day) != dayOnly(now) || sleepLastNight(d, now) == null);
+
+bool waterAsked(DateTime day, AssistantPrefs p) => p.askWater && !p.askDone.contains('water:${dayKey(day)}');
+
+List<(String, String)> get _waterButtons => [for (final g in waterNoticeChoices) (askAction(DailyAsk.water, g), trf('{0} গ্লাস', [bnDigits(g)]))];
 
 List<PlannedNotice> _nudges(AppData d, DateTime now, AssistantPrefs p) {
   final out = <PlannedNotice>[];

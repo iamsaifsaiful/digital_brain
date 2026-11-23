@@ -35,6 +35,7 @@ import '../logic/answers.dart';
 import '../logic/bn.dart';
 import '../logic/cash.dart';
 import '../logic/health.dart';
+import '../logic/daily_ask.dart';
 import '../logic/ledger.dart';
 import '../nlu/labels.dart';
 import 'family_state.dart';
@@ -1667,6 +1668,9 @@ class Brain extends ChangeNotifier {
         homeFix: flag('n_fix', true),
         rules: noticeRules,
         trialEnds: onTrial ? trialEnds : null,
+        askSleep: flag('ask_sleep', true),
+        askWater: flag('ask_water', true),
+        askDone: askDone,
         groups: memberGroups(now: services.now(), firstUse: firstUse, openDays: openDays, pro: gated ? pro : true),
       );
 
@@ -1849,6 +1853,8 @@ class Brain extends ChangeNotifier {
     'calendars', 'weather_places', 'temp_unit',
     // Owner, 20 Nov: the member's religion (optional, only on this phone).
     'religion',
+    // Owner, 22 Nov: the morning sleep and night water questions (logic/daily_ask.dart).
+    'ask_sleep', 'ask_water', 'ask_done', 'ask_skips_sleep', 'ask_skips_water',
   ];
 
   bool flag(String key, [bool or = false]) => prefs[key] == null ? or : prefs[key] == 'true';

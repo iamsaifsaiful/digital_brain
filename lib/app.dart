@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'logic/bn.dart';
 import 'logic/proactive.dart';
+import 'logic/daily_ask.dart';
 import 'logic/calendar_bd.dart' show placeNamed, sunTimes;
 import 'logic/sky_light.dart';
 import 'screens/pro_screen.dart' show ProScreen;
@@ -274,6 +275,9 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
       push(const EmergencyScreen());
     } else if (id == morningTag) {
       openChatWith(ctx, 'আজ আমার কী কী আছে?');
+    } else if (id == askWaterTag) {
+      // Home shows the question with the count to fill in.
+      nav.popUntil((r) => r.isFirst);
     } else if (id == nightTag) {
       nav.popUntil((r) => r.isFirst);
       final left = tasksLeft(brain.data, brain.services.now());
@@ -336,6 +340,22 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
     final t = brain.services.notifier.tapped.value;
     final nav = _nav.currentState;
     if (t == null || nav == null || _alarmOpen) return;
+    // "৭ ঘণ্টা", "৬ গ্লাস" on the morning or night notification: written down, nothing to open.
+    final ask = parseAskAction(t.action);
+    if (ask != null) {
+      brain.services.notifier.tapped.value = null;
+      await brain.whenLoaded();
+      if (ask.$1 == DailyAsk.sleep) {
+        await brain.answerSleep(ask.$2.toDouble());
+      } else {
+        await brain.answerWater(ask.$2);
+      }
+      final ctx = _nav.currentContext;
+      if (ctx != null && ctx.mounted) {
+        toast(ctx, ask.$1 == DailyAsk.sleep ? trf('ঘুম {0} ঘণ্টা — লেখা হলো', [bnDigits(ask.$2)]) : trf('আজ {0} গ্লাস পানি — লেখা হলো', [bnDigits(ask.$2)]));
+      }
+      return;
+    }
     if (_isAssistantTag(t.info.reminderId)) {
       brain.services.notifier.tapped.value = null;
       _pending = t.info.reminderId;

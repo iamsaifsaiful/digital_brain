@@ -28,8 +28,12 @@ class PlannedNotice {
     this.repeat = NoticeRepeat.none,
     this.early = false,
     this.gentle = false,
+    this.asks = const [],
   });
   final int id;
+
+  /// Quick-answer buttons (action id, label) — the daily questions' "৭ ঘণ্টা".
+  final List<(String, String)> asks;
   final DateTime at;
 
   /// Rings again and again ("প্রতি ৩০ মিনিটে"), first at [at].
@@ -375,7 +379,7 @@ NotificationDetails _details({required bool insistent, required bool repeating, 
     );
 
 /// The assistant's own notes (summaries, nudges): a normal notification sound, no alarm.
-NotificationDetails _gentleDetails(String body) => NotificationDetails(
+NotificationDetails _gentleDetails(String body, [List<(String, String)> asks = const []]) => NotificationDetails(
       android: AndroidNotificationDetails(
         // A new id: the old 'assistant_notes' channel was made without
         // vibration, and Android never changes a channel once made.
@@ -392,6 +396,8 @@ NotificationDetails _gentleDetails(String body) => NotificationDetails(
         visibility: NotificationVisibility.private,
         styleInformation: BigTextStyleInformation(body),
         autoCancel: true,
+        // A tap on one opens the app, which writes the answer (app.dart).
+        actions: [for (final a in asks) AndroidNotificationAction(a.$1, a.$2, showsUserInterface: true, cancelNotification: true)],
       ),
     );
 
@@ -815,7 +821,7 @@ class NotificationService implements Notifier {
     await _plugin.zonedSchedule(
       id: n.id,
       scheduledDate: tz.TZDateTime.from(at, tz.UTC),
-      notificationDetails: n.gentle ? _gentleDetails(n.body) : _details(insistent: insistent && !n.early, repeating: false, sound: soundUri),
+      notificationDetails: n.gentle ? _gentleDetails(n.body, n.asks) : _details(insistent: insistent && !n.early, repeating: false, sound: soundUri),
       androidScheduleMode: mode,
       title: n.title,
       body: n.body,

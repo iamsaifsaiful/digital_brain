@@ -8,6 +8,7 @@ import '../services/steps_channel.dart';
 
 import '../logic/bn.dart';
 import '../logic/health.dart';
+import '../logic/daily_ask.dart';
 import '../logic/lang.dart';
 import '../logic/me.dart' show bloodGroups;
 import '../logic/pro.dart';
@@ -19,6 +20,7 @@ import '../ui/widgets.dart';
 import 'blood_details.dart';
 import 'docs_screen.dart';
 import 'health_screens.dart';
+import 'daily_ask_card.dart';
 import '../ui/pdf_export.dart';
 
 /// স্বাস্থ্য: the user's (and family's) profile and BMI, weight, blood
@@ -48,12 +50,80 @@ class _HealthScreenState extends State<HealthScreen> {
   @override
   Widget build(BuildContext context) => SecureView(child: _secretBuild(context));
 
+  /// The members' pages slide with the finger (owner, 22 Nov: the old
+  /// flick-to-switch jumped without moving and felt broken).
+  PageController? _pages;
+
+  @override
+  void dispose() {
+    _pages?.dispose();
+    super.dispose();
+  }
+
+  void _go(List<FamilyMember> people, String id) {
+    setState(() => _member = id);
+    final i = people.indexWhere((p) => p.id == id);
+    final c = _pages;
+    if (i >= 0 && c != null && c.hasClients && (c.page ?? 0).round() != i) {
+      c.animateToPage(i, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
+    }
+  }
+
   Widget _secretBuild(BuildContext context) {
     final brain = BrainScope.of(context);
-    final d = brain.data;
-    final now = brain.services.now();
     final people = brain.healthPeople;
     final m = people.firstWhere((x) => x.id == _member, orElse: () => people.first);
+    final index = people.indexOf(m);
+    _pages ??= PageController(initialPage: index);
+
+    return Scaffold(
+      body: SafeArea(
+        child: Column(children: [
+          TopBar(title: tr('স্বাস্থ্য'), trailing: [
+            const PdfButton({ReportPart.health}),
+            if (!medicalOff) IconButton(tooltip: tr('ডাক্তারকে দেখান'), onPressed: () => _push(DoctorSummaryScreen(member: m.id)), icon: const Icon(Icons.assignment_ind_outlined)),
+          ]),
+          SizedBox(
+            height: 44,
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 20), children: [
+              for (final p in people)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(p.isMe ? tr('আমি') : (p.relation.isEmpty ? p.name : '${p.name} (${p.relation})')),
+                    selected: p.id == m.id,
+                    onSelected: (_) => _go(people, p.id),
+                  ),
+                ),
+              ActionChip(
+                avatar: Icon(Icons.person_add_alt_outlined, size: 18, color: C.green),
+                label: Text(tr('পরিবারের সদস্য')),
+                onPressed: () async {
+                  final added = await editMember(context, null);
+                  if (added != null) setState(() => _member = added.id);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && added != null) _go(BrainScope.read(context).healthPeople, added.id);
+                  });
+                },
+              ),
+            ]),
+          ),
+          Expanded(
+            child: PageView.builder(
+              controller: _pages,
+              itemCount: people.length,
+              onPageChanged: (i) => setState(() => _member = people[i].id),
+              itemBuilder: (context, i) => _page(context, brain, people[i]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _page(BuildContext context, Brain brain, FamilyMember m) {
+    final d = brain.data;
+    final now = brain.services.now();
     final w = latest(d, m.id, HealthKind.weight);
     final bp = latest(d, m.id, HealthKind.bp);
     final sugar = latest(d, m.id, HealthKind.sugar);
@@ -98,41 +168,7 @@ class _HealthScreenState extends State<HealthScreen> {
     final walk = totalOn(d, m.id, HealthKind.exercise, now);
     final sleep = latest(d, m.id, HealthKind.sleep);
 
-    return Scaffold(
-      body: SafeArea(
-        child: Column(children: [
-          TopBar(title: tr('স্বাস্থ্য'), trailing: [
-            const PdfButton({ReportPart.health}),
-            if (!medicalOff) IconButton(tooltip: tr('ডাক্তারকে দেখান'), onPressed: () => _push(DoctorSummaryScreen(member: m.id)), icon: const Icon(Icons.assignment_ind_outlined)),
-          ]),
-          SizedBox(
-            height: 44,
-            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 20), children: [
-              for (final p in people)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(p.isMe ? tr('আমি') : (p.relation.isEmpty ? p.name : '${p.name} (${p.relation})')),
-                    selected: p.id == m.id,
-                    onSelected: (_) => setState(() => _member = p.id),
-                  ),
-                ),
-              ActionChip(
-                avatar: Icon(Icons.person_add_alt_outlined, size: 18, color: C.green),
-                label: Text(tr('পরিবারের সদস্য')),
-                onPressed: () async {
-                  final added = await editMember(context, null);
-                  if (added != null) setState(() => _member = added.id);
-                },
-              ),
-            ]),
-          ),
-          Expanded(
-            child: SwipeTabs<String>(
-              items: [for (final p in people) p.id],
-              value: m.id,
-              onChanged: (id) => setState(() => _member = id),
-              child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 32), children: [
+    return ListView(key: PageStorageKey('health-${m.id}'), padding: const EdgeInsets.fromLTRB(20, 8, 20, 32), children: [
                 // Profile and BMI.
                 Panel(
                   padding: const EdgeInsets.all(16),
@@ -167,6 +203,8 @@ class _HealthScreenState extends State<HealthScreen> {
                       Text(m.heightCm == null ? tr('উচ্চতা আর ওজন দিলে BMI দেখাবে (এশীয়দের মাপে)।') : tr('ওজন লিখলে BMI দেখাবে।'), style: body(13.5, color: C.muted)),
                   ]),
                 ),
+                // The week's sleep and water from the two daily questions, and their switches.
+                if (m.isMe) ...[const SizedBox(height: 12), const DailyWeekPanel()],
                 const SizedBox(height: 12),
                 // The Play app: weight and water side by side, no blood
                 // pressure or sugar (pro.dart medicalOff).
@@ -277,18 +315,14 @@ class _HealthScreenState extends State<HealthScreen> {
                         if (!ok) return;
                         await brain.deleteMember(m);
                         setState(() => _member = FamilyMember.meId);
+                        _pages?.jumpToPage(0);
                       },
                       icon: Icon(Icons.person_remove_outlined, size: 18, color: C.red),
                       label: Text(tr('এই সদস্যকে সরান'), style: body(13, color: C.red)),
                     ),
                   ),
                 ],
-              ]),
-            ),
-          ),
-        ]),
-      ),
-    );
+              ]);
   }
 
   String _changeText(AppData d, String member, DateTime now) {
@@ -817,6 +851,61 @@ class _StepsCardState extends State<StepsCard> with WidgetsBindingObserver {
           trailing: _allowed ? null : TextButton(key: const Key('steps-allow'), onPressed: StepsChannel.ask, child: Text(tr('চালু করুন'))),
         ),
       ),
+    );
+  }
+}
+
+
+/// এই সপ্তাহ: the last seven days of sleep and water (from the morning and
+/// night questions, Health Connect, or written here), with the switches
+/// for the two questions (owner, 22 Nov).
+class DailyWeekPanel extends StatelessWidget {
+  const DailyWeekPanel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final sleep = lastDays(brain.data, HealthKind.sleep, now);
+    final water = lastDays(brain.data, HealthKind.water, now);
+
+    Widget block(String title, IconData icon, Color color, List<double?> v, double max, double goal, String line) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 6),
+            Text(title, style: body(14, weight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 6),
+          WeekBars(values: v, max: max, goal: goal, color: color, now: now),
+          const SizedBox(height: 4),
+          Text(line, style: body(12.5, color: C.muted2, height: 1.4)),
+        ]);
+
+    Widget sw(DailyAsk k, String title, String sub) => SwitchListTile(
+          key: Key('ask-switch-${k.name}'),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          value: brain.askOn(k),
+          onChanged: (v) => brain.setAskOn(k, v),
+          title: Text(title, style: body(14)),
+          subtitle: Text(sub, style: body(12, color: C.muted)),
+        );
+
+    return Panel(
+      key: const Key('health-week'),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(tr('এই সপ্তাহ'), style: display(17, weight: 700)),
+        const SizedBox(height: 10),
+        block(tr('ঘুম (ঘণ্টা)'), Icons.bedtime_outlined, C.purple, sleep, 10, 7, sleepWeekLine(sleep)),
+        const SizedBox(height: 14),
+        block(tr('পানি (গ্লাস)'), Icons.water_drop_outlined, C.blue, water, 10, waterGoal.toDouble(), waterWeekLine(water)),
+        const SizedBox(height: 8),
+        Divider(color: C.line, height: 16),
+        Text(tr('প্রতিদিনের দুই প্রশ্ন'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+        sw(DailyAsk.sleep, tr('সকালে: কত ঘণ্টা ঘুমালেন?'), tr('হোমে দুপুর ১২টা পর্যন্ত, আর সকালের নোটিফিকেশনে')),
+        sw(DailyAsk.water, tr('রাতে: কত গ্লাস পানি খেলেন?'), tr('হোমে সন্ধ্যা ৭টার পর, আর রাতের নোটিফিকেশনে')),
+      ]),
     );
   }
 }
