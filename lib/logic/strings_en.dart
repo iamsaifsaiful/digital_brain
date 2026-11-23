@@ -6866,4 +6866,5 @@ const enStrings = <String, String>{
   'এই নামে বা কোডে কোনো দেশ পাইনি': 'No country with that name or code',
   '{0} · {1} অঙ্ক': '{0} · {1} digits',
   '{0}টি দেশ': '{0} countries',
+  'ঠিক আছে, আজ আর জিজ্ঞেস করব না। কাল আবার আসবে।': 'OK, no more asking today. It’ll be back tomorrow.',
 };

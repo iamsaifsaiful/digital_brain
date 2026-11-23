@@ -345,14 +345,16 @@ class _DigitalBrainAppState extends State<DigitalBrainApp> with WidgetsBindingOb
     if (ask != null) {
       brain.services.notifier.tapped.value = null;
       await brain.whenLoaded();
-      if (ask.$1 == DailyAsk.sleep) {
+      if (ask.$2 == askSkip) {
+        await brain.skipAsk(ask.$1);
+      } else if (ask.$1 == DailyAsk.sleep) {
         await brain.answerSleep(ask.$2.toDouble());
       } else {
         await brain.answerWater(ask.$2);
       }
       final ctx = _nav.currentContext;
       if (ctx != null && ctx.mounted) {
-        toast(ctx, ask.$1 == DailyAsk.sleep ? trf('ঘুম {0} ঘণ্টা — লেখা হলো', [bnDigits(ask.$2)]) : trf('আজ {0} গ্লাস পানি — লেখা হলো', [bnDigits(ask.$2)]));
+        toast(ctx, ask.$2 == askSkip ? tr('ঠিক আছে, আজ আর জিজ্ঞেস করব না। কাল আবার আসবে।') : ask.$1 == DailyAsk.sleep ? trf('ঘুম {0} ঘণ্টা — লেখা হলো', [bnDigits(ask.$2)]) : trf('আজ {0} গ্লাস পানি — লেখা হলো', [bnDigits(ask.$2)]));
       }
       return;
     }
