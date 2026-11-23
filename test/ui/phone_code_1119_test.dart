@@ -3,6 +3,7 @@
 // numbers have. SHOTS=1 --update-goldens writes test/ui/shots/phone_1119/*.png.
 import 'dart:io';
 
+import 'package:digital_brain/logic/countries.dart' show worldCountries;
 import 'package:digital_brain/logic/phone_codes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show debugDisableShadows;
@@ -29,6 +30,21 @@ void main() {
     expect(splitPhone('+966512345678').$1.iso, 'SA');
     expect(splitPhone('+60123456789').$1.iso, 'MY');
     expect(fullPhone(bd, '1712345678'), '+8801712345678');
+    // Every country in the UN list (owner, 23 Nov), Bangladesh first.
+    expect(phoneCountries.length, worldCountries.length);
+    expect(phoneCountries.map((p) => p.iso).toSet().length, worldCountries.length);
+    expect(phoneCountries.first.iso, 'BD');
+    for (final p in phoneCountries) {
+      expect(p.min <= p.max && p.max <= 13 && p.min >= 6, isTrue, reason: p.iso);
+    }
+    expect(splitPhone('+12025550123').$1.iso, 'US');
+    expect(splitPhone('+79161234567').$1.iso, 'RU');
+    expect(findPhoneCountries('966').first.iso, 'SA');
+    expect(findPhoneCountries('zam').first.iso, 'ZM');
+    expect(findPhoneCountries('জাম্বিয়া').first.iso, 'ZM');
+    // Where the 0 is part of the number, it stays.
+    final ci = phoneCountries.firstWhere((c) => c.iso == 'CI');
+    expect(phoneDigits(ci, '0701234567'), '0701234567');
   });
 
   testWidgets('profile: mobile number with its country code', (t) async {
@@ -55,6 +71,12 @@ void main() {
     await t.tap(find.byKey(const Key('profile-phone-country')));
     await settle(t);
     await shot('3-countries');
+    await t.drag(find.byKey(const Key('phone-country-BD')).first, const Offset(0, -1400));
+    await settle(t);
+    await shot('3b-countries-more');
+    await t.enterText(find.byKey(const Key('phone-country-search')), '+1');
+    await settle(t);
+    await shot('3c-search-code');
     await t.enterText(find.byKey(const Key('phone-country-search')), 'সৌদি');
     await settle(t);
     await t.tap(find.byKey(const Key('phone-country-SA')));

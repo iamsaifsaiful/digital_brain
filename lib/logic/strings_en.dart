@@ -6861,4 +6861,9 @@ const enStrings = <String, String>{
   'সকালে: কত ঘণ্টা ঘুমালেন?': 'Morning: how many hours did you sleep?',
   'হোমে দুপুর ১২টা পর্যন্ত, আর সকালের নোটিফিকেশনে': 'On Home until noon, and in the morning notification',
   'হোমে সন্ধ্যা ৭টার পর, আর রাতের নোটিফিকেশনে': 'On Home after 7 PM, and in the night notification',
+  'দেশের নাম বা কোড লিখুন': 'Type a country name or code',
+  'বাছাই করা': 'Selected',
+  'এই নামে বা কোডে কোনো দেশ পাইনি': 'No country with that name or code',
+  '{0} · {1} অঙ্ক': '{0} · {1} digits',
+  '{0}টি দেশ': '{0} countries',
 };
