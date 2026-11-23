@@ -39,7 +39,6 @@ import 'health_hub.dart';
 import 'health_screens.dart' show MedicinesScreen;
 import 'home_screen.dart';
 import 'home_shell.dart';
-import 'money_hub.dart' show HomeUpcoming, HomeReport, MoneyEye, hid;
 import 'notes_screen.dart';
 import 'notice_screen.dart';
 import 'plan_screens.dart';
@@ -112,12 +111,6 @@ class HomePage extends StatelessWidget {
               ),
             ]),
           ),
-          // Owner, 22 Nov: what is coming to pay, then the month's report
-          // (under the quote, which stays right under the money).
-          const SizedBox(height: 4),
-          const HomeUpcoming(),
-          const SizedBox(height: 4),
-          const HomeReport(),
           const HomeHolidays(),
           const SizedBox(height: 20),
           const ToolsCard(),
@@ -605,18 +598,17 @@ class _MoneyCard extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: RollingAmount(value: hand ?? month.balance, format: (v) => hid(context, taka(v)), style: display(27, weight: 600, height: 1.45)),
+                  child: RollingAmount(value: hand ?? month.balance, format: taka, style: display(27, weight: 600, height: 1.45)),
                 ),
               ]),
             ),
-            const MoneyEye(),
             const IconTile(Icons.account_balance_wallet_outlined),
           ]),
           const SizedBox(height: 4),
           Row(children: [
-            stat(Icons.south_rounded, tr('আয়'), hid(context, taka(month.income)), C.green),
+            stat(Icons.south_rounded, tr('আয়'), taka(month.income), C.green),
             const SizedBox(width: 26),
-            stat(Icons.north_rounded, tr('খরচ'), hid(context, taka(month.expense)), C.ink),
+            stat(Icons.north_rounded, tr('খরচ'), taka(month.expense), C.ink),
           ]),
           const SizedBox(height: 12),
           if (owe.receivable > 0 || owe.payable > 0) ...[
@@ -628,7 +620,7 @@ class _MoneyCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(trf('পাব · {0} জনের কাছে', [bnDigits(owe.owingPeople)]), style: body(11.5, color: C.muted)),
-                      Text(hid(context, taka(owe.receivable)), style: body(15, weight: FontWeight.w600)),
+                      Text(taka(owe.receivable), style: body(15, weight: FontWeight.w600)),
                       if (dueToday.isNotEmpty)
                         Text(trf('আজ {0} ফেরতের দিন', [dueToday.map(possessive).join(', ')]), maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: C.warn)),
                     ]),
@@ -640,7 +632,7 @@ class _MoneyCard extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(12, 10, 0, 10),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(trf('দেব · {0} জনকে', [bnDigits(owe.owedPeople)]), style: body(11.5, color: C.muted)),
-                      Text(hid(context, taka(owe.payable)), style: body(15, weight: FontWeight.w600, color: owe.payable > 0 ? C.warn : C.ink)),
+                      Text(taka(owe.payable), style: body(15, weight: FontWeight.w600, color: owe.payable > 0 ? C.warn : C.ink)),
                       if (nextGive != null) Text('${nextGive.person} · ${bnDigits(nextGive.due!.day)} ${monthName(nextGive.due!.month)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11, color: C.muted)),
                     ]),
                   ),
@@ -662,7 +654,7 @@ class _MoneyCard extends StatelessWidget {
                     child: Text(
                       week.hasIncome
                           ? trf('এ সপ্তাহে আয়ের {0}% খরচ — শখের খাতে {1}%', [bnDigits(week.pct(week.spent)), bnDigits(week.pct(week.wants))])
-                          : trf('এ সপ্তাহে খরচ {0} — কোথায় যাচ্ছে দেখুন', [hid(context, taka(week.spent))]),
+                          : trf('এ সপ্তাহে খরচ {0} — কোথায় যাচ্ছে দেখুন', [taka(week.spent)]),
                       style: body(12.5, color: weekWarn ? C.warn : C.ink),
                     ),
                   ),

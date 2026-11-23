@@ -13,7 +13,7 @@ import '../logic/upcoming.dart';
 import '../models/models.dart';
 import '../state/brain.dart';
 import '../ui/forms.dart';
-import '../ui/kit.dart' show AppCard, SectionHeading;
+import '../ui/kit.dart' show AppCard;
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import 'home_shell.dart' show goToTab, ShellTab;
@@ -207,6 +207,8 @@ class MoneyHubView extends StatelessWidget {
       const SizedBox(height: 20),
       SectionTitle(tr('সামনের খরচ'), action: tr('সাবস্ক্রিপশন'), onAction: () => _push(context, const SubscriptionsScreen())),
       UpcomingList(items: up.take(4).toList(), now: now),
+      const SizedBox(height: 20),
+      const MoneyReportCard(),
       const SizedBox(height: 20),
       SectionTitle(tr('আরও কাজে লাগে')),
       Row(children: [
@@ -767,29 +769,13 @@ Future<void> editSubscription(BuildContext context, Subscription? old) async {
 
 String? defaultAccountIdOf(AppData d) => (d.accounts.where((a) => a.kind == AccountKind.cash).firstOrNull ?? d.accounts.firstOrNull)?.id;
 
-// ───────────────────────── Home ─────────────────────────
+// ───────────────────────── রিপোর্ট ─────────────────────────
 
-/// সামনের খরচ on Home: the next few payments in 30 days.
-class HomeUpcoming extends StatelessWidget {
-  const HomeUpcoming({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
-    final now = brain.services.now();
-    final up = upcomingCosts(brain.data, now, days: 30);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SectionHeading(tr('সামনের খরচ'), link: tr('সাবস্ক্রিপশন'), onLink: () => _push(context, const SubscriptionsScreen())),
-      UpcomingList(items: up.take(4).toList(), now: now, home: true),
-    ]);
-  }
-}
-
-/// রিপোর্ট on Home: the month in a glance — income against spending, how
+/// রিপোর্ট on আমার খাত (owner, 23 Nov: on হিসাব's first tab, not Home): the month in a glance — income against spending, how
 /// much was kept, the top খাত and last month beside it; "বিস্তারিত" opens
 /// the whole report.
-class HomeReport extends StatelessWidget {
-  const HomeReport({super.key});
+class MoneyReportCard extends StatelessWidget {
+  const MoneyReportCard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -821,10 +807,9 @@ class HomeReport extends StatelessWidget {
         );
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SectionHeading(tr('রিপোর্ট'), link: tr('বিস্তারিত'), onLink: open, linkKey: const Key('home-report-more')),
-      AppCard(
+      SectionTitle(tr('রিপোর্ট'), action: tr('বিস্তারিত'), onAction: open),
+      Panel(
         key: const Key('home-report'),
-        onTap: open,
         padding: const EdgeInsets.fromLTRB(14, 8, 6, 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [

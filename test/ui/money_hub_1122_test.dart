@@ -88,7 +88,7 @@ void main() {
     rig.nowAt = DateTime(2026, 11, 22, 10, 5);
     rig.brain.data = seed(rig.nowAt);
     await settle(t);
-    t.view.physicalSize = const Size(1170, 4300);
+    t.view.physicalSize = const Size(1170, 5600);
     goToTab(t.element(find.byType(Scaffold).first), ShellTab.money);
     await settle(t);
     expect(find.text('আমার খাত'), findsWidgets);
@@ -159,24 +159,27 @@ void main() {
     debugDisableShadows = true;
   });
 
-  testWidgets('Home: সামনের খরচ and রিপোর্ট under the money', (t) async {
+  // Owner, 23 Nov: সামনের খরচ and রিপোর্ট live on হিসাব's first tab, and
+  // Home stays as it was.
+  testWidgets('Home unchanged; সামনের খরচ and রিপোর্ট on আমার খাত', (t) async {
     final rig = await start(t);
     rig.nowAt = DateTime(2026, 11, 22, 10, 5);
     rig.brain.data = seed(rig.nowAt);
-    await rig.brain.setUserName('সাইফুল');
+    await settle(t);
+    expect(find.byKey(const Key('upcoming')), findsNothing);
+    expect(find.byKey(const Key('home-report')), findsNothing);
     t.view.physicalSize = const Size(1170, 2532);
+    goToTab(t.element(find.byType(Scaffold).first), ShellTab.money);
     await settle(t);
-    expect(find.byKey(const Key('upcoming')), findsOneWidget);
-    expect(find.byKey(const Key('home-report')), findsOneWidget);
     final list = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).hitTestable();
-    await t.scrollUntilVisible(find.byKey(const Key('home-stat-spent')), 300, scrollable: list.first);
+    await t.scrollUntilVisible(find.byKey(const Key('upcoming')), 300, scrollable: list.first);
+    await t.drag(list.first, const Offset(0, -200));
     await settle(t);
-    await t.drag(list.first, const Offset(0, -260));
+    await _shot(t, '8-upcoming');
+    await t.scrollUntilVisible(find.byKey(const Key('home-report-open')), 300, scrollable: list.first);
+    await t.drag(list.first, const Offset(0, -250));
     await settle(t);
-    await _shot(t, '8-home-upcoming');
-    await t.drag(list.first, const Offset(0, -420));
-    await settle(t);
-    await _shot(t, '9-home-report');
+    await _shot(t, '9-report');
     await t.tap(find.byKey(const Key('home-report-open')));
     await settle(t);
     expect(find.text('মাসের রিপোর্ট'), findsWidgets);
