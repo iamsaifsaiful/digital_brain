@@ -27,6 +27,7 @@ void main() {
     t.view.physicalSize = const Size(1170, 3000);
     final b = rig.brain;
     await b.setProForTest(true);
+    await b.startBusiness(kind: 'skip');
     await b.setPref('business_mode', true);
     final now = b.services.now();
     final egg = Product(name: 'ডিম', unit: 'হালি', buy: 44, sell: 52, stock: 30, low: 10);
@@ -49,7 +50,7 @@ void main() {
     }
 
     final ctx = t.element(find.byType(HomeShell));
-    for (final (i, tab) in [ShellTab.home, ShellTab.diary, ShellTab.people, ShellTab.money, ShellTab.store].indexed) {
+    for (final (i, tab) in [ShellTab.home, ShellTab.store, ShellTab.diary, ShellTab.people].indexed) {
       goToTab(ctx, tab);
       await settle(t);
       await shot('${i + 1}-${tab.name}');

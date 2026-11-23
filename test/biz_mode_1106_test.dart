@@ -23,16 +23,17 @@ import 'app_test.dart' show settle, start, vScroll;
 import 'package:digital_brain/screens/more_screen.dart' show MoreScreen;
 
 void main() {
-  testWidgets('the switch: six tabs in the day\'s order; off brings the normal app back on the same tab', (t) async {
+  testWidgets('the switch: five tabs in the day\'s order; off brings the normal app back on the same tab', (t) async {
     final rig = await start(t);
     final b = rig.brain;
     await b.setProForTest(true);
     expect(find.byType(BizHome), findsNothing);
+    await b.startBusiness(kind: 'skip');
     await b.setPref('business_mode', true);
     await settle(t);
     expect(find.byType(BizHome), findsOneWidget);
-    // হোম · বিক্রি · গ্রাহক · হিসাব · স্টক · আরও, left to right.
-    final xs = [for (final l in ['হোম', 'বিক্রি', 'গ্রাহক', 'হিসাব', 'স্টক', 'আরও']) t.getCenter(find.text(l).last).dx];
+    // Owner, 23 Nov: হোম · স্টক · বিক্রয় · গ্রাহক · আরও, left to right.
+    final xs = [for (final l in ['হোম', 'স্টক', 'বিক্রয়', 'গ্রাহক', 'আরও']) t.getCenter(find.text(l).last).dx];
     expect([...xs]..sort(), xs);
     await t.tap(find.text('গ্রাহক').last);
     await settle(t);
@@ -40,10 +41,7 @@ void main() {
     await t.tap(find.text('স্টক').last);
     await settle(t);
     expect(find.byType(BizStock), findsOneWidget);
-    await t.tap(find.text('হিসাব').last);
-    await settle(t);
-    expect(find.text('দিন বন্ধ'), findsNothing, reason: 'owner, 6 Nov: দিন বন্ধ বাদ');
-    expect(find.text('ডিলার ও মাল কেনা'), findsOneWidget);
+    expect(find.text('হিসাব'), findsNothing, reason: 'owner, 23 Nov: no হিসাব tab in business mode');
 
     // Switched off from আরও: still on আরও, the normal tabs back.
     await t.tap(find.text('আরও').last);
@@ -62,6 +60,7 @@ void main() {
     final rig = await start(t);
     final b = rig.brain;
     await b.setProForTest(true);
+    await b.startBusiness(kind: 'skip');
     await b.setPref('business_mode', true);
     final sugar = Product(name: 'চিনি', buy: 120, sell: 130, stock: 10, low: 3);
     final rice = Product(name: 'চাল', buy: 60, sell: 70, stock: 25, loose: true);
@@ -131,6 +130,7 @@ void main() {
     final rig = await start(t);
     final b = rig.brain;
     await b.setProForTest(true);
+    await b.startBusiness(kind: 'skip');
     await b.setPref('business_mode', true);
     await settle(t);
     final nav = Navigator.of(t.element(find.byType(HomeShell)));
@@ -185,6 +185,7 @@ void main() {
     final rig = await start(t);
     final b = rig.brain;
     await b.setProForTest(true);
+    await b.startBusiness(kind: 'skip');
     await b.setPref('business_mode', true);
     final dal = Product(name: 'মসুর ডাল', buy: 110, sell: 125, stock: 3, low: 5, supplier: 'করিম ট্রেডার্স');
     await b.saveProduct(dal);
@@ -222,7 +223,7 @@ void main() {
     await b.recordSale(Sale(at: rig.nowAt.subtract(const Duration(days: 40)), lines: const [], amountOnly: 700, pay: SalePay.credit, customerId: c.id));
     await settle(t);
     expect(find.byKey(const Key('biz-home-long')), findsOneWidget);
-    expect(find.text('পুরোনো গ্রাহক'), findsWidgets);
+    expect(find.textContaining('পুরোনো গ্রাহক'), findsWidgets);
   });
 
   testWidgets('free app (owner, 13 Nov): selling is free; the 21st customer, the 31st product and the PDF receipt ask for Premium', (t) async {
@@ -230,6 +231,7 @@ void main() {
     final b = rig.brain;
     b.gated = true;
     await b.setProForTest(false);
+    await b.startBusiness(kind: 'skip');
     await b.setPref('business_mode', true);
     final egg = Product(name: 'ডিম', unit: 'হালি', sell: 52, stock: 30);
     b.shop.products.add(egg);
@@ -265,6 +267,7 @@ void main() {
     final rig = await start(t);
     final b = rig.brain;
     await b.setProForTest(true);
+    await b.startBusiness(kind: 'skip');
     await b.setPref('business_mode', true);
     final p = Product(name: 'ডিম', unit: 'পিস', buy: 11, sell: 13, stock: 2, low: 10);
     await b.saveProduct(p);
@@ -273,7 +276,7 @@ void main() {
     final d = await b.dealerFor('করিম');
     await b.recordPurchase(d.id, [(p, 10, 110)], paid: 0);
     await settle(t);
-    for (final tab in ['বিক্রি', 'গ্রাহক', 'হিসাব', 'স্টক', 'হোম']) {
+    for (final tab in ['স্টক', 'বিক্রয়', 'গ্রাহক', 'হোম']) {
       await t.tap(find.text(tab).last);
       await settle(t);
       expect(t.takeException(), isNull, reason: tab);

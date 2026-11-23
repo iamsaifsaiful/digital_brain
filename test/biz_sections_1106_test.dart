@@ -45,6 +45,7 @@ void main() {
   testWidgets('stock: section chips filter; the form picks the section from the name', (t) async {
     final rig = await start(t);
     final b = rig.brain;
+    await b.startBusiness(kind: 'skip');
     await b.setPref('business_mode', true);
     for (final n in ['মিনিকেট চাল', 'মসুর ডাল', 'সয়াবিন তেল', 'ডিম', 'লাক্স সাবান']) {
       await b.saveProduct(Product(name: n, stock: 10, sell: 50));

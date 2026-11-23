@@ -13,7 +13,6 @@ import 'ledger_screen.dart';
 import 'store_screen.dart';
 import 'more_screen.dart' show MoreScreen;
 import 'biz/biz_customers.dart';
-import 'biz/biz_hisab.dart';
 import 'biz/biz_home.dart';
 import 'biz/biz_sales.dart';
 import 'biz/biz_stock.dart';
@@ -23,14 +22,14 @@ import '../logic/lang.dart';
 /// হোম · দিনলিপি · হিসাব · সংরক্ষণ · আরও — an organiser, with the
 /// assistant's box and mic at the bottom of every page. আরও holds the
 /// settings, requests, Pro and feedback.
-/// The bottom tabs. In business mode the pages are the shop's (diary = বিক্রি,
-/// money = হিসাব, store = স্টক) and [people] (গ্রাহক) comes after বিক্রি
-/// (owner, 6 Nov: হোম → বিক্রি → গ্রাহক → হিসাব → স্টক).
+/// The bottom tabs. In business mode the pages are the shop's (owner, 23 Nov:
+/// হোম → স্টক → বিক্রয় → গ্রাহক → আরও; diary = বিক্রয়, store = স্টক,
+/// people = গ্রাহক; money is not used there).
 enum ShellTab { home, diary, money, store, more, people }
 
 /// The tabs in their order for the mode.
 List<ShellTab> shellTabs(bool business) => business
-    ? const [ShellTab.home, ShellTab.diary, ShellTab.people, ShellTab.money, ShellTab.store, ShellTab.more]
+    ? const [ShellTab.home, ShellTab.store, ShellTab.diary, ShellTab.people, ShellTab.more]
     : const [ShellTab.home, ShellTab.diary, ShellTab.money, ShellTab.store, ShellTab.more];
 
 class HomeShell extends StatefulWidget {
@@ -158,10 +157,9 @@ class HomeShellState extends State<HomeShell> {
                 children: BrainScope.of(context).businessMode
                     ? [
                         const _Kept(BizHome(), key: ValueKey('biz-home')),
+                        const _Kept(SafeArea(bottom: false, child: BizStock()), key: ValueKey('biz-stock')),
                         const _Kept(SafeArea(bottom: false, child: BizSales()), key: ValueKey('biz-sales')),
                         const _Kept(SafeArea(bottom: false, child: BizCustomers()), key: ValueKey('biz-customers')),
-                        _Kept(SafeArea(bottom: false, child: BizHisab(key: bizHisabKey)), key: const ValueKey('biz-hisab')),
-                        const _Kept(SafeArea(bottom: false, child: BizStock()), key: ValueKey('biz-stock')),
                         // The same key in both modes: আরও stays as it was when the mode switches.
                         const _Kept(SafeArea(bottom: false, child: MoreScreen()), key: ValueKey('more')),
                       ]
@@ -259,10 +257,9 @@ class _Nav extends StatelessWidget {
     final tabs = BrainScope.of(context).businessMode
         ? const [
             (ShellTab.home, Icons.home_outlined, 'হোম'),
-            (ShellTab.diary, Icons.shopping_cart_outlined, 'বিক্রি'),
-            (ShellTab.people, Icons.people_outline_rounded, 'গ্রাহক'),
-            (ShellTab.money, Icons.account_balance_wallet_outlined, 'হিসাব'),
             (ShellTab.store, Icons.inventory_2_outlined, 'স্টক'),
+            (ShellTab.diary, Icons.shopping_cart_outlined, 'বিক্রয়'),
+            (ShellTab.people, Icons.people_outline_rounded, 'গ্রাহক'),
             (ShellTab.more, Icons.menu_rounded, 'আরও'),
           ]
         : const [

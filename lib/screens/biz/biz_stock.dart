@@ -662,3 +662,17 @@ class _GoodsInState extends State<_GoodsIn> {
     ]);
   }
 }
+
+/// অর্ডার তালিকা: what is running low, by supplier.
+class OrderListPage extends StatelessWidget {
+  const OrderListPage({super.key});
+  @override
+  Widget build(BuildContext context) => const PurchasePage();
+}
+
+/// স্টক যোগ (the quick button).
+class StockInPage extends StatelessWidget {
+  const StockInPage({super.key});
+  @override
+  Widget build(BuildContext context) => const PurchasePage(part: 'in');
+}

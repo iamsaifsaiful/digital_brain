@@ -106,6 +106,9 @@ class BizFlows {
       );
 }
 
+/// The category of the cash written in when the business is started.
+const startCashCategory = 'শুরুর হিসাব';
+
 /// The going of everything [counts] (by id and when it happened).
 BizFlows bizFlows(ShopBook b, Iterable<CashEntry> cashList, bool Function(String id, DateTime at) counts) {
   final f = BizFlows();
@@ -200,6 +203,9 @@ BizFlows bizFlows(ShopBook b, Iterable<CashEntry> cashList, bool Function(String
   // The rest of the business's own money: costs, and other income.
   for (final e in cashList) {
     if (!isBizCash(e) || linked.contains(e.id) || !counts(e.id, e.date)) continue;
+    // The cash written in at the start is where the business began, not
+    // income or a cost of that day.
+    if (e.category == startCashCategory) continue;
     if (e.kind == CashKind.income) {
       f.otherIncome += e.amount;
     } else {
@@ -246,3 +252,104 @@ BizFlows bizMonth(ShopBook b, Iterable<CashEntry> cash, DateTime now) =>
 
 /// Today's going.
 BizFlows bizToday(ShopBook b, Iterable<CashEntry> cash, DateTime now) => bizFlowsBetween(b, cash, now, now);
+
+/// What kind of entry a [BizTx] is (its icon and colour on the list).
+enum TxKind { sale, collect, purchase, payout, expense, income, owner, loan, returnIn, returnOut, damage, adjust }
+
+/// One line of "সব লেনদেন": when, what, with whom, and the money it moved.
+class BizTx {
+  const BizTx({required this.id, required this.at, required this.kind, required this.title, this.party = '', required this.amount, this.cashIn = 0, this.cashOut = 0, this.left = 0, this.ref});
+  final String id;
+  final DateTime at;
+  final TxKind kind;
+  final String title;
+  final String party;
+
+  /// What it came to.
+  final int amount;
+
+  /// The cash it brought in or took out.
+  final int cashIn;
+  final int cashOut;
+
+  /// Still owed on it (a sale's বাকি, a purchase's দেনা).
+  final int left;
+
+  /// The record behind it (a [Sale], [Purchase] …) to open.
+  final Object? ref;
+}
+
+/// Every business entry, newest first.
+List<BizTx> bizTransactions(ShopBook b, Iterable<CashEntry> cash) {
+  final out = <BizTx>[];
+  final linked = <String>{};
+  for (final s in b.sales) {
+    if (s.cashId != null) linked.add(s.cashId!);
+    out.add(BizTx(id: s.id, at: s.at, kind: TxKind.sale, title: s.no > 0 ? 'বিক্রি · মেমো #${s.no}' : 'বিক্রি', party: s.customer, amount: s.total, cashIn: s.paidNow, left: s.due, ref: s));
+  }
+  for (final x in b.collections) {
+    if (x.cashId != null) linked.add(x.cashId!);
+    out.add(BizTx(id: x.id, at: x.at, kind: TxKind.collect, title: 'বকেয়া আদায়', party: customerById(b, x.party)?.name ?? '', amount: x.amount, cashIn: x.amount, ref: x));
+  }
+  for (final p in b.purchases) {
+    if (p.cashId != null) linked.add(p.cashId!);
+    out.add(BizTx(id: p.id, at: p.at, kind: TxKind.purchase, title: p.lines.isEmpty ? 'স্টক যোগ' : 'স্টক যোগ · ${p.lines.map((l) => l.name).take(2).join(', ')}', party: p.dealer, amount: p.total, cashOut: p.paid, left: p.owed, ref: p));
+  }
+  for (final x in b.payouts) {
+    if (x.cashId != null) linked.add(x.cashId!);
+    out.add(BizTx(id: x.id, at: x.at, kind: TxKind.payout, title: 'সাপ্লায়ারকে পরিশোধ', party: dealerById(b, x.party)?.name ?? '', amount: x.amount, cashOut: x.amount, ref: x));
+  }
+  for (final m in b.ownerMoves) {
+    if (m.cashId != null) linked.add(m.cashId!);
+    out.add(BizTx(id: m.id, at: m.at, kind: TxKind.owner, title: m.inward ? 'মালিকের জমা' : 'মালিক নিলেন', party: m.note, amount: m.amount, cashIn: m.inward ? m.amount : 0, cashOut: m.inward ? 0 : m.amount, ref: m));
+  }
+  for (final m in b.loanMoves) {
+    if (m.cashId != null) linked.add(m.cashId!);
+    final l = b.loans.where((x) => x.id == m.loanId).firstOrNull;
+    out.add(BizTx(id: m.id, at: m.at, kind: TxKind.loan, title: m.take ? 'ঋণ নেওয়া' : 'ঋণের কিস্তি', party: l?.name ?? '', amount: m.amount, cashIn: m.take ? m.amount : 0, cashOut: m.take ? 0 : m.amount, ref: m));
+  }
+  for (final r in b.customerReturns) {
+    if (r.cashId != null) linked.add(r.cashId!);
+    out.add(BizTx(id: r.id, at: r.at, kind: TxKind.returnIn, title: r.saleNo > 0 ? 'মাল ফেরত · মেমো #${r.saleNo}' : 'মাল ফেরত', party: r.customer, amount: r.refund, cashOut: r.cash ? r.refund : 0, ref: r));
+  }
+  for (final r in b.supplierReturns) {
+    if (r.cashId != null) linked.add(r.cashId!);
+    out.add(BizTx(id: r.id, at: r.at, kind: TxKind.returnOut, title: 'সাপ্লায়ারকে ফেরত', party: r.dealer, amount: r.credit, cashIn: r.pay == ReturnPay.cash ? r.credit : 0, ref: r));
+  }
+  for (final a in b.adjusts) {
+    if (a.damaged) out.add(BizTx(id: a.id, at: a.at, kind: TxKind.damage, title: a.why, amount: -a.change.stock, ref: a));
+  }
+  for (final e in cash) {
+    if (!isBizCash(e) || linked.contains(e.id)) continue;
+    final inc = e.kind == CashKind.income;
+    if (e.category == startCashCategory) {
+      out.add(BizTx(id: e.id, at: e.date, kind: TxKind.adjust, title: startCashCategory, party: e.note, amount: e.amount, cashIn: inc ? e.amount : 0, cashOut: inc ? 0 : e.amount, ref: e));
+      continue;
+    }
+    out.add(BizTx(id: e.id, at: e.date, kind: inc ? TxKind.income : TxKind.expense, title: inc ? (e.category.isEmpty ? 'আয়' : e.category) : 'খরচ · ${e.category}', party: e.note, amount: e.amount, cashIn: inc ? e.amount : 0, cashOut: inc ? 0 : e.amount, ref: e));
+  }
+  out.sort((a, b) => b.at.compareTo(a.at));
+  return out;
+}
+
+/// A customer's memos still (partly) unpaid, oldest first: the memo numbers
+/// a new memo's "আগের বকেয়া" came from (payments clear the oldest first).
+List<int> openMemos(ShopBook b, Customer c, {String? before}) {
+  final sales = [for (final s in b.sales) if (s.customerId == c.id && s.due > 0 && s.id != before) s]..sort((a, x) => a.at.compareTo(x.at));
+  var paid = [
+    for (final p in b.collections) if (p.party == c.id) p.amount,
+    for (final r in b.customerReturns) if (r.customerId == c.id && !r.cash) r.refund,
+  ].fold(0, (s, x) => s + x);
+  // The old due written in by hand is paid first.
+  paid -= c.opening;
+  final out = <int>[];
+  for (final s in sales) {
+    if (paid >= s.due) {
+      paid -= s.due;
+      continue;
+    }
+    paid = paid > 0 ? 0 : paid;
+    out.add(s.no);
+  }
+  return out;
+}

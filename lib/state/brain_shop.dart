@@ -518,7 +518,7 @@ extension BrainShop on Brain {
     if (cash != null) {
       final diff = cash - bizCashBalance(data.cash);
       if (diff != 0) {
-        final e = CashEntry(kind: diff > 0 ? CashKind.income : CashKind.expense, amount: diff.abs(), category: 'শুরুর হিসাব', note: tr('ব্যবসার শুরুর নগদ'), date: at, projectId: bizCash, addedAt: at);
+        final e = CashEntry(kind: diff > 0 ? CashKind.income : CashKind.expense, amount: diff.abs(), category: startCashCategory, note: tr('ব্যবসার শুরুর নগদ'), date: at, projectId: bizCash, addedAt: at);
         data.cash.add(e);
       }
     }

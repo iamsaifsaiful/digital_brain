@@ -1,0 +1,234 @@
+// Owner, 23 Nov: ব্যবসায়ী মোড rebuilt — the first questions (old/new
+// business; capital worked out, shown, confirmed, never typed), the home
+// (no pictures; the main card opens the whole account, all time), টাকা জমা /
+// খরচ, সব লেনদেন, রিপোর্ট, ক্যাশ বই, ঋণ, সাপ্লায়ার.
+// SHOTS=1 flutter test test/ui/biz_1123_test.dart --update-goldens
+// writes test/ui/shots/biz_1123/.
+import 'dart:io';
+
+import 'package:digital_brain/logic/biz_account.dart';
+import 'package:digital_brain/logic/bn.dart' show taka;
+import 'package:digital_brain/models/models.dart';
+import 'package:digital_brain/screens/biz/biz_account_page.dart';
+import 'package:digital_brain/screens/biz/biz_home.dart';
+import 'package:digital_brain/screens/biz/biz_money.dart';
+import 'package:digital_brain/screens/biz/biz_setup.dart';
+import 'package:digital_brain/screens/biz/biz_tx.dart';
+import 'package:digital_brain/screens/home_shell.dart';
+import 'package:digital_brain/state/brain.dart' show Brain, BrainShop;
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show debugDisableShadows;
+import 'package:flutter_test/flutter_test.dart';
+
+import '../app_test.dart' show settle, start;
+import 'new_ui_shots_test.dart' as four show icons;
+
+final shots = Platform.environment['SHOTS'] == '1';
+
+Future<void> _shot(WidgetTester t, String name) async {
+  if (!shots) return;
+  await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/biz_1123/$name.png'));
+}
+
+/// A shop with a few weeks behind it.
+Future<void> _fill(Brain b) async {
+  final now = b.services.now();
+  final rice = Product(name: 'মিনিকেট চাল', unit: 'কেজি', buy: 68, sell: 75, stock: 4, low: 10, category: 'চাল-ডাল-আটা');
+  final oil = Product(name: 'সয়াবিন তেল', unit: 'লিটার', buy: 165, sell: 180, stock: 40, category: 'তেল-মসলা');
+  final egg = Product(name: 'ডিম', unit: 'হালি', buy: 44, sell: 52, stock: 30, low: 10, category: 'ডিম-দুধ');
+  final soap = Product(name: 'লাক্স সাবান', unit: 'পিস', buy: 55, sell: 65, stock: 2, low: 5);
+  await b.startBusiness(
+    kind: 'old',
+    cash: 38500,
+    shopName: 'মায়ের দোয়া স্টোর',
+    products: [rice, oil, egg, soap],
+    customers: [('রহিম চাচা', '', 2400), ('সালমা আপা', '', 850)],
+    dealers: [('করিম ট্রেডার্স', 6000)],
+    loans: [('ব্র্যাক ব্যাংক', 15000, 2500)],
+  );
+  final p = {for (final x in b.shop.products) x.name: x};
+  final salma = await b.customerFor('সালমা আপা');
+  final rahim = await b.customerFor('রহিম চাচা');
+  for (var d = 12; d >= 0; d--) {
+    final at = DateTime(now.year, now.month, now.day - d, 11);
+    await b.recordSale(Sale(at: at, lines: [SaleLine(productId: p['সয়াবিন তেল']!.id, name: 'সয়াবিন তেল', qty: 1 + d % 3, unit: 'লিটার', amount: 180 * (1 + d % 3), cost: 165 * (1 + d % 3))], pay: SalePay.cash));
+  }
+  await b.recordSale(Sale(at: now.subtract(const Duration(hours: 2)), lines: [SaleLine(productId: p['ডিম']!.id, name: 'ডিম', qty: 3, unit: 'হালি', amount: 156, cost: 132)], pay: SalePay.credit, customerId: salma.id));
+  await b.recordSale(Sale(at: now.subtract(const Duration(hours: 1)), lines: [SaleLine(productId: p['মিনিকেট চাল']!.id, name: 'মিনিকেট চাল', qty: 2, unit: 'কেজি', amount: 150, cost: 136)], pay: SalePay.cash));
+  await b.customerPaid(rahim.id, 1000);
+  final d = await b.dealerFor('করিম ট্রেডার্স');
+  await b.recordPurchase(d.id, [(p['সয়াবিন তেল']!, 10, 1650)], paid: 1000);
+  await b.shopCost(300, 'বিদ্যুৎ বিল');
+  await b.writeOff(p['ডিম']!.id, 1, why: 'ভেঙে গেছে');
+}
+
+void main() {
+  setUp(() async {
+    if (shots) {
+      await four.icons();
+      debugDisableShadows = false;
+    }
+  });
+
+  testWidgets('first time: old business — cash, stock, dues; capital shown and confirmed', (t) async {
+    final rig = await start(t);
+    final b = rig.brain;
+    await b.setProForTest(true);
+    expect(b.shop.start, isNull);
+    await b.setPref('business_mode', true);
+    await settle(t);
+    expect(find.byType(BizSetupPage), findsOneWidget, reason: 'asked the first time');
+    await _shot(t, '01-setup-kind');
+    await t.tap(find.byKey(const Key('setup-kind-old')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('setup-next')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('setup-shop')), 'মায়ের দোয়া স্টোর');
+    await t.enterText(find.byKey(const Key('setup-cash')), '12000');
+    await settle(t);
+    await _shot(t, '02-setup-cash');
+    await t.tap(find.byKey(const Key('setup-next')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('setup-p-name')), 'মসুর ডাল');
+    await t.enterText(find.byKey(const Key('setup-p-qty')), '20');
+    await t.enterText(find.byKey(const Key('setup-p-buy')), '110');
+    await t.enterText(find.byKey(const Key('setup-p-sell')), '125');
+    await t.ensureVisible(find.byKey(const Key('setup-p-add')));
+    await t.tap(find.byKey(const Key('setup-p-add')));
+    await settle(t);
+    await _shot(t, '03-setup-stock');
+    await t.tap(find.byKey(const Key('setup-next')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('setup-add-customer')));
+    await settle(t);
+    await t.enterText(find.byKey(const Key('setup-party-name')), 'রহিম চাচা');
+    await t.enterText(find.byKey(const Key('setup-party-amount')), '1500');
+    await t.tap(find.byKey(const Key('setup-party-save')));
+    await settle(t);
+    // 12000 + 20×110 + 1500 = 15700, worked out — not typed.
+    expect(t.widget<Text>(find.byKey(const Key('setup-capital-amount'))).data, '৳১৫,৭০০');
+    await t.ensureVisible(find.byKey(const Key('setup-confirm')));
+    await settle(t);
+    await _shot(t, '04-setup-capital');
+    await t.tap(find.byKey(const Key('setup-confirm')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('setup-done')));
+    await settle(t);
+    expect(find.byType(BizSetupPage), findsNothing);
+    expect(b.shop.start?.sums.capital, 15700);
+    expect(b.bizAcc.adds, isTrue);
+    expect(find.byType(BizHome), findsOneWidget);
+    debugDisableShadows = true;
+  });
+
+  testWidgets('home: main card opens the whole account; money in and out; every page renders', (t) async {
+    final rig = await start(t);
+    rig.nowAt = DateTime(2026, 11, 23, 18, 30);
+    final b = rig.brain;
+    await b.setProForTest(true);
+    await _fill(b);
+    expect(b.bizAcc.adds, isTrue);
+    // The cash written in at the start is not today's income.
+    final today = bizToday(b.shop, b.data.cash, rig.nowAt);
+    expect(today.otherIncome, 0);
+    expect(today.netProfit, lessThan(1000));
+    await b.setPref('business_mode', true);
+    await settle(t);
+    expect(find.byType(BizSetupPage), findsNothing);
+    expect(find.byType(BizHome), findsOneWidget);
+    await _shot(t, '05-home');
+    // The four buttons sit just below the middle of the screen.
+    final y = t.getCenter(find.byKey(const Key('biz-quick-sell'))).dy;
+    final h = t.view.physicalSize.height / t.view.devicePixelRatio;
+    expect(y, greaterThan(h * .45));
+    expect(y, lessThan(h * .72));
+
+    if (shots) {
+      t.view.physicalSize = const Size(1170, 6600);
+      await settle(t);
+      await _shot(t, '06-home-full');
+      t.view.physicalSize = const Size(1170, 2532);
+      await settle(t);
+    }
+
+    await t.tap(find.byKey(const Key('biz-home-today')));
+    await settle(t);
+    expect(find.byType(BizAccountPage), findsOneWidget);
+    expect(find.byKey(const Key('biz-acc-ok')), findsOneWidget);
+    final acc = b.bizAcc;
+    expect(t.widget<Text>(find.byKey(const Key('biz-acc-capital'))).data, taka(acc.now.capital));
+    await _shot(t, '07-account');
+    if (shots) {
+      t.view.physicalSize = const Size(1170, 7800);
+      await settle(t);
+      await _shot(t, '08-account-full');
+      t.view.physicalSize = const Size(1170, 2532);
+      await settle(t);
+    }
+    Navigator.of(t.element(find.byType(BizAccountPage))).pop();
+    await settle(t);
+
+    // টাকা জমা → মালিকের জমা.
+    final cash0 = b.bizAcc.now.cash;
+    await t.ensureVisible(find.byKey(const Key('biz-quick-in')));
+    await t.tap(find.byKey(const Key('biz-quick-in')));
+    await settle(t);
+    await _shot(t, '09-money-in');
+    await t.tap(find.byKey(const Key('biz-pick-owner')));
+    await settle(t);
+    await t.enterText(find.byType(TextField).last, '5000');
+    await t.tap(find.text('রাখুন').last);
+    await settle(t);
+    expect(b.bizAcc.now.cash, cash0 + 5000);
+    expect(b.bizAcc.flows.ownerIn, 5000);
+
+    // খরচ → the sheet.
+    await t.tap(find.byKey(const Key('biz-quick-cost')));
+    await settle(t);
+    await _shot(t, '10-money-out');
+    await t.tap(find.byKey(const Key('biz-pick-loan')));
+    await settle(t);
+    final brac = b.shop.loans.single;
+    await t.tap(find.byKey(Key('biz-pick-loan-${brac.id}')));
+    await settle(t);
+    await t.tap(find.text('রাখুন').last); // the instalment offered
+    await settle(t);
+    await t.enterText(find.byType(TextField).last, '600');
+    await t.tap(find.text('রাখুন').last);
+    await settle(t);
+    expect(loanDue(b.shop, brac), 15000 - 2500);
+    expect(b.bizAcc.flows.expenses, 300 + 600, reason: 'interest is a cost');
+    expect(b.bizAcc.adds, isTrue);
+
+    final nav = Navigator.of(t.element(find.byType(HomeShell)));
+    for (final (name, w) in <(String, Widget)>[
+      ('11-all-tx', const BizTxPage()),
+      ('12-report', const BizReportPage()),
+      ('13-cash-book', const BizCashBook()),
+      ('14-loans', const LoanListPage()),
+      ('15-loan', LoanPage(id: brac.id)),
+      ('16-suppliers', const SupplierListPage()),
+    ]) {
+      nav.push(MaterialPageRoute(builder: (_) => w));
+      await settle(t);
+      expect(t.takeException(), isNull, reason: name);
+      await _shot(t, name);
+      nav.pop();
+      await settle(t);
+    }
+
+    // Cancelling an entry from সব লেনদেন: the account still adds up.
+    nav.push(MaterialPageRoute(builder: (_) => const BizTxPage()));
+    await settle(t);
+    final last = bizTransactions(b.shop, b.data.cash).first;
+    await t.tap(find.byKey(Key('biz-tx-${last.id}')));
+    await settle(t);
+    await t.tap(find.byKey(const Key('biz-tx-undo')));
+    await settle(t);
+    await t.tap(find.text('বাতিল করুন').last);
+    await settle(t);
+    expect(bizTransactions(b.shop, b.data.cash).any((x) => x.id == last.id), isFalse);
+    expect(b.bizAcc.adds, isTrue);
+    debugDisableShadows = true;
+  });
+}
