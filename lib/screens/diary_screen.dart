@@ -15,6 +15,9 @@ import 'plan_screens.dart';
 import '../logic/lang.dart';
 import '../logic/pro.dart' show medicalOff;
 import '../logic/repeat_text.dart';
+import '../logic/report.dart' show diarySpec, diaryFileName;
+import '../logic/templates.dart' show listTemplates;
+import '../ui/pdf_export.dart' show exportSpecPdf;
 
 enum DiaryView { day, week, month }
 
@@ -66,11 +69,20 @@ class _DiaryScreenState extends State<DiaryScreen> {
           TabTitle(
             tr('দিনলিপি'),
             sub: tr('দিনের কাজ, রিমাইন্ডার আর অভ্যাস'),
-            trailing: IconButton(
-              tooltip: tr('ক্যালেন্ডার'),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
-              icon: Icon(Icons.calendar_month_outlined, color: C.ink),
-            ),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              // Owner, 22 Nov: "দিনলিপি পিডিএফ আকারে ডাউনলোড করার অপশন থাকবে".
+              IconButton(
+                key: const Key('diary-pdf'),
+                tooltip: tr('PDF ডাউনলোড'),
+                onPressed: () => _pdf(brain, day),
+                icon: Icon(Icons.picture_as_pdf_outlined, color: C.ink),
+              ),
+              IconButton(
+                tooltip: tr('ক্যালেন্ডার'),
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen())),
+                icon: Icon(Icons.calendar_month_outlined, color: C.ink),
+              ),
+            ]),
           ),
           const SizedBox(height: 14),
           tabs,
@@ -95,41 +107,129 @@ class _DiaryScreenState extends State<DiaryScreen> {
     ]);
   }
 
-  /// Habits, medicines, special days and ready lists: one short chip each
-  /// (owner, 3 Nov: the long list became chips).
+  /// The day, its week or its month as a PDF; the page's tab comes chosen.
+  Future<void> _pdf(Brain brain, DateTime day) async {
+    final now = brain.services.now();
+    final ws = _weekStart(day);
+    final ranges = <(DiaryView, String, String, List<DateTime>)>[
+      (DiaryView.day, tr('এই দিন'), '${weekdayName(day)}, ${bnDigits(day.day)} ${monthName(day.month)}', [dayOnly(day)]),
+      (DiaryView.week, tr('এই সপ্তাহ'), '${bnDigits(ws.day)} ${monthShort(ws.month)} – ${bnDigits(ws.add(const Duration(days: 6)).day)} ${monthShort(ws.add(const Duration(days: 6)).month)}',
+          [for (var i = 0; i < 7; i++) ws.add(Duration(days: i))]),
+      (DiaryView.month, tr('এই মাস'), '${monthName(day.month)} ${bnDigits(day.year)}', [for (var i = 1; i <= DateTime(day.year, day.month + 1, 0).day; i++) DateTime(day.year, day.month, i)]),
+    ];
+    final pick = await showAppSheet<List<DateTime>>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(tr('দিনলিপি PDF'), style: display(20, weight: 700)),
+            const SizedBox(height: 2),
+            Text(tr('কাজ, রিমাইন্ডার আর অভ্যাস — বাংলা ও হিজরি তারিখসহ।'), style: body(13, color: C.muted)),
+            const SizedBox(height: 12),
+            for (final (v, label, sub, days) in ranges)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  key: Key('diary-pdf-${v.name}'),
+                  color: v == _view ? C.greenTint : C.surface,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: v == _view ? C.green : C.border)),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => Navigator.pop(ctx, days),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                      child: Row(children: [
+                        Icon(Icons.picture_as_pdf_outlined, color: C.green),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(label, style: body(15.5, weight: FontWeight.w600)),
+                            Text(sub, style: body(12.5, color: C.muted)),
+                          ]),
+                        ),
+                        Icon(Icons.download_rounded, color: C.muted),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+          ]),
+        ),
+      ),
+    );
+    if (pick == null || !mounted) return;
+    final spec = diarySpec(brain.data, pick, now, itemsOn: (d) => itemsOn(brain.data, d, now), userName: brain.userName);
+    await exportSpecPdf(context, spec, diaryFileName(pick.first, pick.last));
+  }
+
+  /// Habits, medicines, special days and ready lists as three (or four)
+  /// cards with what is in each (owner, 22 Nov: "আরো সহজ ভাবে দেখাতে হবে,
+  /// ইউআই সুন্দর হতে হবে").
   Widget _moreToKeep() {
-    Widget chip(Key key, String label, IconData icon, String example, Widget page) => Tooltip(
-          message: example,
+    final brain = BrainScope.of(context);
+    final now = brain.services.now();
+    final today = dayOnly(now);
+    final habits = brain.data.habits;
+    final ticked = habits.where((h) => h.doneOn(today)).length;
+    final specials = [...brain.data.specialDays]..sort((a, b) => a.next(now).compareTo(b.next(now)));
+    final nextSpecial = specials.firstOrNull;
+    final ready = listTemplates.where((t) => brain.data.tasks.any((x) => x.list == tr(t.name) && !x.done)).length;
+
+    Widget tile(Key key, String label, IconData icon, Color color, String line, Widget page) => Expanded(
           child: Material(
             key: key,
-            color: C.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999), side: BorderSide(color: C.border)),
+            color: Color.alphaBlend(color.withValues(alpha: 0.09), C.surface),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: color.withValues(alpha: 0.28))),
             child: InkWell(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(18),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => page)),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(icon, size: 17, color: C.green),
-                  const SizedBox(width: 6),
-                  Text(label, style: body(13, weight: FontWeight.w600)),
+                padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(color: color.withValues(alpha: 0.16), shape: BoxShape.circle),
+                    child: Icon(icon, size: 21, color: color),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(14.5, weight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  SizedBox(height: 34, child: Text(line, maxLines: 2, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted, height: 1.4))),
                 ]),
               ),
             ),
           ),
         );
+    String soon(SpecialDay s) {
+      final left = dayOnly(s.next(now)).difference(today).inDays;
+      final when = left == 0 ? tr('আজ') : (left == 1 ? tr('কাল') : trf('{0} দিন পর', [bnDigits(left)]));
+      return '${specialTitle(s)} · $when';
+    }
+
+    final tiles = [
+      tile(const Key('diary-habits'), tr('অভ্যাস'), Icons.local_fire_department_outlined, C.orange,
+          habits.isEmpty ? tr('ভালো অভ্যাসের তালিকা থেকে বেছে নিন') : trf('আজ {0}/{1} টিক', [bnDigits(ticked), bnDigits(habits.length)]), const HabitsScreen()),
+      if (!medicalOff)
+        tile(const Key('diary-medicines'), tr('ওষুধ'), Icons.medication_outlined, C.teal, trf('{0}টি ওষুধ', [bnDigits(brain.data.medicines.length)]), const MedicinesScreen()),
+      tile(const Key('diary-special'), tr('বিশেষ দিন'), Icons.cake_outlined, C.rose,
+          nextSpecial == null ? tr('জন্মদিন, বার্ষিকী — তালিকা থেকে বেছে নিন') : soon(nextSpecial), const SpecialDaysScreen()),
+      tile(const Key('diary-templates'), tr('রেডিমেড তালিকা'), Icons.checklist_rtl_rounded, C.blue,
+          ready == 0 ? trf('{0}টি তালিকা — দেখে যোগ করুন', [bnDigits(listTemplates.length)]) : trf('{0}টি চালু আছে', [bnDigits(ready)]), const TemplatesScreen()),
+    ];
+    final rows = <List<Widget>>[for (var i = 0; i < tiles.length; i += tiles.length == 4 ? 2 : 3) tiles.sublist(i, (i + (tiles.length == 4 ? 2 : 3)).clamp(0, tiles.length))];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _label(tr('আরও যা রাখা যায়')),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        chip(const Key('diary-habits'), tr('অভ্যাস'), Icons.local_fire_department_outlined, tr('যেমন: প্রতিদিন ৩০ মিনিট হাঁটা, ৫ ওয়াক্ত নামাজ'), const HabitsScreen()),
-        if (!medicalOff) chip(const Key('diary-medicines'), tr('ওষুধ'), Icons.medication_outlined, tr('যেমন: নাপা — সকাল ৮টা আর রাত ৯টা, খাবারের পরে'), const MedicinesScreen()),
-        chip(const Key('diary-special'), tr('বিশেষ দিন'), Icons.cake_outlined, tr('যেমন: আম্মার জন্মদিন ১২ মার্চ — প্রতি বছর আগের দিন মনে করাবে'), const SpecialDaysScreen()),
-        chip(const Key('diary-templates'), tr('রেডিমেড তালিকা'), Icons.checklist_rtl_rounded, tr('যেমন: ঈদের কেনাকাটা, মাসের বাজার — এক চাপে পুরো তালিকা'), const TemplatesScreen()),
-      ]),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(4, 10, 4, 0),
-        child: Text(tr('মুখেও বলা যায়: “রোজ সকালে হাঁটা অভ্যাসে রাখো”, “নাপা রাত ৯টায় মনে করিয়ে দিও”'), style: body(12.5, color: C.muted, height: 1.45)),
-      ),
+      for (final (n, r) in rows.indexed) ...[
+        if (n > 0) const SizedBox(height: 8),
+        IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (final (i, t) in r.indexed) ...[if (i > 0) const SizedBox(width: 8), t],
+          ]),
+        ),
+      ],
     ]);
   }
 

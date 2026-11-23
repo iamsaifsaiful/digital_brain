@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pick_sheets.dart' show showHabitPicker;
 import '../ui/secure.dart';
 
 import '../logic/medicine_catalog.dart';
@@ -82,12 +83,8 @@ class HabitsScreen extends StatelessWidget {
     if (context.mounted) toast(context, trf('প্রতিদিন {0}-এ জিজ্ঞেস করব — টিক দেওয়া থাকলে করব না', [bnTime(m ~/ 60, m % 60)]));
   }
 
-  Future<void> _add(BuildContext context) async {
-    final brain = BrainScope.read(context);
-    final name = await askText(context, tr('নতুন অভ্যাস'), hint: tr('যেমন: সকালে হাঁটা, ৮ গ্লাস পানি, কুরআন পড়া'));
-    if (name == null || name.isEmpty) return;
-    await brain.saveHabit(Habit(name: name, createdAt: brain.services.now()));
-  }
+  /// Owner, 22 Nov: a list of good daily habits to pick from (and one's own).
+  Future<void> _add(BuildContext context) => showHabitPicker(context);
 
   Future<void> _menu(BuildContext context, Habit h) async {
     final brain = BrainScope.read(context);
@@ -126,14 +123,20 @@ class HabitsScreen extends StatelessWidget {
     final today = dayOnly(now);
     final week = [for (var i = 6; i >= 0; i--) today.subtract(Duration(days: i))];
     return Scaffold(
-      floatingActionButton: AddButton(label: tr('অভ্যাস যোগ'), onPressed: () => _add(context)),
+      floatingActionButton: AddButton(key: const Key('habit-add'), label: tr('অভ্যাস যোগ'), onPressed: () => _add(context)),
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('অভ্যাস'), trailing: const [PdfButton({ReportPart.health})]),
           Expanded(
             child: ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
               if (brain.data.habits.isEmpty)
-                EmptyState(icon: Icons.local_fire_department_outlined, title: tr('ভালো অভ্যাস গড়ুন'), text: tr('প্রতিদিন টিক দিন — টানা কত দিন হলো দেখাবে, চাইলে রোজ নির্দিষ্ট সময়ে মনে করাব।'))
+                EmptyState(
+                  icon: Icons.local_fire_department_outlined,
+                  title: tr('ভালো অভ্যাস গড়ুন'),
+                  text: tr('প্রতিদিন টিক দিন — টানা কত দিন হলো দেখাবে, চাইলে রোজ নির্দিষ্ট সময়ে মনে করাব।'),
+                  action: tr('তালিকা থেকে বেছে নিন'),
+                  onAction: () => _add(context),
+                )
               else
                 for (final h in brain.data.habits) ...[
                   Panel(

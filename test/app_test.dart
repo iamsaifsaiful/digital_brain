@@ -43,6 +43,7 @@ import 'package:digital_brain/logic/lang.dart' show tr, englishFirst;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:digital_brain/ui/widgets.dart' show SegTabs;
 
 /// Real fonts, so text measures like on a phone.
 Future<void> loadFonts() async {
@@ -792,11 +793,10 @@ void main() {
     await settle(t);
     await t.tap(find.byTooltip('রিমাইন্ডার দিন'));
     await settle(t);
-    expect(find.text('কতক্ষণ আগে মনে করাবে?'), findsOneWidget);
-    await t.enterText(find.byKey(const Key('before-number')), '২');
-    await t.tap(find.byKey(const Key('before-unit')));
+    // 22 Nov: the early notice is folded, its choices as chips.
+    await t.tap(find.text('আগাম মনে করানো: লাগবে না'));
     await settle(t);
-    await t.tap(find.text('ঘণ্টা আগে').last);
+    await t.tap(find.text('২ ঘণ্টা আগে'));
     await settle(t);
     await t.tap(find.text('রাখুন'));
     await settle(t);
@@ -1214,8 +1214,8 @@ void main() {
     await t.tap(find.text('যোগ করুন'));
     await settle(t);
     // Owner (24 Oct): the reminder starts off.
-    expect(t.widget<Switch>(find.byKey(const Key('add-remind'))).value, isFalse);
-    await t.tap(find.byKey(const Key('add-remind')));
+    expect(t.widget<SegTabs<bool>>(find.byKey(const Key('add-remind'))).value, isFalse);
+    await t.tap(find.text('সময়মতো মনে করাবে'));
     await settle(t);
     await t.enterText(find.byType(TextField).last, 'ক্লায়েন্ট মিটিং');
     await t.ensureVisible(find.text('রাখুন'));

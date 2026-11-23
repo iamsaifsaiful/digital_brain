@@ -74,7 +74,8 @@ void main() {
     await settle(t);
     final habits = find.byKey(const Key('diary-habits'));
     await t.scrollUntilVisible(habits, 300, scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first);
-    expect(find.byTooltip('যেমন: প্রতিদিন ৩০ মিনিট হাঁটা, ৫ ওয়াক্ত নামাজ'), findsOneWidget);
+    // 22 Nov: cards with what is in each instead of chips with a tooltip.
+    expect(find.text('ভালো অভ্যাসের তালিকা থেকে বেছে নিন'), findsOneWidget);
     expect(find.byKey(const Key('diary-medicines')), findsOneWidget);
     expect(find.byKey(const Key('diary-templates')), findsOneWidget);
     await t.tap(habits);

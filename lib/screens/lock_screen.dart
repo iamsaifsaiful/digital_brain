@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../ui/secure.dart';
 
@@ -153,8 +154,7 @@ class _LockScreenState extends State<LockScreen> {
         Text(tr('শুরু করতে Google দিয়ে লগইন করুন'), textAlign: TextAlign.center, style: body(17, color: p.title, weight: FontWeight.w700)),
         const SizedBox(height: 6),
         // One line on why (owner, 19 Nov: only the text that is needed).
-        Text(tr('ফোন বদলালেও সব তথ্য ফিরে পাবেন — Google Drive-এ তালাবদ্ধ ব্যাকআপ থাকে।'),
-            key: const Key('welcome-why'), textAlign: TextAlign.center, style: body(14, color: p.soft, height: 1.5)),
+        Text(tr('ফোন বদলালেও সব তথ্য ফিরে পাবেন — Google Drive-এ তালাবদ্ধ ব্যাকআপ থাকে।'), key: const Key('welcome-why'), textAlign: TextAlign.center, style: body(14, color: p.soft, height: 1.5)),
         const SizedBox(height: 20),
         _googleButton(p),
         if (_message != null) ...[
@@ -281,7 +281,8 @@ class _LockScreenState extends State<LockScreen> {
             Text(
                 bio || rec || google
                     ? tr('আপনার তথ্য যেমন আছে তেমনই থাকবে।')
-                    : tr('এই ফোনে আঙুলের ছাপ বা Google অ্যাকাউন্ট যুক্ত নেই, তাই PIN ছাড়া খোলা যাবে না — যাতে ফোন অন্যের হাতে গেলেও আপনার তথ্য নিরাপদ থাকে। Google Drive-এ ব্যাকআপ থাকলে: অ্যাপ মুছে আবার ইনস্টল করুন, একই Google অ্যাকাউন্টে লগইন করে সব ফিরিয়ে আনুন।'),
+                    : tr(
+                        'এই ফোনে আঙুলের ছাপ বা Google অ্যাকাউন্ট যুক্ত নেই, তাই PIN ছাড়া খোলা যাবে না — যাতে ফোন অন্যের হাতে গেলেও আপনার তথ্য নিরাপদ থাকে। Google Drive-এ ব্যাকআপ থাকলে: অ্যাপ মুছে আবার ইনস্টল করুন, একই Google অ্যাকাউন্টে লগইন করে সব ফিরিয়ে আনুন।'),
                 style: body(13, color: C.muted, height: 1.5)),
           ]),
         ),
@@ -407,9 +408,7 @@ class _LockScreenState extends State<LockScreen> {
       _ => tr('PIN দিন'),
     };
     final name = brain.userName.trim().split(RegExp(r'\s+')).first;
-    final line = unlock
-        ? (name.isEmpty ? bnEn('আবার স্বাগতম', 'Welcome back') : bnEn('আবার স্বাগতম, $name', 'Welcome back, $name'))
-        : tr('আপনার ব্যক্তিগত সহকারী');
+    final line = unlock ? (name.isEmpty ? bnEn('আবার স্বাগতম', 'Welcome back') : bnEn('আবার স্বাগতম, $name', 'Welcome back, $name')) : tr('আপনার ব্যক্তিগত সহকারী');
     final big = _mode == _Mode.google;
 
     // The app mark, the name and one line, on the dark top.
@@ -421,8 +420,7 @@ class _LockScreenState extends State<LockScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(big ? 24 : 18),
-              child: Image.asset('assets/brand/app_mark.png',
-                  key: const Key('lock-app-mark'), width: big ? 88 : 64, height: big ? 88 : 64, filterQuality: FilterQuality.medium),
+              child: Image.asset('assets/brand/app_mark.png', key: const Key('lock-app-mark'), width: big ? 88 : 64, height: big ? 88 : 64, filterQuality: FilterQuality.medium),
             ),
           ),
           SizedBox(height: big ? 16 : 12),
@@ -435,8 +433,7 @@ class _LockScreenState extends State<LockScreen> {
       if (title.isNotEmpty) Text(title, style: body(18, color: p.title, weight: FontWeight.w700)),
       if (_mode == _Mode.create && _message == null) ...[
         const SizedBox(height: 6),
-        Text(tr('অ্যাপ খুলতে এই PIN লাগবে। এটা শুধু এই ফোনেই থাকে।'),
-            key: const Key('pin-why'), textAlign: TextAlign.center, style: body(14, color: p.soft, height: 1.5)),
+        Text(tr('অ্যাপ খুলতে এই PIN লাগবে। এটা শুধু এই ফোনেই থাকে।'), key: const Key('pin-why'), textAlign: TextAlign.center, style: body(14, color: p.soft, height: 1.5)),
       ],
       SizedBox(
         height: 36,
@@ -532,16 +529,27 @@ class _LockScreenState extends State<LockScreen> {
     Widget footPad(Widget f) => Padding(padding: EdgeInsets.fromLTRB(24, 20, 24, bottom + 12), child: f);
 
 // Dark above with the mark, a light sheet rising from below.
-final bodyW = LayoutBuilder(builder: (context, box) {
-      final upper = box.maxHeight * (big ? 0.30 : 0.16);
+    final bodyW = LayoutBuilder(builder: (context, box) {
+      // Where the words start (as before), and the picture: owner, 23 Nov,
+      // "লগইন পেইজে ছবিটা হোম পেইজের মত না" — the whole sea as on Home, its
+      // lower part fading under the mark instead of a thin strip above it.
+      // The fingerprint-or-PIN page has no keypad, so the sea gets the
+      // first page's room too (owner, 23 Nov).
+      final roomy = big || (unlock && _bioAvailable && !_usePin && _lockedUntil == null);
+      final start = box.maxHeight * (roomy ? 0.30 : 0.16);
+      final upper = math.min(box.maxWidth * 0.92, start + box.maxHeight * (roomy ? 0.14 : 0.11));
       return SingleChildScrollView(
-        child: Column(children: [
-          SizedBox(
+        child: Stack(children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
             height: upper,
-            // The home's Cox's Bazar sea at night behind the mark (owner,
-            // 19 Nov), darkened at the top so the name reads.
+            // The home's Cox's Bazar sea behind the mark (owner, 19 Nov), by
+            // day the day picture and at night the night one, as on Home
+            // (owner, 23 Nov); a little darker at the top for the clock and bar.
             child: Stack(fit: StackFit.expand, children: [
-              Image.asset('assets/sky/cox_night.webp', key: const Key('lock-scene'), fit: BoxFit.cover, alignment: Alignment.bottomCenter, filterQuality: FilterQuality.medium),
+              Image.asset(lockScene(brain.services.now()), key: const Key('lock-scene'), fit: BoxFit.cover, alignment: const Alignment(0, 0.55), filterQuality: FilterQuality.medium),
               DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -549,43 +557,48 @@ final bodyW = LayoutBuilder(builder: (context, box) {
                     end: Alignment.bottomCenter,
                     // Melting into the sheet below (owner, 19 Nov: no edge
                     // between the picture and the part with the words).
-                    colors: [p.bg.withValues(alpha: 0.55), p.sheet.withValues(alpha: 0.05), p.sheet.withValues(alpha: 0.75), p.sheet],
-                    stops: const [0, 0.45, 0.82, 1],
+                    colors: [p.bg.withValues(alpha: 0.30), p.sheet.withValues(alpha: 0), p.sheet.withValues(alpha: 0.55), p.sheet],
+                    stops: [0, 0.3, ((start + 8) / upper).clamp(0.4, 0.95), 1],
                   ),
                 ),
               ),
             ]),
           ),
-          ConstrainedBox(
-            constraints: BoxConstraints(minHeight: box.maxHeight - upper),
-            child: Container(
-              width: double.infinity,
-              color: p.sheet,
-              // The buttons a little lower than right under the top (owner,
-              // 19 Nov: "অল্প একটু নিচে", not at the bottom).
-              child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
-                  child: Column(children: [
-                    // The mark starts right where the picture melts into
-                    // the sheet (owner, 20 Nov: not in the middle of it).
-                    brand(p.title, p.text),
-                    SizedBox(height: big ? 28 : 14),
-                    if (big) ...[LangSwitch(pal: p), const SizedBox(height: 40)],
-                    if (unlock && _bioAvailable && !_usePin && _lockedUntil == null) const SizedBox(height: 40),
-                    content,
-                  ]),
-                ),
-                footPad(foot),
-              ]),
+          Column(children: [
+            SizedBox(height: start),
+            ConstrainedBox(
+              constraints: BoxConstraints(minHeight: box.maxHeight - start),
+              child: SizedBox(
+                width: double.infinity,
+                // The buttons a little lower than right under the top (owner,
+                // 19 Nov: "অল্প একটু নিচে", not at the bottom).
+                child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                    child: Column(children: [
+                      // The mark starts right where the picture melts into
+                      // the sheet (owner, 20 Nov: not in the middle of it).
+                      brand(p.title, p.text),
+                      SizedBox(height: big ? 28 : 14),
+                      if (big) ...[LangSwitch(pal: p), const SizedBox(height: 40)],
+                      if (unlock && _bioAvailable && !_usePin && _lockedUntil == null) const SizedBox(height: 40),
+                      content,
+                    ]),
+                  ),
+                  footPad(foot),
+                ]),
+              ),
             ),
-          ),
+          ]),
         ]),
       );
     });
-    return Scaffold(backgroundColor: p.bg, body: bodyW);
+    return Scaffold(backgroundColor: p.sheet, body: bodyW);
   }
 }
+
+/// The sign-in picture for the hour: day 6 AM–6 PM, night otherwise.
+String lockScene(DateTime now) => now.hour >= 6 && now.hour < 18 ? 'assets/sky/cox_day.webp' : 'assets/sky/cox_night.webp';
 
 /// English | বাংলা (owner, 19 Nov). Big on the sign-up page: two halves of
 /// one pill, the chosen one filled. Small on the PIN pages: two words at the

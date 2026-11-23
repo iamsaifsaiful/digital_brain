@@ -9,6 +9,8 @@ import '../ui/forms.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../ui/pdf_export.dart';
+import '../logic/pick_lists.dart' show SpecialIdea;
+import 'pick_sheets.dart' show showSpecialPicker;
 
 /// বিশেষ দিন: birthdays, wedding anniversaries, death anniversaries —
 /// each reminded every year, the day before and on the day.
@@ -25,7 +27,7 @@ class SpecialDaysScreen extends StatelessWidget {
     final later = days.where((s) => s.next(now).difference(today).inDays >= 31).toList();
 
     return Scaffold(
-      floatingActionButton: AddButton(label: tr('বিশেষ দিন যোগ'), onPressed: () => editSpecialDay(context, null)),
+      floatingActionButton: AddButton(key: const Key('special-add'), label: tr('বিশেষ দিন যোগ'), onPressed: () => showSpecialPicker(context)),
       body: SafeArea(
         child: Column(children: [
           TopBar(title: tr('বিশেষ দিন'), trailing: const [PdfButton({ReportPart.specialDays})]),
@@ -37,7 +39,7 @@ class SpecialDaysScreen extends StatelessWidget {
                       title: tr('কোনো বিশেষ দিন রাখা নেই'),
                       text: tr('জন্মদিন, বিবাহবার্ষিকী, মৃত্যুবার্ষিকী — রেখে দিন, প্রতি বছর আগের দিন আর সেদিন সকালে মনে করিয়ে দেব। মুখেও বলা যায়: “রহিমের জন্মদিন ১২ মার্চ”।'),
                       action: tr('প্রথমটা যোগ করুন'),
-                      onAction: () => editSpecialDay(context, null),
+                      onAction: () => showSpecialPicker(context),
                     ),
                   ])
                 : ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 100), children: [
@@ -96,26 +98,28 @@ String wishText(SpecialDay s) => switch (s.kind) {
     };
 
 /// Adds or edits a special day in a sheet.
-Future<void> editSpecialDay(BuildContext context, SpecialDay? old) async {
+/// [idea]: picked from the list (owner, 22 Nov) — the kind and whose come filled in.
+Future<void> editSpecialDay(BuildContext context, SpecialDay? old, {SpecialIdea? idea}) async {
   await showAppSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _SpecialSheet(old: old),
+    builder: (_) => _SpecialSheet(old: old, idea: idea),
   );
 }
 
 class _SpecialSheet extends StatefulWidget {
-  const _SpecialSheet({this.old});
+  const _SpecialSheet({this.old, this.idea});
   final SpecialDay? old;
+  final SpecialIdea? idea;
   @override
   State<_SpecialSheet> createState() => _SpecialSheetState();
 }
 
 class _SpecialSheetState extends State<_SpecialSheet> {
-  late final _person = TextEditingController(text: widget.old?.person ?? '');
+  late final _person = TextEditingController(text: widget.old?.person ?? (widget.idea == null ? '' : tr(widget.idea!.person)));
   late final _phone = TextEditingController(text: widget.old?.phone ?? '');
   late final _note = TextEditingController(text: widget.old?.note ?? '');
-  late SpecialKind _kind = widget.old?.kind ?? SpecialKind.birthday;
+  late SpecialKind _kind = widget.old?.kind ?? widget.idea?.kind ?? SpecialKind.birthday;
   late int? _month = widget.old?.month;
   late int? _day = widget.old?.day;
   late int? _year = widget.old?.year;
@@ -176,13 +180,16 @@ class _SpecialSheetState extends State<_SpecialSheet> {
       padding: EdgeInsets.fromLTRB(20, 0, 20, inset + 20),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          Text(widget.old == null ? tr('নতুন বিশেষ দিন') : tr('বিশেষ দিন বদলান'), style: display(20, weight: 700)),
-          FieldLabel(tr('কী দিন')),
-          ChoiceChips<SpecialKind>(
-            items: [for (final k in SpecialKind.values) (k, isEn ? k.en : k.bn)],
-            value: _kind,
-            onChanged: (v) => setState(() => _kind = v),
-          ),
+          Text(widget.old != null ? tr('বিশেষ দিন বদলান') : (widget.idea != null && widget.idea!.label.isNotEmpty ? tr(widget.idea!.label) : tr('নতুন বিশেষ দিন')), style: display(20, weight: 700)),
+          // Picked from the list (owner, 22 Nov): the kind is known, only the rest is asked.
+          if (widget.idea == null || widget.idea!.label.isEmpty) ...[
+            FieldLabel(tr('কী দিন')),
+            ChoiceChips<SpecialKind>(
+              items: [for (final k in SpecialKind.values) (k, isEn ? k.en : k.bn)],
+              value: _kind,
+              onChanged: (v) => setState(() => _kind = v),
+            ),
+          ],
           FieldLabel(_kind == SpecialKind.other ? tr('দিনটার নাম') : tr('কার')),
           TextField(
             controller: _person,
