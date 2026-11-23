@@ -6187,4 +6187,9 @@ const enStrings = <String, String>{
   'অন্য শহর বা এলাকা? ওপরে নাম লিখুন — বাংলা বা ইংরেজিতে।': 'Another city or area? Type its name above.',
   'একসাথে সর্বোচ্চ {0}টি দেশ · এখন {1}টি': 'Up to {0} countries at once · {1} now',
   '{0}টি দেশ হয়ে গেছে। নতুন দেশ নিতে আগে একটির টিক তুলে দিন।': 'That’s {0} countries. Untick one to add another.',
+  'দেশের নাম বা কোড লিখুন': 'Type a country name or code',
+  'বাছাই করা': 'Selected',
+  'এই নামে বা কোডে কোনো দেশ পাইনি': 'No country with that name or code',
+  '{0} · {1} অঙ্ক': '{0} · {1} digits',
+  '{0}টি দেশ': '{0} countries',
 };

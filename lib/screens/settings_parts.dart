@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show TextInputFormatter;
 import '../logic/phone_codes.dart';
+import '../logic/countries.dart' show continents, continentLabel;
 
 import '../logic/me.dart' show bloodGroups;
 
@@ -556,7 +557,7 @@ Future<void> editUserPhone(BuildContext context) async {
             const SizedBox(height: 6),
             Row(children: [
               Expanded(
-                child: Text(trf('{0} · {1} অঙ্ক, শুরুর ০ ছাড়া', [country.name, country.lengthLabel]),
+                child: Text(country.zero ? trf('{0} · {1} অঙ্ক, শুরুর ০ ছাড়া', [country.name, country.lengthLabel]) : trf('{0} · {1} অঙ্ক', [country.name, country.lengthLabel]),
                     key: const Key('profile-phone-rule'), style: body(12.5, color: C.muted)),
               ),
               Text(bnDigits('$n/${country.max}'), key: const Key('profile-phone-count'), style: body(12.5, weight: FontWeight.w600, color: n == country.max ? C.green : C.muted)),
@@ -594,64 +595,103 @@ Future<void> editUserPhone(BuildContext context) async {
   if (v != null) await brain.setUserPhone(v);
 }
 
-/// The country of a mobile number, searched by name or code.
+/// The country of a mobile number (owner, 23 Nov: every country, the way the
+/// location picker has them): the one picked on top, then every country in
+/// the UN list by continent; a search by name (Bangla or English) or code.
 Future<PhoneCountry?> pickPhoneCountry(BuildContext context, PhoneCountry current) {
-  var q = '';
+  final q = TextEditingController();
   return showAppSheet<PhoneCountry>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
-      final f = asciiDigits(q).toLowerCase().replaceAll('+', '').trim();
-      final list = [
-        for (final p in phoneCountries)
-          if (f.isEmpty || p.bn.contains(f) || p.en.toLowerCase().contains(f) || p.dial.startsWith(f)) p,
-      ];
+      Widget cap(String t, {String? end}) => Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+            child: Row(children: [
+              Expanded(child: Text(t, style: body(12.5, weight: FontWeight.w600, color: C.muted))),
+              if (end != null) Text(end, style: body(12, color: C.muted)),
+            ]),
+          );
+      Widget row(PhoneCountry p) {
+        final on = p.iso == current.iso;
+        return InkWell(
+          key: Key('phone-country-${p.iso}'),
+          onTap: () => Navigator.pop(ctx, p),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: C.line2))),
+            child: Row(children: [
+              _IsoTag(p.iso, big: true),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(p.name, style: body(15.5, weight: on ? FontWeight.w700 : FontWeight.w500, color: on ? C.green : C.ink)),
+                  if (!isEn) Text(p.en, style: body(12, color: C.muted)),
+                ]),
+              ),
+              Text(bnDigits(p.code), style: body(15, weight: FontWeight.w600, color: on ? C.green : C.muted)),
+              if (on) ...[const SizedBox(width: 8), Icon(Icons.check_rounded, size: 20, color: C.green)],
+            ]),
+          ),
+        );
+      }
+
+      final text = q.text.trim();
+      final found = text.isEmpty ? const <PhoneCountry>[] : findPhoneCountries(text);
       return Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
         child: SizedBox(
-          height: MediaQuery.sizeOf(ctx).height * 0.72,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          height: MediaQuery.sizeOf(ctx).height * 0.88,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
               child: Text(tr('দেশের কোড'), style: display(20, weight: 700)),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 key: const Key('phone-country-search'),
+                controller: q,
                 textCapitalization: TextCapitalization.sentences,
-                onChanged: (v) => set(() => q = v),
+                textInputAction: TextInputAction.search,
+                onChanged: (_) => set(() {}),
                 style: body(15.5),
                 decoration: InputDecoration(
-                  hintText: tr('দেশের নাম বা কোড'),
-                  prefixIcon: Icon(Icons.search_rounded, color: C.muted),
-                  isDense: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  hintText: tr('দেশের নাম বা কোড লিখুন'),
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: text.isEmpty
+                      ? null
+                      : IconButton(tooltip: tr('মুছুন'), icon: const Icon(Icons.close_rounded), onPressed: () => set(q.clear)),
                 ),
               ),
             ),
             Expanded(
-              child: list.isEmpty
-                  ? Center(child: Text(tr('এই নামে কোনো দেশ নেই'), style: body(14, color: C.muted)))
-                  : ListView.separated(
-                      itemCount: list.length,
-                      separatorBuilder: (_, __) => Divider(height: 1, indent: 60, color: C.line2),
-                      itemBuilder: (_, i) {
-                        final p = list[i];
-                        final on = p.iso == current.iso;
-                        return ListTile(
-                          key: Key('phone-country-${p.iso}'),
-                          leading: _IsoTag(p.iso, big: true),
-                          title: Text(p.name, style: body(15.5, weight: on ? FontWeight.w700 : FontWeight.w500)),
-                          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(bnDigits(p.code), style: body(15, weight: FontWeight.w600, color: C.muted)),
-                            if (on) ...[const SizedBox(width: 8), Icon(Icons.check_rounded, size: 20, color: C.green)],
-                          ]),
-                          onTap: () => Navigator.pop(ctx, p),
-                        );
-                      },
+              child: ListView(key: ValueKey('phone-list-$text'), padding: const EdgeInsets.only(bottom: 16), children: [
+                if (text.isEmpty) ...[
+                  cap(tr('বাছাই করা')),
+                  row(current),
+                  if (current.iso != 'BD') row(homeCountry),
+                  cap(tr('সব দেশ · মহাদেশ অনুযায়ী'), end: tr('জাতিসংঘের তালিকা')),
+                  for (final k in continents.keys) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      child: Row(children: [
+                        Expanded(child: Text(continentLabel(k), style: body(12, weight: FontWeight.w600, color: C.muted2))),
+                        Text(bnDigits(phoneCountriesIn(k).length), style: body(12, color: C.muted)),
+                      ]),
                     ),
+                    for (final p in phoneCountriesIn(k)) row(p),
+                  ],
+                ] else if (found.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(tr('এই নামে বা কোডে কোনো দেশ পাইনি'), textAlign: TextAlign.center, style: body(14, color: C.muted)),
+                  )
+                else ...[
+                  cap(trf('{0}টি দেশ', [bnDigits(found.length)])),
+                  for (final p in found) row(p),
+                ],
+              ]),
             ),
           ]),
         ),
@@ -659,7 +699,6 @@ Future<PhoneCountry?> pickPhoneCountry(BuildContext context, PhoneCountry curren
     }),
   );
 }
-
 
 /// The country's two letters in a thin box (clean on every phone, unlike flags).
 class _IsoTag extends StatelessWidget {
