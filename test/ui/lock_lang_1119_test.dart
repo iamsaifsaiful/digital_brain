@@ -35,7 +35,11 @@ void main() {
     await t.pumpWidget(DigitalBrainApp(brain: rig.brain));
     await rig.brain.load();
     await settle(t);
-    await t.runAsync(() => precacheImage(const AssetImage('assets/brand/app_mark.png'), t.element(find.byKey(const Key('lock-app-mark')))));
+    await t.runAsync(() async {
+      final ctx = t.element(find.byKey(const Key('lock-app-mark')));
+      await precacheImage(const AssetImage('assets/brand/app_mark.png'), ctx);
+      await precacheImage(const AssetImage('assets/sky/cox_night.webp'), ctx);
+    });
     await settle(t);
 
     expect(rig.brain.english, isTrue);
