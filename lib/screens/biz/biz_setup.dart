@@ -360,7 +360,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [Icon(Icons.add_rounded, color: C.green, size: 20), const SizedBox(width: 6), Text(tr('আরেকটা পণ্য'), style: body(14.5, weight: FontWeight.w600, color: C.green))]),
           const SizedBox(height: 8),
-          TextField(key: const Key('setup-p-name'), controller: _pName, style: body(15), decoration: InputDecoration(hintText: tr('পণ্যের নাম'), isDense: true, fillColor: C.surface, filled: true)),
+          TextField(textCapitalization: TextCapitalization.sentences, key: const Key('setup-p-name'), controller: _pName, style: body(15), decoration: InputDecoration(hintText: tr('পণ্যের নাম'), isDense: true, fillColor: C.surface, filled: true)),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(flex: 5, child: TextField(key: const Key('setup-p-qty'), controller: _pQty, keyboardType: const TextInputType.numberWithOptions(decimal: true), style: body(15), decoration: InputDecoration(hintText: tr('পরিমাণ'), isDense: true, fillColor: C.surface, filled: true))),
@@ -477,7 +477,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
       Row(children: [
         Expanded(child: TextField(key: const Key('setup-loan-amount'), controller: _loanAmt, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), style: body(15), decoration: InputDecoration(hintText: tr('৳ পরিমাণ'), isDense: true))),
         const SizedBox(width: 8),
-        Expanded(child: TextField(controller: _loanFrom, style: body(15), decoration: InputDecoration(hintText: tr('কার কাছে'), isDense: true))),
+        Expanded(child: TextField(textCapitalization: TextCapitalization.sentences, controller: _loanFrom, style: body(15), decoration: InputDecoration(hintText: tr('কার কাছে'), isDense: true))),
       ]),
       const SizedBox(height: 14),
       Text(tr('ব্যবসার ধরন (ঐচ্ছিক)'), style: body(12.5, color: C.muted)),

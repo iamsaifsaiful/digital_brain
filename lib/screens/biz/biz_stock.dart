@@ -64,7 +64,7 @@ class _BizStockState extends State<BizStock> {
         if (_search)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: TextField(
+            child: TextField(textCapitalization: TextCapitalization.sentences, 
               key: const Key('biz-stock-q'),
               autofocus: true,
               onChanged: (v) => setState(() => _q = v),

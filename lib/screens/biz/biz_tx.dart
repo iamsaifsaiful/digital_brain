@@ -186,7 +186,7 @@ class _BizTxPageState extends State<BizTxPage> {
           InnerTop(title: tr('সব লেনদেন'), sub: trf('{0}টি', [bnDigits(list.length)])),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: TextField(
+            child: TextField(textCapitalization: TextCapitalization.sentences, 
               key: const Key('biz-tx-search'),
               onChanged: (v) => setState(() => _q = v),
               decoration: InputDecoration(

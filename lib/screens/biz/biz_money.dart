@@ -165,7 +165,7 @@ class _PickProductState extends State<_PickProduct> {
           Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: Align(alignment: Alignment.centerLeft, child: Text(widget.title, style: display(18, weight: 600)))),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
+            child: TextField(textCapitalization: TextCapitalization.sentences, 
               key: const Key('biz-pick-product-search'),
               autofocus: true,
               onChanged: (v) => setState(() => _q = v),

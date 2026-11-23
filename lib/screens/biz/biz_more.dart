@@ -35,7 +35,7 @@ class BizMore extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: () => pushPage(context, page),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Container(width: 46, height: 46, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: fg, size: 23)),
               const SizedBox(height: 6),
@@ -119,7 +119,7 @@ class BizMore extends StatelessWidget {
             crossAxisCount: 4,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 0.92,
+            childAspectRatio: 0.82,
             children: tiles,
           ),
         ),

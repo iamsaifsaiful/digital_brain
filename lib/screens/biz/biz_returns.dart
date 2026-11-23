@@ -265,7 +265,7 @@ class _CustomerReturnState extends State<_CustomerReturn> {
               ),
             ),
             _label(tr('কারণ'), note: tr('(ঐচ্ছিক)')),
-            TextField(key: const Key('ret-note'), controller: _note, style: body(15), decoration: InputDecoration(isDense: true, hintText: tr('যেমন: বোতল ফাটা'))),
+            TextField(textCapitalization: TextCapitalization.sentences, key: const Key('ret-note'), controller: _note, style: body(15), decoration: InputDecoration(isDense: true, hintText: tr('যেমন: বোতল ফাটা'))),
           ],
         ]),
       ),
@@ -303,7 +303,7 @@ class _PickSaleState extends State<_PickSale> {
           Padding(padding: const EdgeInsets.fromLTRB(20, 4, 20, 8), child: Align(alignment: Alignment.centerLeft, child: Text(tr('কোন মেমো?'), style: display(18, weight: 600)))),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: TextField(
+            child: TextField(textCapitalization: TextCapitalization.sentences, 
               key: const Key('ret-sale-q'),
               onChanged: (v) => setState(() => _q = v),
               decoration: InputDecoration(hintText: tr('মেমো নম্বর বা গ্রাহকের নাম'), prefixIcon: const Icon(Icons.search_rounded), isDense: true),

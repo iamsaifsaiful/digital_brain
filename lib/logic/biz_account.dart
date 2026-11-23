@@ -4,7 +4,7 @@
 // the same capital, so the app can say "সব হিসাব মিলেছে" — or show where not.
 import '../models/models.dart';
 import 'bn.dart' show dayOnly;
-import 'lang.dart' show tr;
+import 'lang.dart' show tr, trf;
 import 'shop_logic.dart';
 
 /// How much of sale [saleId]'s line [l] has been brought back already.
@@ -286,36 +286,36 @@ List<BizTx> bizTransactions(ShopBook b, Iterable<CashEntry> cash) {
   final linked = <String>{};
   for (final s in b.sales) {
     if (s.cashId != null) linked.add(s.cashId!);
-    out.add(BizTx(id: s.id, at: s.at, kind: TxKind.sale, title: s.no > 0 ? 'বিক্রি · মেমো #${s.no}' : 'বিক্রি', party: s.customer, amount: s.total, cashIn: s.paidNow, left: s.due, ref: s));
+    out.add(BizTx(id: s.id, at: s.at, kind: TxKind.sale, title: s.no > 0 ? trf('বিক্রি · মেমো #{0}', ['${s.no}']) : tr('বিক্রি'), party: s.customer, amount: s.total, cashIn: s.paidNow, left: s.due, ref: s));
   }
   for (final x in b.collections) {
     if (x.cashId != null) linked.add(x.cashId!);
-    out.add(BizTx(id: x.id, at: x.at, kind: TxKind.collect, title: 'বকেয়া আদায়', party: customerById(b, x.party)?.name ?? '', amount: x.amount, cashIn: x.amount, ref: x));
+    out.add(BizTx(id: x.id, at: x.at, kind: TxKind.collect, title: tr('বকেয়া আদায়'), party: customerById(b, x.party)?.name ?? '', amount: x.amount, cashIn: x.amount, ref: x));
   }
   for (final p in b.purchases) {
     if (p.cashId != null) linked.add(p.cashId!);
-    out.add(BizTx(id: p.id, at: p.at, kind: TxKind.purchase, title: p.lines.isEmpty ? 'স্টক যোগ' : 'স্টক যোগ · ${p.lines.map((l) => l.name).take(2).join(', ')}', party: p.dealer, amount: p.total, cashOut: p.paid, left: p.owed, ref: p));
+    out.add(BizTx(id: p.id, at: p.at, kind: TxKind.purchase, title: p.lines.isEmpty ? tr('স্টক যোগ') : trf('স্টক যোগ · {0}', [p.lines.map((l) => l.name).take(2).join(', ')]), party: p.dealer, amount: p.total, cashOut: p.paid, left: p.owed, ref: p));
   }
   for (final x in b.payouts) {
     if (x.cashId != null) linked.add(x.cashId!);
-    out.add(BizTx(id: x.id, at: x.at, kind: TxKind.payout, title: 'সাপ্লায়ারকে পরিশোধ', party: dealerById(b, x.party)?.name ?? '', amount: x.amount, cashOut: x.amount, ref: x));
+    out.add(BizTx(id: x.id, at: x.at, kind: TxKind.payout, title: tr('সাপ্লায়ারকে পরিশোধ'), party: dealerById(b, x.party)?.name ?? '', amount: x.amount, cashOut: x.amount, ref: x));
   }
   for (final m in b.ownerMoves) {
     if (m.cashId != null) linked.add(m.cashId!);
-    out.add(BizTx(id: m.id, at: m.at, kind: TxKind.owner, title: m.inward ? 'মালিকের জমা' : 'মালিক নিলেন', party: m.note, amount: m.amount, cashIn: m.inward ? m.amount : 0, cashOut: m.inward ? 0 : m.amount, ref: m));
+    out.add(BizTx(id: m.id, at: m.at, kind: TxKind.owner, title: m.inward ? tr('মালিকের জমা') : tr('মালিক নিলেন'), party: m.note, amount: m.amount, cashIn: m.inward ? m.amount : 0, cashOut: m.inward ? 0 : m.amount, ref: m));
   }
   for (final m in b.loanMoves) {
     if (m.cashId != null) linked.add(m.cashId!);
     final l = b.loans.where((x) => x.id == m.loanId).firstOrNull;
-    out.add(BizTx(id: m.id, at: m.at, kind: TxKind.loan, title: m.take ? 'ঋণ নেওয়া' : 'ঋণের কিস্তি', party: l?.name ?? '', amount: m.amount, cashIn: m.take ? m.amount : 0, cashOut: m.take ? 0 : m.amount, ref: m));
+    out.add(BizTx(id: m.id, at: m.at, kind: TxKind.loan, title: m.take ? tr('ঋণ নেওয়া') : tr('ঋণের কিস্তি'), party: l?.name ?? '', amount: m.amount, cashIn: m.take ? m.amount : 0, cashOut: m.take ? 0 : m.amount, ref: m));
   }
   for (final r in b.customerReturns) {
     if (r.cashId != null) linked.add(r.cashId!);
-    out.add(BizTx(id: r.id, at: r.at, kind: TxKind.returnIn, title: r.saleNo > 0 ? 'মাল ফেরত · মেমো #${r.saleNo}' : 'মাল ফেরত', party: r.customer, amount: r.refund, cashOut: r.cash ? r.refund : 0, ref: r));
+    out.add(BizTx(id: r.id, at: r.at, kind: TxKind.returnIn, title: r.saleNo > 0 ? trf('মাল ফেরত · মেমো #{0}', ['${r.saleNo}']) : tr('মাল ফেরত'), party: r.customer, amount: r.refund, cashOut: r.cash ? r.refund : 0, ref: r));
   }
   for (final r in b.supplierReturns) {
     if (r.cashId != null) linked.add(r.cashId!);
-    out.add(BizTx(id: r.id, at: r.at, kind: TxKind.returnOut, title: 'সাপ্লায়ারকে ফেরত', party: r.dealer, amount: r.credit, cashIn: r.pay == ReturnPay.cash ? r.credit : 0, ref: r));
+    out.add(BizTx(id: r.id, at: r.at, kind: TxKind.returnOut, title: tr('সাপ্লায়ারকে ফেরত'), party: r.dealer, amount: r.credit, cashIn: r.pay == ReturnPay.cash ? r.credit : 0, ref: r));
   }
   for (final a in b.adjusts) {
     if (a.damaged) out.add(BizTx(id: a.id, at: a.at, kind: TxKind.damage, title: a.why, amount: -a.change.stock, ref: a));
@@ -324,10 +324,10 @@ List<BizTx> bizTransactions(ShopBook b, Iterable<CashEntry> cash) {
     if (!isBizCash(e) || linked.contains(e.id)) continue;
     final inc = e.kind == CashKind.income;
     if (e.category == startCashCategory) {
-      out.add(BizTx(id: e.id, at: e.date, kind: TxKind.adjust, title: startCashCategory, party: e.note, amount: e.amount, cashIn: inc ? e.amount : 0, cashOut: inc ? 0 : e.amount, ref: e));
+      out.add(BizTx(id: e.id, at: e.date, kind: TxKind.adjust, title: tr(startCashCategory), party: e.note, amount: e.amount, cashIn: inc ? e.amount : 0, cashOut: inc ? 0 : e.amount, ref: e));
       continue;
     }
-    out.add(BizTx(id: e.id, at: e.date, kind: inc ? TxKind.income : TxKind.expense, title: inc ? (e.category.isEmpty ? 'আয়' : e.category) : 'খরচ · ${e.category}', party: e.note, amount: e.amount, cashIn: inc ? e.amount : 0, cashOut: inc ? 0 : e.amount, ref: e));
+    out.add(BizTx(id: e.id, at: e.date, kind: inc ? TxKind.income : TxKind.expense, title: inc ? (e.category.isEmpty ? tr('আয়') : e.category) : trf('খরচ · {0}', [e.category]), party: e.note, amount: e.amount, cashIn: inc ? e.amount : 0, cashOut: inc ? 0 : e.amount, ref: e));
   }
   out.sort((a, b) => b.at.compareTo(a.at));
   return out;

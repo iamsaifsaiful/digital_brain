@@ -435,7 +435,7 @@ class _Month extends StatelessWidget {
           child: Row(children: [Expanded(child: Text(label, style: body(13, color: C.muted))), Text(v, style: body(13, weight: FontWeight.w600, color: color))]),
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _Head(trf('{0} মাস', [monthName(now.month)]), link: tr('রিপোর্ট'), onLink: () => pushPage(context, const BizReportPage())),
+      _Head(isEn ? monthName(now.month) : trf('{0} মাস', [monthName(now.month)]), link: tr('রিপোর্ট'), onLink: () => pushPage(context, const BizReportPage())),
       AppCard(
         key: const Key('biz-home-month'),
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),

@@ -145,7 +145,7 @@ Widget saleRow(BuildContext context, Sale s) {
   final title = s.customer.isNotEmpty ? '${s.customer} · $what' : what;
   return ListRow(
     key: Key('biz-sale-${s.id}'),
-    leading: DateBlock(top: bnTime(s.at.hour, s.at.minute).split(' ').last, bottom: '#${bnDigits(s.no)}'),
+    leading: DateBlock(top: bnTime(s.at.hour, s.at.minute).split(' ').firstWhere((w) => w.contains(RegExp(r'[0-9০-৯]')), orElse: () => ''), bottom: '#${bnDigits(s.no)}'),
     title: title,
     subtitle: [tr(s.pay.label), if (s.lines.isNotEmpty) trf('{0}টি পণ্য', [bnDigits(s.lines.length)])].join(' · '),
     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -477,7 +477,7 @@ class _SellPageState extends State<SellPage> {
         return r != 0 ? r : a.name.compareTo(x.name);
       });
     return [
-      TextField(
+      TextField(textCapitalization: TextCapitalization.sentences, 
         key: const Key('biz-sell-find'),
         controller: _find,
         onChanged: (_) => setState(() {}),

@@ -299,7 +299,7 @@ class _StockInPageState extends State<StockInPage> {
       });
     final exact = b.products.any((p) => p.name.trim().toLowerCase() == q);
     return [
-      TextField(
+      TextField(textCapitalization: TextCapitalization.sentences, 
         key: const Key('stockin-q'),
         controller: _q,
         autofocus: widget.productId == null,
