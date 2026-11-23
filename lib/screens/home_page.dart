@@ -33,6 +33,7 @@ import 'calendar_screen.dart';
 import 'calls_screen.dart';
 import 'ibadah_screen.dart';
 import 'docs_screen.dart';
+import 'daily_ask_card.dart';
 import 'easy_home.dart';
 import 'family_screen.dart';
 import 'health_hub.dart';
@@ -93,6 +94,8 @@ class HomePage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const HomeAttention(),
+          // Morning: the night's sleep; night: the day's water (owner, 22 Nov).
+          const DailyAskCard(),
           const TodaySections(),
           const _MoneyCard(),
           // আজকের অর্থ-কথা right under the money (owner, 24 Oct night).
