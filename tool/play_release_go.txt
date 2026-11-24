@@ -1,1 +1,1 @@
-1.0.15 (code 10020): new business mode; হিসাব in 3 tabs with সঞ্চয় ও কিস্তি; simpler forms; sign-in sea by hour; phone book contacts; notes by category; daily sleep/water questions; medicine reminder tabs; theme & language page; all UN country codes; backups carry settings and profile; usage counts; analytics switch
+1.0.16 (code 10021): হিসাব order (balance card → দৈনিক → সামনের খরচ → আরও কাজে লাগে → রিপোর্ট) + My Files ring; business: old stock count or zero, redo opening account, pull to refresh, report month/year swipe, কেনার হিসাব / কী কিনতে হবে, bottom padding
