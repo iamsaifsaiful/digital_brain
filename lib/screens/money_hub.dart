@@ -76,8 +76,8 @@ IconData accountIcon(AccountKind k) => switch (k) {
 // ───────────────────────── আয়-ব্যয়, top and bottom ─────────────────────────
 
 /// Owner, 23 Nov: no আমার খাত or অ্যাকাউন্ট tab — both live on আয়-ব্যয়.
-/// The top of that tab: all the money and where it sits (each account,
-/// a tap opens them all), then সাবস্ক্রিপশন and সঞ্চয় ও কিস্তি.
+/// The top of that tab (owner, 24 Nov: smaller): all the money and where it
+/// sits, each account a tap away. দৈনিক/মাসিক/বাৎসরিক comes right under.
 class MoneyTopView extends StatelessWidget {
   const MoneyTopView({super.key});
 
@@ -89,117 +89,128 @@ class MoneyTopView extends StatelessWidget {
     final month = monthSums(d.cash, now);
     final hasAccounts = d.accounts.isNotEmpty;
     final total = hasAccounts ? totalBalance(d) : (cashOnHand(d) ?? month.balance);
-    final subs = d.subscriptions.where((s) => !s.paused).toList();
-    final subMonth = subs.fold(0, (a, s) => a + s.perMonth);
-    final saved = d.goals.fold<int>(0, (a, g) => a + g.saved) + d.installments.where((i) => i.saving).fold<int>(0, (a, i) => a + i.paidTotal);
-    final inst = d.installments.where((i) => i.left > 0).toList();
     void accounts() => _push(context, const AccountsScreen());
+    final link = body(12.5, weight: FontWeight.w600, color: C.greenDark);
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(
         key: const Key('hub-balance'),
-        padding: const EdgeInsets.fromLTRB(18, 12, 8, 14),
-        decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(22)),
+        padding: const EdgeInsets.fromLTRB(16, 8, 6, 10),
+        decoration: BoxDecoration(color: C.greenTint, borderRadius: BorderRadius.circular(20)),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            Expanded(child: Text(hasAccounts ? tr('সব অ্যাকাউন্টে মোট') : tr('এখন আছে'), style: body(13.5, color: C.muted2))),
+            Expanded(child: Text(hasAccounts ? tr('সব অ্যাকাউন্টে মোট') : tr('এখন আছে'), style: body(13, color: C.muted2))),
             const MoneyEye(),
           ]),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(hid(context, '${total < 0 ? '−' : ''}${taka(total.abs())}'), style: display(32, weight: 700, color: total < 0 ? C.red : C.ink, height: 1.2)),
+            child: Text(hid(context, '${total < 0 ? '−' : ''}${taka(total.abs())}'), style: display(26, weight: 700, color: total < 0 ? C.red : C.ink, height: 1.15)),
           ),
-          const SizedBox(height: 12),
-          // Each account: where the money sits.
-          SizedBox(
-            key: const Key('hub-accounts'),
-            height: 74,
-            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(right: 10), children: [
-              for (final acc in d.accounts) ...[
-                _AccountChip(account: acc, balance: accountBalance(d, acc), onTap: accounts),
-                const SizedBox(width: 8),
-              ],
-              _AddChip(key: const Key('hub-account-add'), onTap: () => editAccount(context, null)),
-            ]),
-          ),
-          const SizedBox(height: 6),
+          if (hasAccounts) ...[
+            const SizedBox(height: 10),
+            // A row while they fit (so a swipe there still moves the tabs),
+            // a strip that slides once there are more.
+            LayoutBuilder(builder: (context, box) {
+              final chips = [for (final acc in d.accounts) _AccountChip(account: acc, balance: accountBalance(d, acc), onTap: accounts)];
+              final fits = d.accounts.length * 146 <= box.maxWidth;
+              return SizedBox(
+                key: const Key('hub-accounts'),
+                height: 54,
+                child: fits
+                    ? Row(children: [for (final c in chips) ...[c, const SizedBox(width: 8)]])
+                    : ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(right: 10), children: [for (final c in chips) ...[c, const SizedBox(width: 8)]]),
+              );
+            }),
+          ],
+          const SizedBox(height: 4),
           Row(children: [
-            TextButton.icon(
-              key: const Key('hub-accounts-all'),
-              onPressed: accounts,
-              icon: const Icon(Icons.account_balance_outlined, size: 18),
-              label: Text(tr('অ্যাকাউন্টের হিসাব')),
+            InkWell(
+              key: Key(hasAccounts ? 'hub-accounts-all' : 'hub-account-add'),
+              onTap: hasAccounts ? accounts : () => editAccount(context, null),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(hasAccounts ? Icons.account_balance_outlined : Icons.add_rounded, size: 17, color: C.greenDark),
+                  const SizedBox(width: 6),
+                  Text(hasAccounts ? trf('{0}টি অ্যাকাউন্ট · সব দেখুন', [bnDigits(d.accounts.length)]) : tr('নগদ, বিকাশ, ব্যাংক, কার্ড যোগ করুন'), style: link),
+                ]),
+              ),
             ),
             const Spacer(),
             if (d.accounts.length >= 2)
-              TextButton.icon(
+              InkWell(
                 key: const Key('hub-move'),
-                onPressed: () => moveMoney(context),
-                icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                label: Text(tr('টাকা সরান')),
+                onTap: () => moveMoney(context),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.swap_horiz_rounded, size: 17, color: C.greenDark),
+                    const SizedBox(width: 4),
+                    Text(tr('টাকা সরান'), style: link),
+                  ]),
+                ),
               ),
           ]),
         ]),
       ),
-      const SizedBox(height: 10),
-      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Expanded(
-          child: _KhatCard(
-            key: const Key('khat-subs'),
-            icon: Icons.autorenew_rounded,
-            fg: C.purple,
-            bg: C.purpleTint,
-            title: tr('সাবস্ক্রিপশন'),
-            value: subs.isEmpty ? tr('যোগ করুন') : hid(context, taka(subMonth)),
-            sub: subs.isEmpty ? tr('ইন্টারনেট, জিম, অ্যাপ') : trf('মাসে · {0}টি', [bnDigits(subs.length)]),
-            onTap: () => _push(context, const SubscriptionsScreen()),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _KhatCard(
-            key: const Key('khat-savings'),
-            icon: Icons.savings_outlined,
-            fg: C.teal,
-            bg: C.tealTint,
-            title: tr('সঞ্চয় ও কিস্তি'),
-            value: d.goals.isEmpty && d.installments.isEmpty ? tr('যোগ করুন') : hid(context, taka(saved)),
-            sub: inst.isEmpty ? (d.goals.isEmpty ? tr('লক্ষ্য, DPS, লোন') : tr('জমেছে')) : trf('জমেছে · {0}টি চলছে', [bnDigits(inst.length)]),
-            onTap: () => _push(context, const SavingsScreen()),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 20),
+      const SizedBox(height: 14),
     ]);
   }
 }
 
-/// The bottom of আয়-ব্যয়, after the লেনদেন: what is coming to pay, the
-/// month's report, and the other tools.
+/// The bottom of আয়-ব্যয়, after the লেনদেন (owner, 24 Nov): what is coming
+/// to pay, then the other tools — সাবস্ক্রিপশন and সঞ্চয় ও কিস্তি among them —
+/// and the report last of all.
 class MoneyBottomView extends StatelessWidget {
   const MoneyBottomView({super.key});
 
   @override
   Widget build(BuildContext context) {
     final brain = BrainScope.of(context);
+    final d = brain.data;
     final now = brain.services.now();
-    final up = upcomingCosts(brain.data, now, days: 30);
+    final up = upcomingCosts(d, now, days: 30);
+    final subs = d.subscriptions.where((s) => !s.paused).toList();
+    final subMonth = subs.fold(0, (a, s) => a + s.perMonth);
+    final running = d.installments.where((i) => i.left > 0).length;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const SizedBox(height: 22),
       SectionTitle(tr('সামনের খরচ'), action: tr('সাবস্ক্রিপশন'), onAction: () => _push(context, const SubscriptionsScreen())),
       UpcomingList(items: up.take(4).toList(), now: now),
       const SizedBox(height: 20),
-      const MoneyReportCard(),
-      const SizedBox(height: 20),
       SectionTitle(tr('আরও কাজে লাগে')),
-      Row(children: [
-        Expanded(child: _ToolTile(icon: Icons.insert_chart_outlined_rounded, label: tr('মাসের রিপোর্ট'), fg: C.green, bg: C.greenTint, onTap: () => _push(context, const ReportScreen()))),
-        const SizedBox(width: 10),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+          child: _ToolTile(
+            key: const Key('khat-subs'),
+            icon: Icons.autorenew_rounded,
+            label: tr('সাবস্ক্রিপশন'),
+            sub: subs.isEmpty ? null : trf('মাসে {0}', [hid(context, taka(subMonth))]),
+            fg: C.purple,
+            bg: C.purpleTint,
+            onTap: () => _push(context, const SubscriptionsScreen()),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ToolTile(
+            key: const Key('khat-savings'),
+            icon: Icons.savings_outlined,
+            label: tr('সঞ্চয় ও কিস্তি'),
+            sub: running == 0 ? null : trf('{0}টি চলছে', [bnDigits(running)]),
+            fg: C.teal,
+            bg: C.tealTint,
+            onTap: () => _push(context, const SavingsScreen()),
+          ),
+        ),
+        const SizedBox(width: 8),
         Expanded(child: _ToolTile(icon: Icons.pie_chart_outline_rounded, label: tr('খরচ বিশ্লেষণ'), fg: C.orange, bg: C.orangeTint, onTap: () => _push(context, const SpendHealthScreen()))),
-        const SizedBox(width: 10),
-        Expanded(child: _ToolTile(icon: Icons.call_split_rounded, label: tr('খরচ ভাগাভাগি'), fg: C.teal, bg: C.tealTint, onTap: () => _push(context, const SplitScreen()))),
+        const SizedBox(width: 8),
+        Expanded(child: _ToolTile(icon: Icons.call_split_rounded, label: tr('খরচ ভাগাভাগি'), fg: C.blue, bg: C.blueTint, onTap: () => _push(context, const SplitScreen()))),
       ]),
+      const SizedBox(height: 22),
+      const MoneyReportCard(),
     ]);
   }
 }
@@ -222,10 +233,10 @@ class _AccountChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
-          width: 148,
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+          width: 138,
+          padding: const EdgeInsets.fromLTRB(8, 6, 10, 6),
           child: Row(children: [
-            Container(width: 34, height: 34, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)), child: Icon(accountIcon(account.kind), size: 18, color: fg)),
+            Container(width: 30, height: 30, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(9)), child: Icon(accountIcon(account.kind), size: 16, color: fg)),
             const SizedBox(width: 8),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -233,7 +244,7 @@ class _AccountChip extends StatelessWidget {
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text(hid(context, '${balance < 0 ? '−' : ''}${taka(balance.abs())}'), style: body(15, weight: FontWeight.w700, color: balance < 0 ? C.red : C.ink)),
+                  child: Text(hid(context, '${balance < 0 ? '−' : ''}${taka(balance.abs())}'), style: body(14, weight: FontWeight.w700, color: balance < 0 ? C.red : C.ink)),
                 ),
               ]),
             ),
@@ -244,68 +255,11 @@ class _AccountChip extends StatelessWidget {
   }
 }
 
-class _AddChip extends StatelessWidget {
-  const _AddChip({super.key, required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: C.surface.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: SizedBox(
-            width: 96,
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.add_rounded, color: C.greenDark),
-              Text(tr('অ্যাকাউন্ট'), style: body(12, weight: FontWeight.w600, color: C.greenDark)),
-            ]),
-          ),
-        ),
-      );
-}
-
-/// One খাত card: its icon, name, main figure and a line under it.
-class _KhatCard extends StatelessWidget {
-  const _KhatCard(
-      {super.key, required this.icon, required this.fg, required this.bg, required this.title, required this.value, required this.sub, required this.onTap});
-  final IconData icon;
-  final Color fg;
-  final Color bg;
-  final String title;
-  final String value;
-  final String sub;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tile = Container(width: 40, height: 40, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: fg, size: 22));
-    final texts = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(13, weight: FontWeight.w600, color: C.muted2)),
-      FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: display(19, weight: 700, height: 1.3))),
-      Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(11.5, color: C.muted)),
-    ]);
-    return Panel(
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [tile, const Spacer(), Icon(Icons.chevron_right_rounded, color: C.muted, size: 20)]),
-            const SizedBox(height: 10),
-            texts,
-                ]),
-        ),
-      ),
-    );
-  }
-}
-
 class _ToolTile extends StatelessWidget {
-  const _ToolTile({required this.icon, required this.label, required this.fg, required this.bg, required this.onTap});
+  const _ToolTile({super.key, required this.icon, required this.label, required this.fg, required this.bg, required this.onTap, this.sub});
   final IconData icon;
   final String label;
+  final String? sub;
   final Color fg;
   final Color bg;
   final VoidCallback onTap;
@@ -315,11 +269,15 @@ class _ToolTile extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
             child: Column(children: [
               Container(width: 38, height: 38, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(11)), child: Icon(icon, color: fg, size: 20)),
               const SizedBox(height: 6),
-              Text(label, textAlign: TextAlign.center, maxLines: 2, style: body(12, weight: FontWeight.w500, height: 1.25)),
+              Text(label, textAlign: TextAlign.center, maxLines: 2, style: body(12, weight: FontWeight.w600, height: 1.25)),
+              if (sub != null) ...[
+                const SizedBox(height: 2),
+                FittedBox(fit: BoxFit.scaleDown, child: Text(sub!, maxLines: 1, style: body(10.5, color: C.muted))),
+              ],
             ]),
           ),
         ),

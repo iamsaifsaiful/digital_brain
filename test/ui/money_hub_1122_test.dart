@@ -151,6 +151,9 @@ void main() {
     await settle(t);
 
     // সাবস্ক্রিপশন: a card for each, "দেওয়া হলো" adds the spending.
+    await t.scrollUntilVisible(find.byKey(const Key('khat-subs')), 300, scrollable: find.ancestor(of: find.byKey(const Key('hub-balance')), matching: find.byType(Scrollable)).first);
+    await Scrollable.ensureVisible(t.element(find.byKey(const Key('khat-subs'))), alignment: 0.4);
+    await settle(t);
     await t.tap(find.byKey(const Key('khat-subs')));
     await settle(t);
     await _shot(t, '7-subscriptions');

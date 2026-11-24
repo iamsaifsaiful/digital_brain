@@ -6882,4 +6882,10 @@ const enStrings = <String, String>{
   'অ্যাকাউন্টের হিসাব': 'Accounts',
   'জমেছে · {0}টি চলছে': 'Saved · {0} running',
   'ঠিক আছে, আজ আর জিজ্ঞেস করব না। কাল আবার আসবে।': 'OK, no more asking today. It’ll be back tomorrow.',
+  'অ্যাপ যতটা জায়গা নিয়েছে': 'Room the app takes',
+  'লেখা ও অ্যাপ': 'Text & app',
+  'ফোনে খালি আছে {0}': '{0} free on the phone',
+  '{0}টি অ্যাকাউন্ট · সব দেখুন': '{0} accounts · see all',
+  'নগদ, বিকাশ, ব্যাংক, কার্ড যোগ করুন': 'Add cash, bKash, bank, card',
+  'মাসে {0}': '{0} a month',
 };

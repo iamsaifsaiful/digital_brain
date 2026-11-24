@@ -354,20 +354,54 @@ class _RoomRing extends StatelessWidget {
           ]),
         );
       case 2:
+        // Owner, 24 Nov: a bare "৮৮%" in the ring read wrong. The ring is now
+        // the app's own room split in two — photos and files, and the rest —
+        // with the size in the middle and each part named beside it.
+        final rest = u == null ? 0 : u.data + u.other;
+        Widget part(Color c, String label, String value) => Row(children: [
+              Container(width: 9, height: 9, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Expanded(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: body(12.5, color: C.muted))),
+              Text(value, style: body(12.5, weight: FontWeight.w700)),
+            ]);
         return Container(
           margin: const EdgeInsets.only(top: 12, bottom: 14),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           decoration: BoxDecoration(color: C.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: C.border)),
           child: Row(children: [
-            animated(112, 12, Text(u == null ? '' : '${bnDigits((docsPart * 100).round())}%', style: body(18, weight: FontWeight.w700, color: C.green))),
+            SizedBox(
+              width: 112,
+              height: 112,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 900),
+                curve: Curves.easeOutCubic,
+                builder: (context, v, child) => CustomPaint(
+                  painter: _PartsPainter(u == null ? const [] : [(u.docs / total, C.green), (rest / total, C.blue)], v, 12, C.surface2),
+                  child: child,
+                ),
+                child: Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    FittedBox(child: Text(u == null ? '…' : roomText(u.app), key: const Key('store-room'), style: display(17, weight: 700, height: 1.2))),
+                    Text(tr('মোট'), style: body(11.5, color: C.muted)),
+                  ]),
+                ),
+              ),
+            ),
             const SizedBox(width: 18),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr('অ্যাপ নিয়েছে'), style: body(12.5, color: C.muted)),
-                Text(u == null ? '…' : roomText(u.app), key: const Key('store-room'), style: display(24, weight: 700, height: 1.25)),
-                const SizedBox(height: 8),
-                if (u != null) key(C.green, tr('ছবি ও ফাইল'), roomText(u.docs)),
-                if (u?.free != null) ...[const SizedBox(height: 4), key(C.surface2, tr('ফোনে খালি'), roomText(u!.free!))],
+                Text(tr('অ্যাপ যতটা জায়গা নিয়েছে'), style: body(13, weight: FontWeight.w600, color: C.muted2)),
+                const SizedBox(height: 10),
+                if (u != null) ...[
+                  part(C.green, tr('ছবি ও ফাইল'), roomText(u.docs)),
+                  const SizedBox(height: 6),
+                  part(C.blue, tr('লেখা ও অ্যাপ'), roomText(rest)),
+                ],
+                if (u?.free != null) ...[
+                  const SizedBox(height: 10),
+                  Text(trf('ফোনে খালি আছে {0}', [roomText(u!.free!)]), style: body(12, color: C.muted)),
+                ],
               ]),
             ),
           ]),

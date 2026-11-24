@@ -46,8 +46,9 @@ void main() {
           for (final k in ['store-search', 'store-room', 'store-notes', 'store-vault', 'store-docs', 'store-contacts', 'store-accounts', 'store-cards', 'store-expiry', 'store-tags', 'store-warn']) {
             expect(find.byKey(Key(k)), findsOneWidget, reason: k);
           }
-          expect(find.text(en ? 'Used by the app' : 'অ্যাপ নিয়েছে'), findsOneWidget);
-          expect(find.text(en ? 'Free on phone' : 'ফোনে খালি'), findsOneWidget);
+          // Owner, 24 Nov: the ring's parts named, no bare percent.
+          expect(find.text(en ? 'Room the app takes' : 'অ্যাপ যতটা জায়গা নিয়েছে'), findsOneWidget);
+          expect(find.textContaining(en ? 'free on the phone' : 'ফোনে খালি আছে'), findsOneWidget);
           // The passport in the sample runs out in 12 days.
           expect(find.textContaining(en ? 'expires in 12 days' : '১২ দিন পর শেষ'), findsOneWidget);
           if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/store1120-$name.png'));

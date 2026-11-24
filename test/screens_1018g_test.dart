@@ -44,8 +44,8 @@ void main() {
   testWidgets('swiping right to left moves to the next tab; inner tabs first, then the bottom ones', (t) async {
     await open(t);
     HomeShellState shell() => t.state<HomeShellState>(find.byType(HomeShell));
-    Future<void> swipe(double dx) async {
-      await t.flingFrom(const Offset(200, 400), Offset(dx, 0), 1500);
+    Future<void> swipe(double dx, [double y = 400]) async {
+      await t.flingFrom(Offset(200, y), Offset(dx, 0), 1500);
       await settle(t);
     }
 
@@ -58,7 +58,9 @@ void main() {
     expect(shell().tabNow, ShellTab.diary);
     await swipe(-300);
     expect(shell().tabNow, ShellTab.money);
-    await swipe(300);
+    // On হিসাব the দৈনিক card sits high now (owner, 24 Nov) and a swipe on
+    // it moves the day, so go back from the card above it.
+    await swipe(300, 250);
     expect(shell().tabNow, ShellTab.diary, reason: 'left to right goes back');
   });
 

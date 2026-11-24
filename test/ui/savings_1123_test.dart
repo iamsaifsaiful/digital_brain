@@ -72,6 +72,8 @@ void main() {
     await settle(t);
     final hub = find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).hitTestable();
     await t.scrollUntilVisible(find.byKey(const Key('khat-savings')), 300, scrollable: hub.first);
+    await Scrollable.ensureVisible(t.element(find.byKey(const Key('khat-savings'))), alignment: 0.4);
+    await settle(t);
     await t.tap(find.byKey(const Key('khat-savings')));
     await settle(t);
     expect(find.byType(SavingsScreen), findsOneWidget);
