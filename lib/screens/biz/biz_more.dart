@@ -11,6 +11,7 @@ import 'biz_account_page.dart';
 import 'biz_money.dart';
 import 'biz_parts.dart';
 import 'biz_returns.dart';
+import 'biz_setup.dart';
 import 'biz_shop.dart' show ShopProfilePage, TagadaPage;
 import 'biz_stock.dart' show OrderListPage;
 import 'biz_tx.dart';
@@ -54,18 +55,18 @@ class BizMore extends StatelessWidget {
     final tiles = [
       tile('suppliers', Icons.local_shipping_outlined, C.warn, C.warnBg, tr('সাপ্লায়ার'), const SupplierListPage()),
       tile('costs', Icons.receipt_long_outlined, C.red, C.roseTint, tr('খরচ'), const BizTxPage(kinds: {TxKind.expense})),
-      tile('purchases', Icons.inventory_2_outlined, C.ochre, C.ochreTint, tr('ক্রয়ের তালিকা'), const BizTxPage(kinds: {TxKind.purchase})),
+      tile('purchases', Icons.inventory_2_outlined, C.ochre, C.ochreTint, tr('কেনার হিসাব'), const BizTxPage(kinds: {TxKind.purchase})),
       tile('report', Icons.bar_chart_rounded, C.teal, C.tealTint, tr('রিপোর্ট'), const BizReportPage()),
       tile('cashbook', Icons.account_balance_wallet_outlined, C.green, C.greenTint, tr('ক্যাশ বই'), const BizCashBook()),
       tile('loans', Icons.account_balance_outlined, C.blue, C.blueTint, tr('ঋণ'), const LoanListPage()),
       tile('memos', Icons.description_outlined, C.purple, C.purpleTint, tr('সব মেমো'), const BizTxPage(kinds: {TxKind.sale})),
-      tile('orders', Icons.sell_outlined, C.ochre, C.ochreTint, tr('অর্ডার তালিকা'), const OrderListPage()),
+      tile('orders', Icons.sell_outlined, C.ochre, C.ochreTint, tr('কী কিনতে হবে'), const OrderListPage()),
       tile('returns', Icons.assignment_return_outlined, C.orange, C.orangeTint, tr('মাল ফেরত'), const ReturnsPage()),
       tile('all', Icons.list_alt_rounded, C.muted2, C.surface2, tr('সব লেনদেন'), const BizTxPage()),
       tile('account', Icons.balance_rounded, C.purple, C.purpleTint, tr('পুরো হিসাব'), const BizAccountPage()),
       tile('tagada', Icons.campaign_outlined, C.green, C.greenTint, tr('তাগাদা'), const TagadaPage()),
     ];
-    return ListView(
+    return BizRefresh(child: ListView(physics: const AlwaysScrollableScrollPhysics(), 
       key: const PageStorageKey('biz-more-list'),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
       children: [
@@ -127,7 +128,7 @@ class BizMore extends StatelessWidget {
         Panel(
           child: Rows(children: [
             row(const Key('biz-more-start'), Icons.edit_outlined, C.green, C.greenTint, tr('ব্যবসার শুরুর হিসাব'),
-                start == null ? tr('শুরুর নগদ, স্টক, পাওনা-দেনা · মূলধন নিজে হিসাব হয়') : trf('{0} · শুরুর মূলধন {1}', [shortDate(start.at), taka(start.sums.capital)]), () => pushPage(context, const BizAccountPage())),
+                start == null ? tr('শুরুর নগদ, স্টক, পাওনা-দেনা · মূলধন নিজে হিসাব হয়') : trf('{0} · শুরুর মূলধন {1}', [shortDate(start.at), taka(start.sums.capital)]), () => pushPage(context, BizSetupPage(redo: start != null))),
             row(const Key('biz-more-memo'), Icons.description_outlined, C.purple, C.purpleTint, tr('মেমো ও তাগাদা'), tr('মেমোর নিচের লেখা, লোগো, তাগাদার বার্তা'), () => pushPage(context, const ShopProfilePage())),
             ...settings,
           ]),
@@ -135,6 +136,6 @@ class BizMore extends StatelessWidget {
         SectionTitle(tr('অন্যান্য')),
         ...others,
       ],
-    );
+    ));
   }
 }

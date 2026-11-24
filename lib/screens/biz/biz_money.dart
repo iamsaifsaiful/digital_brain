@@ -251,7 +251,6 @@ class LoanListPage extends StatelessWidget {
     final total = b.loans.fold<int>(0, (s, l) => s + loanDue(b, l));
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(title: tr('ঋণ'), sub: trf('মোট বাকি {0}', [taka(total)])),
           Expanded(
@@ -310,7 +309,6 @@ class LoanPage extends StatelessWidget {
     final moves = [for (final m in b.loanMoves) if (m.loanId == id) m]..sort((a, x) => x.at.compareTo(a.at));
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(title: l.name, sub: tr('ঋণ'), actions: [
             IconButton(
@@ -380,7 +378,6 @@ class SupplierListPage extends StatelessWidget {
     return Scaffold(
       floatingActionButton: AddButton(key: const Key('biz-dealer-fab'), label: tr('নতুন সাপ্লায়ার'), icon: Icons.person_add_alt_1_rounded, onPressed: () => pushPage(context, const DealerForm())),
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(title: tr('সাপ্লায়ার'), sub: trf('মোট পাবে {0}', [taka(due)]), actions: [
             IconButton(key: const Key('biz-dealer-add'), tooltip: tr('নতুন সাপ্লায়ার'), icon: const Icon(Icons.person_add_alt_outlined), onPressed: () => pushPage(context, const DealerForm())),

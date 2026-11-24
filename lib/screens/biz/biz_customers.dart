@@ -76,8 +76,8 @@ class _BizCustomersState extends State<BizCustomers> {
             onSelected: (_) => setState(() => _pick = key),
           ),
         );
-    return Stack(children: [
-      ListView(key: const PageStorageKey('biz-customers'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 110), children: [
+    return BizRefresh(child: Stack(children: [
+      ListView(physics: const AlwaysScrollableScrollPhysics(), key: const PageStorageKey('biz-customers'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 110), children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
           child: Row(children: [
@@ -136,7 +136,7 @@ class _BizCustomersState extends State<BizCustomers> {
         bottom: 16,
         child: AddButton(key: const Key('biz-customer-add-fab'), label: tr('নতুন গ্রাহক'), icon: Icons.person_add_alt_1_rounded, onPressed: () => pushPage(context, const CustomerForm())),
       ),
-    ]);
+    ]));
   }
 
   Widget _row(BuildContext context, Customer c, Account a, DateTime now, int memos) {
@@ -663,7 +663,6 @@ class _CustomerFormState extends State<CustomerForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(
             title: _c == null ? tr('নতুন গ্রাহক') : tr('গ্রাহকের তথ্য'),

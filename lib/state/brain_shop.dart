@@ -512,8 +512,17 @@ extension BrainShop on Brain {
     List<(String name, String phone, int due)> customers = const [],
     List<(String name, int owed)> dealers = const [],
     List<(String name, int owed, int installment)> loans = const [],
+    bool zeroOldStock = false,
   }) async {
     final at = services.now();
+    // Owner, 24 Nov: a new business started with ৳0 still showed ৳12,250 —
+    // goods written in earlier. The owner can start with those at zero.
+    if (zeroOldStock) {
+      for (var i = 0; i < shop.products.length; i++) {
+        final p = shop.products[i];
+        if (p.stock != 0 || p.value != 0) shop.products[i] = p.copyWith(stock: 0, value: 0);
+      }
+    }
     if (shopName.trim().isNotEmpty) shop.profile = shop.profile.copyWith(name: shopName.trim());
     if (cash != null) {
       final diff = cash - bizCashBalance(data.cash);

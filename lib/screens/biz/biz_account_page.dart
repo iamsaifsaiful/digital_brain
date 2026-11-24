@@ -10,6 +10,7 @@ import '../../ui/theme.dart';
 import '../../ui/widgets.dart';
 import 'biz_money.dart' show LoanListPage, SupplierListPage;
 import 'biz_parts.dart';
+import 'biz_setup.dart';
 import 'biz_tx.dart';
 
 String _signed(int n, {bool plus = true}) => n < 0 ? '− ${taka(-n)}' : '${plus ? '+ ' : ''}${taka(n)}';
@@ -90,12 +91,11 @@ class BizAccountPage extends StatelessWidget {
     final started = b.start == null ? tr('শুরু থেকে') : trf('{0} থেকে আজ পর্যন্ত', [fullDate(acc.start.at)]);
     final capChange = now.capital - s0.capital;
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
+      body: BizRefresh(child: SafeArea(
         child: Column(children: [
           InnerTop(title: tr('ব্যবসার পুরো হিসাব'), sub: started),
           Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 6, 20, 32), children: [
+            child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(20, 6, 20, 32), children: [
               // Does it add up?
               Container(
                 key: Key(acc.adds ? 'biz-acc-ok' : 'biz-acc-gap'),
@@ -294,10 +294,19 @@ class BizAccountPage extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text(tr('সংশোধন মানে: পুরনো লেনদেন বদলানো বা মুছে ফেলা, পণ্যের দাম বা স্টক হাতে বদলানো। এগুলো আলাদা লেখা থাকে, যেন হিসাব সবসময় মেলে।'), style: body(12, color: C.muted)),
               ],
+              const SizedBox(height: 16),
+              SmallButton(
+                key: const Key('biz-acc-redo'),
+                label: tr('শুরুর হিসাব বদলান'),
+                icon: Icons.restart_alt_rounded,
+                onTap: () => pushPage(context, BizSetupPage(redo: b.start != null)),
+              ),
+              const SizedBox(height: 6),
+              Text(tr('শুরুর নগদ, স্টক বা পাওনা-দেনা ভুল হলে এখান থেকে আজকের হিসাব দিয়ে নতুন করে শুরু করুন। মূলধন সেখান থেকে নিজে ঠিক হবে।'), style: body(12, color: C.muted, height: 1.45)),
             ]),
           ),
         ]),
-      ),
+      )),
     );
   }
 }
@@ -311,22 +320,21 @@ class BizReportPage extends StatefulWidget {
 }
 
 class _BizReportPageState extends State<BizReportPage> {
-  int _back = 0;
+  int _backM = 0, _backY = 0;
   bool _year = false;
 
-  @override
-  Widget build(BuildContext context) {
-    final brain = BrainScope.of(context);
+  List<Widget> _page(BuildContext context, Brain brain, bool year) {
+    final back = year ? _backY : _backM;
     final b = brain.shop;
     final now = brain.services.now();
     final DateTime from, to;
     final String label;
-    if (_year) {
-      from = DateTime(now.year - _back);
-      to = DateTime(now.year - _back, 12, 31);
-      label = bnDigits(now.year - _back);
+    if (year) {
+      from = DateTime(now.year - back);
+      to = DateTime(now.year - back, 12, 31);
+      label = bnDigits(now.year - back);
     } else {
-      from = DateTime(now.year, now.month - _back);
+      from = DateTime(now.year, now.month - back);
       to = DateTime(from.year, from.month + 1, 0);
       label = monthTitle(from);
     }
@@ -342,26 +350,11 @@ class _BizReportPageState extends State<BizReportPage> {
       }
     }
     final best = top.values.toList()..sort((a, x) => x.$3.compareTo(a.$3));
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(children: [
-          InnerTop(title: tr('রিপোর্ট'), sub: tr('বিক্রি, লাভ, খরচ')),
-          Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 6, 20, 32), children: [
-              SegmentedButton<bool>(
-                segments: [ButtonSegment(value: false, label: Text(tr('মাস'))), ButtonSegment(value: true, label: Text(tr('বছর')))],
-                selected: {_year},
-                showSelectedIcon: false,
-                onSelectionChanged: (v) => setState(() {
-                  _year = v.first;
-                  _back = 0;
-                }),
-              ),
+    return [
               Row(children: [
-                IconButton(key: const Key('biz-report-prev'), onPressed: () => setState(() => _back++), icon: const Icon(Icons.chevron_left_rounded)),
+                IconButton(key: Key(year ? 'biz-report-y-prev' : 'biz-report-prev'), onPressed: () => setState(() => year ? _backY++ : _backM++), icon: const Icon(Icons.chevron_left_rounded)),
                 Expanded(child: Text(label, textAlign: TextAlign.center, style: body(15, weight: FontWeight.w600))),
-                IconButton(key: const Key('biz-report-next'), onPressed: _back == 0 ? null : () => setState(() => _back--), icon: const Icon(Icons.chevron_right_rounded)),
+                IconButton(key: Key(year ? 'biz-report-y-next' : 'biz-report-next'), onPressed: back == 0 ? null : () => setState(() => year ? _backY-- : _backM--), icon: const Icon(Icons.chevron_right_rounded)),
               ]),
               AppCard(
                 child: Row(children: [
@@ -431,10 +424,28 @@ class _BizReportPageState extends State<BizReportPage> {
                   ]),
                 ),
               ],
-            ]),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final brain = BrainScope.of(context);
+    // Owner, 24 Nov: "রিপোর্ট এ মাস বছরে সোয়াইপ হবে".
+    return Scaffold(
+      body: BizRefresh(child: SafeArea(
+        child: Column(children: [
+          InnerTop(title: tr('রিপোর্ট'), sub: tr('বিক্রি, লাভ, খরচ')),
+          Expanded(
+            child: TabPages<bool>(
+              items: [(false, tr('মাস')), (true, tr('বছর'))],
+              value: _year,
+              onChanged: (v) => setState(() => _year = v),
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 32),
+              page: (y) => _page(context, brain, y),
+            ),
           ),
         ]),
-      ),
+      )),
     );
   }
 }
@@ -458,12 +469,11 @@ class BizCashBook extends StatelessWidget {
     final now = brain.services.now();
     final today = bizToday(b, brain.data.cash, now);
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
+      body: BizRefresh(child: SafeArea(
         child: Column(children: [
           InnerTop(title: tr('ক্যাশ বই'), sub: trf('এখন ক্যাশে {0}', [taka(bizSums(b, brain.data.cash).cash)])),
           Expanded(
-            child: ListView(padding: const EdgeInsets.fromLTRB(20, 6, 20, 32), children: [
+            child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(20, 6, 20, 32), children: [
               AppCard(
                 child: Row(children: [
                   Expanded(child: Figure(label: tr('আজ এলো'), amount: taka(_inOf(today)), color: C.green, size: 19)),
@@ -487,7 +497,7 @@ class BizCashBook extends StatelessWidget {
             ]),
           ),
         ]),
-      ),
+      )),
     );
   }
 

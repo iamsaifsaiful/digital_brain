@@ -248,3 +248,19 @@ Widget detailRows(List<(IconData, String, String)> rows) {
     empty: tr('আর কোনো তথ্য রাখা নেই। ✎ চেপে মোবাইল, হোয়াটসঅ্যাপ, ঠিকানা যোগ করুন।'),
   );
 }
+
+/// Pull down to refresh a business page (owner, 24 Nov: "নিচে টান দিলে
+/// রিফ্রেশ হওয়া দরকার"): the low-stock order list is filled again and
+/// every figure is worked out afresh.
+class BizRefresh extends StatelessWidget {
+  const BizRefresh({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => RefreshIndicator(
+        color: C.green,
+        notificationPredicate: (n) => n.metrics.axis == Axis.vertical,
+        onRefresh: () => BrainScope.read(context).refreshOrders(),
+        child: child,
+      );
+}
