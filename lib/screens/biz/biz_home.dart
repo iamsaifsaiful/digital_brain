@@ -56,13 +56,13 @@ class _BizHomeState extends State<BizHome> {
     final brain = BrainScope.of(context);
     final now = brain.services.now();
     final b = brain.shop;
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    return BizRefresh(child: AnnotatedRegion<SystemUiOverlayStyle>(
       value: (C.dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark).copyWith(statusBarColor: Colors.transparent, systemNavigationBarColor: C.ground),
       child: ColoredBox(
         color: C.ground,
         child: SafeArea(
           bottom: false,
-          child: ListView(key: const PageStorageKey('biz-home'), padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
+          child: ListView(physics: const AlwaysScrollableScrollPhysics(), key: const PageStorageKey('biz-home'), padding: const EdgeInsets.fromLTRB(16, 4, 16, 28), children: [
             _Top(name: b.profile.name, now: now),
             const BizFreeBanner(),
             const SizedBox(height: 6),
@@ -79,7 +79,7 @@ class _BizHomeState extends State<BizHome> {
           ]),
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -673,7 +673,7 @@ class _LowStock extends StatelessWidget {
     final list = lowStock(brain.shop).take(3).toList();
     if (list.isEmpty) return const SizedBox.shrink();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _Head(tr('কম আছে'), link: tr('অর্ডার তালিকা'), onLink: () => pushPage(context, const OrderListPage())),
+      _Head(tr('কম আছে'), link: tr('কী কিনতে হবে'), onLink: () => pushPage(context, const OrderListPage())),
       Panel(
         child: Column(children: [
           for (final (i, p) in list.indexed) ...[

@@ -18,7 +18,11 @@ import 'biz_parts.dart';
 /// Nov: typed, it would show a false profit or loss) — it is worked out and
 /// shown to be checked.
 class BizSetupPage extends StatefulWidget {
-  const BizSetupPage({super.key});
+  /// [redo]: the start written again from today (owner, 24 Nov: "মূলধন
+  /// ইডিট করার সুযোগ নাই") — the figures as they are now, each can be
+  /// changed, the capital follows; nothing earlier is deleted.
+  const BizSetupPage({super.key, this.redo = false});
+  final bool redo;
   @override
   State<BizSetupPage> createState() => _BizSetupPageState();
 }
@@ -46,6 +50,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
   final _loanAmt = TextEditingController();
   final _loanFrom = TextEditingController();
   String _type = '';
+  bool _keepOldStock = true; // new business: count goods written in before?
 
   // The shelf, the dues, the loans written in here.
   final _items = <_Item>[];
@@ -65,6 +70,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
     super.initState();
     final brain = BrainScope.read(context);
     _shop.text = brain.shop.profile.name;
+    if (widget.redo && brain.shop.start?.kind == 'new') _kind = 'new';
     final cash = bizCashBalance(brain.data.cash);
     if (cash != 0) _cash.text = bnDigits(cash);
   }
@@ -85,7 +91,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
   BizSums _sums(ShopBook b) {
     final cash = _n(_cash) + _n(_bank);
     if (_kind == 'new') {
-      return BizSums(cash: cash, stock: b.products.fold(0, (s, p) => s + p.value), dues: owing(b).fold(0, (s, a) => s + a.due), payable: owedToDealers(b).fold(0, (s, a) => s + a.due), loans: _n(_loanAmt) + b.loans.fold(0, (s, l) => s + loanDue(b, l)));
+      return BizSums(cash: cash, stock: _keepOldStock ? b.products.fold(0, (s, p) => s + p.value) : 0, dues: owing(b).fold(0, (s, a) => s + a.due), payable: owedToDealers(b).fold(0, (s, a) => s + a.due), loans: _n(_loanAmt) + b.loans.fold(0, (s, l) => s + loanDue(b, l)));
     }
     return BizSums(
       cash: cash,
@@ -116,6 +122,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
         customers: _customers,
         dealers: _dealers,
         loans: loans,
+        zeroOldStock: _kind == 'new' && !_keepOldStock,
       );
     }
     if (mounted) Navigator.of(context).pop(true);
@@ -209,8 +216,8 @@ class _BizSetupPageState extends State<BizSetupPage> {
               padding: const EdgeInsets.fromLTRB(4, 8, 12, 0),
               child: Row(children: [
                 IconButton(tooltip: tr('ফিরে যান'), onPressed: () => Navigator.of(context).maybePop(), icon: const Icon(Icons.arrow_back_rounded)),
-                Expanded(child: Text(_step == 0 ? tr('ব্যবসায়ী মোড') : (_kind == 'new' ? tr('নতুন ব্যবসা') : tr('শুরুর হিসাব')), style: display(20, weight: 700))),
-                if (!last)
+                Expanded(child: Text(widget.redo ? tr('শুরুর হিসাব বদলান') : _step == 0 ? tr('ব্যবসায়ী মোড') : (_kind == 'new' ? tr('নতুন ব্যবসা') : tr('শুরুর হিসাব')), style: display(20, weight: 700))),
+                if (!last && !(widget.redo && _step == 0))
                 TextButton(
                   key: const Key('setup-skip'),
                   onPressed: _busy ? null : () => _step == 0 ? _finish(skip: true) : _next(),
@@ -245,7 +252,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
               ),
             ),
             Padding(
-              padding: EdgeInsets.fromLTRB(20, 8, 20, 16 + MediaQuery.of(context).viewPadding.bottom),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: last
                   ? PrimaryButton(key: const Key('setup-done'), label: tr('নিশ্চিত করে শুরু করি'), icon: Icons.check_rounded, onPressed: _checked && !_busy ? () => _finish() : null)
                   : PrimaryButton(key: const Key('setup-next'), label: tr('পরের ধাপ'), onPressed: _next),
@@ -297,6 +304,10 @@ class _BizSetupPageState extends State<BizSetupPage> {
     }
 
     return [
+      if (widget.redo) ...[
+        _note(Icons.restart_alt_rounded, tr('আজ থেকে নতুন করে শুরুর হিসাব হবে: নগদ, স্টক, পাওনা-দেনা যা এখন আছে, দরকার হলে বদলে নিন। মূলধন সেখান থেকে নিজে হিসাব হবে। আগের বিক্রি বা লেনদেন মুছবে না।')),
+        const SizedBox(height: 12),
+      ],
       const SizedBox(height: 8),
       Text(tr('আপনার ব্যবসা কি নতুন, নাকি আগে থেকে চলছে?'), style: display(23, weight: 700, height: 1.35)),
       const SizedBox(height: 6),
@@ -485,10 +496,41 @@ class _BizSetupPageState extends State<BizSetupPage> {
       Wrap(spacing: 7, runSpacing: 7, children: [
         for (final t in types) ChoiceChip(label: Text(tr(t)), selected: _type == t, onSelected: (on) => setState(() => _type = on ? t : '')),
       ]),
+      if (b.products.fold<int>(0, (s, p) => s + p.value) > 0) ...[
+        const SizedBox(height: 16),
+        _oldStockChoice(b.products.fold<int>(0, (s, p) => s + p.value)),
+      ],
       const SizedBox(height: 16),
       _capitalCard(_sums(b)),
     ];
   }
+
+  /// Goods already written in the app before this start: count them, or
+  /// start with the shelf at zero.
+  Widget _oldStockChoice(int worth) => Material(
+        key: const Key('setup-old-stock'),
+        color: C.warnBg,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(trf('আগে থেকে অ্যাপে {0}-এর মাল লেখা আছে', [taka(worth)]), style: body(14.5, weight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(tr('মূলধনে এগুলো ধরবেন কি না, বেছে নিন।'), style: body(12.5, color: C.muted)),
+          RadioGroup<bool>(
+            groupValue: _keepOldStock,
+            onChanged: (v) => setState(() {
+              _keepOldStock = v ?? true;
+              _checked = false;
+            }),
+            child: Column(children: [
+              RadioListTile<bool>(key: const Key('setup-old-keep'), value: true, contentPadding: EdgeInsets.zero, dense: true, title: Text(tr('এগুলো দোকানে আছে, মূলধনে ধরুন'), style: body(13.5))),
+              RadioListTile<bool>(key: const Key('setup-old-zero'), value: false, contentPadding: EdgeInsets.zero, dense: true, title: Text(tr('পুরোনো লেখা, স্টক শূন্য ধরে শুরু করুন'), style: body(13.5))),
+            ]),
+          ),
+        ]),
+        ),
+      );
 
   /// The capital as worked out, line by line, with the box to tick
   /// (owner, 23 Nov: "নিশ্চিত করার জন্যে ইউজারকে দেখাবে").
@@ -526,7 +568,7 @@ class _BizSetupPageState extends State<BizSetupPage> {
             ]),
           ),
         ),
-        Text(tr('মূলধন হাতে বদলানো যায় না। কোনো অংক ভুল হলে আগের ধাপে গিয়ে সেটা ঠিক করুন।'), style: body(12, color: C.muted, height: 1.45)),
+        Text(tr('মূলধন আলাদা করে লিখতে হয় না: নগদ, স্টক বা পাওনা-দেনা বদলালে নিজে বদলায়। পরে আরও › ব্যবসার শুরুর হিসাব থেকে আবার বদলানো যাবে।'), style: body(12, color: C.muted, height: 1.45)),
       ]),
     );
   }

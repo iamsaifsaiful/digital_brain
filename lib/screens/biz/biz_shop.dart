@@ -77,7 +77,6 @@ class _ShopProfilePageState extends State<ShopProfilePage> {
     final logo = _logo.isEmpty ? null : base64Decode(_logo);
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(title: tr('দোকানের তথ্য'), sub: tr('PDF রসিদ আর তাগাদায় এগুলো যাবে')),
           Expanded(
@@ -202,7 +201,6 @@ class _TagadaPageState extends State<TagadaPage> {
     final preview = fillTagada(_c.text, name: tr('রহিম মিয়া'), due: taka(1250), shop: p.name.isEmpty ? tr('দোকান') : p.name, phone: bnDigits(p.phone));
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(title: tr('তাগাদার মেসেজ'), sub: tr('সব গ্রাহকের জন্য একই মেসেজ, নাম আর টাকা নিজে বসবে')),
           Expanded(

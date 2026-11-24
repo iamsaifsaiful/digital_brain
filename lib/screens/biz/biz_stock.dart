@@ -48,8 +48,8 @@ class _BizStockState extends State<BizStock> {
     final all = shelves(b.products);
     final sections = shelves(matched);
     final listed = _section.isEmpty || _section.startsWith('@') ? sections : sections.where((x) => x.$1 == _section).toList();
-    return Stack(children: [
-      ListView(key: const PageStorageKey('biz-stock'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 110), children: [
+    return BizRefresh(child: Stack(children: [
+      ListView(physics: const AlwaysScrollableScrollPhysics(), key: const PageStorageKey('biz-stock'), padding: const EdgeInsets.fromLTRB(16, 8, 16, 110), children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
           child: Row(children: [
@@ -162,7 +162,7 @@ class _BizStockState extends State<BizStock> {
         bottom: 16,
         child: AddButton(key: const Key('biz-stock-in'), label: tr('স্টক যোগ'), onPressed: () => pushPage(context, const StockInPage())),
       ),
-    ]);
+    ]));
   }
 
   Widget _chip(String key, String label, Color? warn) {
@@ -310,7 +310,6 @@ class _ProductFormState extends State<ProductForm> {
 
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(
             title: _p == null ? tr('নতুন পণ্য') : tr('পণ্য বদলান'),
@@ -443,8 +442,13 @@ class _ProductFormState extends State<ProductForm> {
 
 /// মাল কেনা: the order list (by supplier) and goods coming in.
 class PurchasePage extends StatefulWidget {
-  const PurchasePage({super.key, this.part = 'order', this.dealerId = ''});
+  const PurchasePage({super.key, this.part = 'order', this.dealerId = '', this.ordersOnly = false});
   final String part;
+
+  /// Only the list of what to buy (owner, 24 Nov: "ক্রয়ের তালিকা আর অর্ডার
+  /// তালিকা কি একই?" — no: that one is what was bought, this one what to
+  /// buy; goods coming in have their own স্টক যোগ page).
+  final bool ordersOnly;
   final String dealerId;
   @override
   State<PurchasePage> createState() => _PurchasePageState();
@@ -479,11 +483,15 @@ class _PurchasePageState extends State<PurchasePage> {
     return Scaffold(
       body: SafeArea(
         child: Column(children: [
+          if (widget.ordersOnly)
+            InnerTop(title: tr('কী কিনতে হবে'), sub: tr('কম পড়া মাল নিজে থেকে ওঠে · কেনা হলে “স্টক যোগ” দিন'))
+          else ...[
           InnerTop(title: tr('মাল কেনা'), sub: tr('ডিলারের কাছ থেকে কেনা — স্টক আর দেনা নিজে বসবে')),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
             child: SegTabs<String>(key: const Key('biz-purchase-part'), items: [('order', tr('অর্ডার তালিকা')), ('in', tr('মাল এল'))], value: _part, onChanged: (v) => setState(() => _part = v)),
           ),
+          ],
           Expanded(
             child: _part == 'in'
                 ? _GoodsIn(dealerId: widget.dealerId)
@@ -729,6 +737,6 @@ class _GoodsInState extends State<_GoodsIn> {
 class OrderListPage extends StatelessWidget {
   const OrderListPage({super.key});
   @override
-  Widget build(BuildContext context) => const PurchasePage();
+  Widget build(BuildContext context) => const PurchasePage(ordersOnly: true);
 }
 

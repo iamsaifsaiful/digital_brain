@@ -189,10 +189,9 @@ class _BizTxPageState extends State<BizTxPage> {
             : AddButton(key: const Key('biz-tx-fab'), label: tr('নতুন বিক্রি'), onPressed: () => pushPage(context, const SellPage()));
     return Scaffold(
       floatingActionButton: fab,
-      body: SafeArea(
-        bottom: false,
+      body: BizRefresh(child: SafeArea(
         child: Column(children: [
-          InnerTop(title: tr('সব লেনদেন'), sub: trf('{0}টি', [bnDigits(list.length)])),
+          InnerTop(title: k == null ? tr('সব লেনদেন') : k.contains(TxKind.purchase) ? tr('কেনার হিসাব') : k.contains(TxKind.expense) ? tr('খরচ') : k.contains(TxKind.sale) ? tr('সব মেমো') : tr('সব লেনদেন'), sub: trf('{0}টি', [bnDigits(list.length)])),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
             child: TextField(textCapitalization: TextCapitalization.sentences, 
@@ -224,7 +223,7 @@ class _BizTxPageState extends State<BizTxPage> {
           Expanded(
             child: list.isEmpty
                 ? Center(child: Padding(padding: const EdgeInsets.all(32), child: Text(tr('কোনো লেনদেন নেই।'), style: body(14, color: C.muted))))
-                : ListView(padding: const EdgeInsets.fromLTRB(20, 4, 20, 32), children: [
+                : ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.fromLTRB(20, 4, 20, 32), children: [
                     for (final MapEntry(key: day, value: xs) in days.entries) ...[
                       Padding(
                         padding: const EdgeInsets.fromLTRB(2, 14, 2, 6),
@@ -244,7 +243,7 @@ class _BizTxPageState extends State<BizTxPage> {
                   ]),
           ),
         ]),
-      ),
+      )),
     );
   }
 

@@ -409,7 +409,6 @@ class _DealerFormState extends State<DealerForm> {
   @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
-          bottom: false,
           child: Column(children: [
             InnerTop(
               title: _d == null ? tr('নতুন ডিলার') : tr('ডিলারের তথ্য'),
@@ -487,7 +486,6 @@ class _BizCashPageState extends State<BizCashPage> {
     final rows = [for (final e in brain.data.cash) if (isBizCash(e) && e.date.year == month.year && e.date.month == month.month) e]..sort((a, b) => b.date.compareTo(a.date));
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(title: tr('ব্যবসার আয়-ব্যয়'), sub: tr('নিজের আয়-ব্যয় থেকে আলাদা')),
           Expanded(

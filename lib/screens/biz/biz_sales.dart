@@ -41,7 +41,7 @@ class _BizSalesState extends State<BizSales> {
     // Owner, 7 Nov: the inner tabs slide with the finger like everywhere
     // else, and the page reads in the order it is used: sell first, then
     // today's money, then the list.
-    return Stack(children: [
+    return BizRefresh(child: Stack(children: [
       TabPages<String>(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
       items: [('today', tr('আজ')), ('month', tr('মাসিক')), ('year', tr('বার্ষিক')), ('date', tr('তারিখ'))],
@@ -75,7 +75,7 @@ class _BizSalesState extends State<BizSales> {
       page: (when) => _page(context, brain, when, today),
     ),
       Positioned(right: 16, bottom: 16, child: AddButton(key: const Key('biz-sell-fab'), label: tr('নতুন বিক্রি'), icon: Icons.add_shopping_cart_rounded, onPressed: () => pushPage(context, const SellPage()))),
-    ]);
+    ]));
   }
 
   bool _picking = false;
@@ -448,7 +448,6 @@ class _SellPageState extends State<SellPage> {
     final owes = _total - _paidNow;
     return Scaffold(
       body: SafeArea(
-        bottom: false,
         child: Column(children: [
           InnerTop(
             title: widget.amountOnly ? tr('শুধু টাকার বিক্রি') : tr('নতুন বিক্রি'),
